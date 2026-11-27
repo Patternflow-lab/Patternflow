@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the median voter in one dimension (Duncan Black, 1948), the spatial model of voting and the empty core of a majority vote in two dimensions (Charles Plott, 1967), the chaos theorem that a sequence of majority amendments can reach any point of the plane (Richard McKelvey, 1976, with Norman Schofield, 1978), the quota above two thirds that always leaves a core in two dimensions (Joseph Greenberg, 1979; Caplin and Nalebuff, 1988), recalled; the petal drawing, the hop and the drift are original, pattern round 271
+// Lineage: the median voter in one dimension (Duncan Black, 1948), the empty core of a majority vote in two dimensions (Charles Plott, 1967), the chaos theorem that a sequence of majority amendments can reach any point of the plane (Richard McKelvey, 1976; Norman Schofield, 1978), the two-thirds quota that always leaves a core in two dimensions (Joseph Greenberg, 1979), recalled; the petal drawing, the hop and the drift are original, pattern round 271
 // Round:   271
 // ===============================
 // @matrix 64x128
@@ -13,13 +13,13 @@
 //
 // Knob 1: Hue. Turns the pair of colours, the cool ground of the points too few voters prefer and the warm petals of the win set, through six settings a fifth of the knob apart: indigo with amber at 0, teal with coral, sea green with rose, violet with lime, plum with gold and azure with mint at 1. Both hues sway a few hundredths round their setting.
 // Knob 2: Pace. How fast the status quo hops. A hop of 30 LED glides for 1.5 s at 0.5, 0.74 s at the opening 2 and 0.55 s at 3, and the status quo rests 3 to 5 s, 0.75 to 1.25 s or 0.5 to 0.8 s before the next one.
-// Knob 3: Quota. How many of the eleven voters must prefer a point for it to join the win set: 6, a simple majority, at 0, then 7, 8, 9 and 10 at each quarter of the knob, with a blend between whole numbers so a petal fades instead of jumping. In 240 s the status quo sits still with an empty win set for 0 percent of the time at 6, about a third at 7, four fifths at 8 and nine tenths or more at 9 and 10.
+// Knob 3: Quota. How many of the eleven voters must prefer a point for it to join the win set: 6, a simple majority, at 0, then 7, 8, 9 and 10 at each quarter of the knob, blended between whole numbers so a petal fades rather than jumps. Over 240 s q sits frozen with an empty win set 0 percent of the time at 6, about a third at 7, four fifths at 8 and nine tenths or more at 9 and 10.
 // Knob 4: Spread. How far apart the voters sit. At -1 most are within 6 by 12 LED of their middle, the discs are small and the status quo mills among them; at the opening it fills about half of the panel; at 1 most of it, and the petals grow to a third of it.
 
-// What the picture is. Eleven voters sit at ideal points on a 64 x 128 plane, one LED a unit. For a status quo q a voter prefers exactly the points nearer to their ideal point than q is, the disc centred on the voter that passes through q. Each LED is painted by how many of those discs cover it, 0 to 11. Below the quota that count is the ground, deep indigo brightening through blue to teal at one vote short, and each disc's rim is a faint 1.6 LED ring, so the eleven circles through q read as a pencil. At or above the quota the LED is in the win set W(q): amber, going to pale gold where more voters agree. The petals of W(q) all start at q, since every circle passes through it. q is a bright ring with a dark eye, the voters are soft pale glows with a wide bloom, q leaves a white-gold trail that fades in 14 s, the point it will hop to shows as a small ring through the rest, a ring goes out of q when it lands, and a slower one while W(q) is empty.
-// The agenda. q rests, then glides in an eased line to a point of W(q), which a quota of the voters prefer to q, so it is an amendment that passes. An agenda setter picks it: the setter has a goal that wanders over the whole panel on rates that do not divide and takes the point of W(q) nearest it, but one hop in eight, or whenever W(q) is under 260 LEDs, takes the point farthest from q, so q does not stay in the thin star W(q) makes near the middle. A hop is 3 LED or more and prefers a point 2 LED inside the set. While W(q) is empty nothing can move q, which looks again every 0.2 s. At 6 of 11 W(q) is a sliver at worst; from 8 of 11, more than two thirds, a core exists and q freezes in it until the drifting voters slide it off q and the win set opens.
-// The voters. A sunflower of eleven radii and angles, each voter on its own orbit at 8 to 23 milliradians a second, its radius breathing 26 percent, with a tremble of 1.2 to 4.4 LED (periods 9 to 25 s) on top; the electorate drifts across the panel by up to 16 LED and 33 down and its spread breathes a fifth either way. Voters and q stay 3 LED inside the edge.
-// What is exact and what is not. The count, the discs, the quota and the empty win set are the model's: each LED is tested against each voter's disc, the edge faded over 1.5 LED for the drawing, and the hop is chosen from the hard count. The setter and its goal, the eased glide, the drift and the number of voters are drawing choices, as are the colours, the pencil rings, the six soft clouds drifting over the ground, the slow breathing and tilt of the ground and the brighter ground while q is frozen. They keep the picture from coming round.
+// What the picture is. Eleven voters sit at ideal points on a 64 x 128 plane, one LED a unit. For a status quo q a voter prefers the points nearer to their ideal point than q is: the disc centred on the voter that passes through q. Each LED is painted by how many of those discs cover it, 0 to 11. Below the quota the count is the ground, deep indigo brightening through blue to teal at one vote short, and each disc's rim is a faint ring, so the eleven circles through q read as a pencil. At or above the quota the LED is in the win set W(q), shaded by how far the count is over the quota, deep orange at the quota to pale gold where most voters agree, so the overlapping discs show as steps, with a thin bright rim round W(q) and the circles still drawn across it. The petals of W(q) all start at q, since every circle passes through it. q is a bright ring with a dark eye. The voters are glows of different sizes and a few open rings. q leaves a white-gold trail that fades in 14 s, the point it will hop to shows as a small ring, a ring goes out of q when it lands and a slower one while W(q) is empty.
+// The agenda. q rests, then glides in an eased line to a point of W(q), which a quota of the voters prefer to q, so it is an amendment that passes. An agenda setter picks it: its goal wanders over the whole panel on rates that do not divide and it takes the point of W(q) nearest the goal, but one hop in eight, or whenever W(q) is under 260 LEDs, the point farthest from q, so q does not stay in the thin star W(q) makes near the middle. A hop is 3 LED or more. While W(q) is empty nothing can move q, which looks again every 0.2 s. At 6 of 11 W(q) is a sliver at worst; from 8 of 11, more than two thirds, a core exists and q freezes in it until the drifting voters slide it off q.
+// The voters. A sunflower of eleven, each on its own orbit (8 to 23 milliradians a second) with a tremble of 1.2 to 4.4 LED; the electorate drifts across the panel, its spread breathes a fifth either way, no two voters sit closer than 3 to 7 LED, and voters and q stay 3 LED inside the edge.
+// What is exact and what is not. The count, the discs, the quota and the empty win set are the model's: each LED is tested against each voter's disc, the edge faded over 1.5 LED for the drawing, and the hop is chosen from the hard count. The setter and its goal, the glide, the drift and the number of voters are drawing choices, as are the colours, the pencil rings, the six soft clouds over the ground, the breathing and tilt of the ground and its brighter glow while q is frozen.
 
 const W = 64, H = 128, NP = W * H;
 const NV = 11;
@@ -58,7 +58,7 @@ export function setup(params) {
     r, T: 0, Tv: 0, init: false,
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06],
     r0: new Float64Array(NV), ph: new Float64Array(NV), om: new Float64Array(NV),
-    kp: new Float64Array(NV), ps: new Float64Array(NV), wk: new Float64Array(NV * 2), wp: new Float64Array(NV * 2), land: -9, zx: 32, zy: 64,
+    kp: new Float64Array(NV), ps: new Float64Array(NV), wk: new Float64Array(NV * 2), wp: new Float64Array(NV * 2), land: -9, zx: 32, zy: 64, ox: 0, oy: 0,
     vx: new Float64Array(NV), vy: new Float64Array(NV),
     qx: 0, qy: 0, fx: 0, fy: 0, tx: 0, ty: 0, hasT: false, mode: 0, g: 0, gt: 1, rest: 1, froze: 0, tin: 0,
     trail: new Float32Array(NT * 3), nt: 0,
@@ -81,8 +81,8 @@ export function setup(params) {
       S.wp[i * 2 + j] = r() * TAU;
     }
   }
-  S.qx = 20 + 24 * r();
-  S.qy = 44 + 40 * r();
+  S.qx = 32;
+  S.qy = 64;
   return S;
 }
 
@@ -93,6 +93,8 @@ function place(S, sf) {
   const cs = 0.25 + 0.75 * sf;
   const ox = cs * (6 * (sin(0.0371 * Tv + S.ps[4]) - sin(S.ps[4])) + 2 * (sin(0.0913 * Tv + S.ps[5]) - sin(S.ps[5])));
   const oy = cs * (13 * (sin(0.0293 * Tv + S.ps[6]) - sin(S.ps[6])) + 3.5 * (sin(0.0771 * Tv + S.ps[7]) - sin(S.ps[7])));
+  S.ox = ox;
+  S.oy = oy;
   for (let i = 0; i < NV; i++) {
     const rr = S.r0[i] * (1 + 0.26 * sin(S.kp[i] * Tv + S.ps[i]));
     const th = S.ph[i] + S.om[i] * Tv;
@@ -100,9 +102,19 @@ function place(S, sf) {
     S.vx[i] = cl(32 + ox + sf * AX * rr * cos(th) + aw * sin(S.wk[i * 2] * S.T + S.wp[i * 2]), 3, 61);
     S.vy[i] = cl(64 + oy + sf * AY * rr * sin(th) + aw * sin(S.wk[i * 2 + 1] * S.T + S.wp[i * 2 + 1]), 3, 125);
   }
+  // no two ideal points closer than 3 to 7 LED, so they never sit as a pair
+  const dm = 3 + 4 * sf;
+  for (let it = 0; it < 2; it++)
+    for (let i = 0; i < NV; i++)
+      for (let j = i + 1; j < NV; j++) {
+        const dx = S.vx[i] - S.vx[j], dy = S.vy[i] - S.vy[j], d2 = dx * dx + dy * dy;
+        if (d2 >= dm * dm || d2 < 1e-6) continue;
+        const k = (dm / sqrt(d2) - 1) / 2;
+        S.vx[i] = cl(S.vx[i] + dx * k, 3, 61); S.vy[i] = cl(S.vy[i] + dy * k, 3, 125);
+        S.vx[j] = cl(S.vx[j] - dx * k, 3, 61); S.vy[j] = cl(S.vy[j] - dy * k, 3, 125);
+      }
 }
 
-// The number of voters that prefer (x, y) to the status quo.
 function countAt(S, x, y) {
   let c = 0;
   for (let i = 0; i < NV; i++) {
@@ -112,7 +124,6 @@ function countAt(S, x, y) {
   return c;
 }
 
-// Hard counts for every LED, for choosing where to hop.
 function hardField(S) {
   const Ch = S.Ch;
   Ch.fill(0);
@@ -128,9 +139,7 @@ function hardField(S) {
   }
 }
 
-// Pick a point inside the win set. An agenda setter with a goal z that wanders
-// over the panel takes, of a handful of points of the set, the one nearest z,
-// and once in five a far hop instead. Returns false if the set is empty.
+// Point of the win set for the next hop, or false if it is empty.
 function pickTarget(S, quota) {
   hardField(S);
   const Ch = S.Ch, cand = S.cand || (S.cand = new Int32Array(NP));
@@ -143,8 +152,6 @@ function pickTarget(S, quota) {
       cand[n++] = y * W + x;
     }
   if (n < 1) return false;
-  // score every point of the set, then take the best that is not on the very
-  // edge of a petal; a little noise keeps two hops from the same place apart
   const r = S.r, far = r() < 0.12 || n < 260, sco = S.sco || (S.sco = new Float32Array(NP));
   for (let j = 0; j < n; j++) {
     const p = cand[j], x = p % W + 0.5, y = floor(p / W) + 0.5;
@@ -181,7 +188,6 @@ function agenda(S, dt, pace, quota) {
       S.froze += (0 - S.froze) * (1 - exp(-dt / 0.5));
       S.tin += dt;
       if (S.rest <= 0) {
-        // is the point still in the win set after the drift? if not, look again
         if (countAt(S, S.tx, S.ty) < quota) {
           S.hasT = pickTarget(S, quota);
           S.rest = S.hasT ? 0.3 : 0.2;
@@ -199,7 +205,6 @@ function agenda(S, dt, pace, quota) {
     S.g += dt / S.gt;
     const g = S.g >= 1 ? 1 : S.g, e = g * g * (3 - 2 * g);
     const nx = mix(S.fx, S.tx, e), ny = mix(S.fy, S.ty, e);
-    // leave a trail every 0.7 LED of path
     const lx = S.nt ? S.trail[(S.nt - 1) * 3] : S.qx, ly = S.nt ? S.trail[(S.nt - 1) * 3 + 1] : S.qy;
     const seg = sqrt((nx - lx) * (nx - lx) + (ny - ly) * (ny - ly));
     if (seg >= 0.7 || !S.nt) {
@@ -223,7 +228,6 @@ function agenda(S, dt, pace, quota) {
       S.hasT = false;
       S.rest = 0;
       S.land = S.T;
-      // the next point is chosen on landing, so it shows during the rest
       S.hasT = pickTarget(S, quota);
       S.rest = S.hasT ? (1.5 + 1.0 * r()) / pace : 0.2;
       S.tin = 0;
@@ -239,8 +243,11 @@ export function update(dt, input, params) {
   if (!S.init) {
     S.init = true;
     for (let i = 0; i < 4; i++) S.ks[i] = S.k[i];
-    // run the agenda for a while so the trail and the voters are already under way
-    const pre = 8, h = 1 / 15;
+    // start at the edge of the electorate, where the win set is big, and run a few hops
+    const s0 = 0.3 + 0.7 * Math.pow((cl(S.k[3], -1, 1) + 1) / 2, 0.8), a0 = S.r() * TAU;
+    S.qx = 32 + 0.8 * s0 * AX * cos(a0);
+    S.qy = 64 + 0.8 * s0 * AY * sin(a0);
+    const pre = 3, h = 1 / 15;
     for (let t = 0; t < pre; t += h) step(S, h);
   }
   const a = 1 - exp(-dt / 0.15);
@@ -252,15 +259,13 @@ export function update(dt, input, params) {
 function step(S, dt) {
   const k = S.ks;
   const pace = cl(k[1], 0.5, 3), u = (cl(k[3], -1, 1) + 1) / 2;
-  // the quota steps 6, 7, 8, 9, 10 with a short blend between, so that a petal
-  // fades rather than jumps as the knob passes a whole number
   const xq = 4 * cl(k[2], 0, 1), fq = xq - floor(xq), Qr = 5.5 + min(4, floor(xq) + sm((fq - 0.3) / 0.4));
   const sf = (0.3 + 0.7 * Math.pow(u, 0.8)) * (1 + 0.14 * sin(0.047 * S.T + S.ps[4]) + 0.08 * sin(0.083 * S.T + S.ps[5]));
   S.T += dt;
   S.Tv += dt * (1 + 1.4 * cl(k[2], 0, 1));
-  // the setter's goal wanders over the whole panel on rates that do not divide
-  S.zx = 32 + 25 * sin(0.057 * S.T + S.ps[0]) + 6 * sin(0.131 * S.T + S.ps[1]);
-  S.zy = 64 + 52 * sin(0.0413 * S.T + S.ps[2]) + 8 * sin(0.097 * S.T + S.ps[3]);
+  const zs = 0.3 + 0.7 * sf;
+  S.zx = 32 + S.ox + zs * (25 * sin(0.057 * S.T + S.ps[0]) + 6 * sin(0.131 * S.T + S.ps[1]));
+  S.zy = 64 + S.oy + zs * (52 * sin(0.0413 * S.T + S.ps[2]) + 8 * sin(0.097 * S.T + S.ps[3]));
   place(S, sf);
   agenda(S, dt, pace, ceil(Qr - 1e-6));
   S.Qr = Qr;
@@ -305,11 +310,9 @@ function lutBuild(S, hc, hw) {
   const t = S.tmp, lf = lumFix(hc);
   for (let k = 0; k < LUT; k++) {
     const u = k / (LUT - 1);
-    // the cool ground: indigo deep down, a pale teal where one voter short
     hsv(hc - 0.09 * u, 0.76 - 0.14 * u, (0.27 + 0.30 * Math.pow(u, 1.6)) * lf, t);
     S.cool[k * 3] = t[0] * 255; S.cool[k * 3 + 1] = t[1] * 255; S.cool[k * 3 + 2] = t[2] * 255;
-    // the petals: amber at the quota, pale gold where every voter agrees
-    hsv(hw + 0.02 * u, 0.92 - 0.6 * u * u, 0.86 + 0.14 * u, t);
+    hsv(hw - 0.035 + 0.06 * u, 0.98 - 0.36 * u * u, 0.76 + 0.24 * Math.pow(u, 0.8), t);
     S.warm[k * 3] = t[0] * 255; S.warm[k * 3 + 1] = t[1] * 255; S.warm[k * 3 + 2] = t[2] * 255;
   }
 }
@@ -321,12 +324,17 @@ function put(buf, q, c, a, dk) {
   buf[q + 1] = mix(buf[q + 1] * dk, c[1] * 255, a);
   buf[q + 2] = mix(buf[q + 2] * dk, c[2] * 255, a);
 }
+// A ray of a star: al along it, pe across it, length L.
+function ray(al, pe, L, w = 1.2) {
+  const q = 1 - abs(al) / L;
+  return q > 0 ? exp(-pe * pe / w) * Math.sqrt(q) : 0;
+}
 // A ring of radius rad, 3 LED across at its soft edge, weight a.
-function ringAt(buf, x, y, rad, a, c, reach) {
+function ringAt(buf, x, y, rad, a, c, reach, w = 1.5) {
   const x0 = max(0, floor(x - reach)), x1 = min(W - 1, floor(x + reach)), y0 = max(0, floor(y - reach)), y1 = min(H - 1, floor(y + reach));
   for (let yy = y0; yy <= y1; yy++)
     for (let xx = x0; xx <= x1; xx++) {
-      const dx = xx + 0.5 - x, dy = yy + 0.5 - y, v = cl(1.5 - abs(sqrt(dx * dx + dy * dy) - rad), 0, 1) * a;
+      const dx = xx + 0.5 - x, dy = yy + 0.5 - y, v = cl(w - abs(sqrt(dx * dx + dy * dy) - rad), 0, 1) * a;
       if (v > 0) put(buf, (yy * W + xx) * 3, c, v, 1);
     }
 }
@@ -336,7 +344,6 @@ export function draw(display, params) {
   if (!S.init) update(0, { knobValues: S.k }, params);
   const k = S.ks, buf = S.buf, C = S.C, CW = S.CW, Qr = S.Qr;
   const sc = cl(k[0], 0, 1) * 5, s0 = min(4, floor(sc)), sf = sc - s0;
-  // both hues sway a little round their setting, each on its own rates
   const T0 = S.T;
   const hc = mix(HC[s0], HC[s0 + 1], sf) + 0.035 * (sin(0.0491 * T0 + S.ps[3]) - sin(S.ps[3])) + 0.02 * (sin(0.0817 * T0 + S.ps[7]) - sin(S.ps[7]));
   const hw = mix(HW[s0], HW[s0 + 1], sf) + 0.02 * (sin(0.0613 * T0 + S.ps[8]) - sin(S.ps[8])) + 0.012 * (sin(0.1033 * T0 + S.ps[2]) - sin(S.ps[2]));
@@ -347,7 +354,6 @@ export function draw(display, params) {
   S.cmax += (cm - S.cmax) * 0.06;
   const cref = max(1.5, min(Qr - 0.5, S.cmax + 0.4));
   const cool = S.cool, warm = S.warm;
-  // three soft clouds drift over the ground and lift it a little where they pass
   const bl = S.bl || (S.bl = new Float64Array(NB * 3));
   for (let j = 0; j < NB; j++) {
     bl[j * 3] = 32 + 34 * sin((0.052 + 0.0171 * j) * S.T + S.ps[j] * 1.3 + 1.3 * j);
@@ -362,6 +368,9 @@ export function draw(display, params) {
   cb[0] *= 255; cb[1] *= 255; cb[2] *= 255;
   hsv(hc - 0.05, 0.3, 1, rc);
   rc[0] *= 255; rc[1] *= 255; rc[2] *= 255;
+  const rw = [0, 0, 0], span = cl(NV - Qr - 0.5, 1.5, 3.5);
+  hsv(hw + 0.02, 0.1, 1, rw);
+  rw[0] *= 255; rw[1] *= 255; rw[2] *= 255;
   for (let p = 0; p < NP; p++) {
     const c = C[p], cw = CW[p];
     const tc = cl(c / cref, 0, 1) * (LUT - 1), i0 = min(LUT - 2, tc | 0), f = tc - i0;
@@ -373,28 +382,27 @@ export function draw(display, params) {
     const a = cl(c - Qr + 0.5, 0, 1);
     const gm = (1 + gl + clk * min(1, cld)) * gb * (1 + ty * (py - 64) / 64 + tx * (px - 32) / 32), cn = min(1, cld) * (1 - a) * (1 + 1.4 * S.froze);
     r = r * gm + cb[0] * cn; g = g * gm + cb[1] * cn; b = b * gm + cb[2] * cn;
-    // a warm haze on the ground where the count is closing on the quota
     const hz = cl((cw - (Qr - 1.0)) / 1.5, 0, 1), halo = hz * hz * 0.34 * (1 - a);
     if (halo > 0.003) {
-      r = mix(r, warm[0] * 0.85, halo);
-      g = mix(g, warm[1] * 0.85, halo);
-      b = mix(b, warm[2] * 0.85, halo);
+      r = mix(r, warm[45] * 0.7, halo);
+      g = mix(g, warm[46] * 0.7, halo);
+      b = mix(b, warm[47] * 0.7, halo);
     }
     // no channel of the ground falls under the 21 or so that the panel can still show
     if (r < GFLOOR) r = GFLOOR;
     if (g < GFLOOR) g = GFLOOR;
     if (b < GFLOOR) b = GFLOOR;
     if (a > 0) {
-      const ex = cl((c - Qr + 0.5) / max(1, NV - Qr), 0, 1) * (LUT - 1), j0 = min(LUT - 2, ex | 0), jf = ex - j0;
+      const ex = cl((c - Qr - 0.5) / span, 0, 1) * (LUT - 1), j0 = min(LUT - 2, ex | 0), jf = ex - j0;
       const wr = mix(warm[j0 * 3], warm[j0 * 3 + 3], jf), wg = mix(warm[j0 * 3 + 1], warm[j0 * 3 + 4], jf), wb = mix(warm[j0 * 3 + 2], warm[j0 * 3 + 5], jf);
-      const rim = 4 * a * (1 - a) * 0.3;
-      const qx = (p % W) + 0.5 - S.qx, qy = ((p / W) | 0) + 0.5 - S.qy, br = 1 + 0.22 * exp(-(qx * qx + qy * qy) / 600);
-      r = mix(r, wr * br, a) + 255 * rim;
-      g = mix(g, wg * br, a) + 255 * rim;
-      b = mix(b, wb * br, a) + 255 * rim;
+      const rim = 4 * a * (1 - a) * 0.6;
+      r = mix(r, wr, a * 0.9) + rw[0] * rim;
+      g = mix(g, wg, a * 0.9) + rw[1] * rim;
+      b = mix(b, wb, a * 0.9) + rw[2] * rim;
     }
-    const ra = min(0.55, S.RA[p] * 0.27) * (1 - 0.5 * a);
-    buf[p * 3] = mix(r, rc[0], ra); buf[p * 3 + 1] = mix(g, rc[1], ra); buf[p * 3 + 2] = mix(b, rc[2], ra);
+    // the circles stay drawn across the fill, in white-gold there
+    const ra = min(0.7, S.RA[p] * (0.27 + 0.45 * a));
+    buf[p * 3] = mix(r, mix(rc[0], rw[0], a), ra); buf[p * 3 + 1] = mix(g, mix(rc[1], rw[1], a), ra); buf[p * 3 + 2] = mix(b, mix(rc[2], rw[2], a), ra);
   }
   // trail: white-gold, with a dark shade beside it so it shows on the petals
   const tr = S.tr, ts = S.ts;
@@ -418,15 +426,17 @@ export function draw(display, params) {
   const tc = S.tmp;
   hsv(hw + 0.015, 0.14, 1, tc);
   for (let p = 0; p < NP; p++) if (tr[p] > 0.01 || ts[p] > 0.01) put(buf, p * 3, tc, tr[p], 1 - ts[p] * (1 - tr[p]));
-  // the voters: a soft pale glow with a wide bloom round it
+  // the voters, no two alike: glows of different size and brightness, and every
+  // fourth one a small open ring
   hsv(hc - 0.08, 0.22, 1, tc);
   for (let i = 0; i < NV; i++) {
-    const x = S.vx[i], y = S.vy[i];
+    const x = S.vx[i], y = S.vy[i], z = 0.9 + 0.7 * ((i * 0.618034) % 1), vb = 0.6 + 0.4 * ((i * 0.754878) % 1);
+    if (i % 4 === 1) { ringAt(buf, x, y, 1.6 + 0.9 * z, 0.9 * vb, tc, 5, 1); continue; }
     const x0 = max(0, floor(x - 13)), x1 = min(W - 1, floor(x + 13)), y0 = max(0, floor(y - 13)), y1 = min(H - 1, floor(y + 13));
     for (let yy = y0; yy <= y1; yy++)
       for (let xx = x0; xx <= x1; xx++) {
         const dx = xx + 0.5 - x, dy = yy + 0.5 - y, d2 = dx * dx + dy * dy;
-        put(buf, (yy * W + xx) * 3, tc, max(exp(-d2 / 52) * 0.2, exp(-d2 / 4.4) * 0.95), 1 - 0.3 * exp(-d2 / 9));
+        put(buf, (yy * W + xx) * 3, tc, max(exp(-d2 / 52) * 0.2, exp(-d2 / (4.4 * z * z)) * 0.95 * vb), 1 - 0.3 * exp(-d2 / 9));
       }
   }
   // the point of the next hop, a ring that goes out of q where it lands, and
@@ -445,15 +455,16 @@ export function draw(display, params) {
     hsv(hc - 0.05, 0.3, 1, tc);
     ringAt(buf, S.qx, S.qy, 5 + 15 * ph, S.froze * (1 - ph) * (1 - ph) * 0.5, tc, 22);
   }
-  // the status quo: a bright ring with a dark eye where every circle passes
+  // the status quo: a small turning star where every circle passes
   {
-    const x = S.qx, y = S.qy, rr = 3.4 + 0.25 * sin(S.T * 1.7);
-    hsv(hw + 0.01, 0.12, 1, tc);
-    const x0 = max(0, floor(x - 9)), x1 = min(W - 1, floor(x + 9)), y0 = max(0, floor(y - 9)), y1 = min(H - 1, floor(y + 9));
+    const x = S.qx, y = S.qy, ca = cos(0.13 * S.T), sa = sin(0.13 * S.T), L = 11 + 1.2 * sin(S.T * 1.7);
+    hsv(hw + 0.01, 0.05, 1, tc);
+    const x0 = max(0, floor(x - 13)), x1 = min(W - 1, floor(x + 13)), y0 = max(0, floor(y - 13)), y1 = min(H - 1, floor(y + 13));
     for (let yy = y0; yy <= y1; yy++)
       for (let xx = x0; xx <= x1; xx++) {
-        const dx = xx + 0.5 - x, dy = yy + 0.5 - y, d = sqrt(dx * dx + dy * dy);
-        put(buf, (yy * W + xx) * 3, tc, max(cl(1.6 - abs(d - rr), 0, 1), exp(-d * d / 1.3)), 1 - 0.7 * cl((rr - 0.6 - d) * 0.8, 0, 1));
+        const dx = xx + 0.5 - x, dy = yy + 0.5 - y, d2 = dx * dx + dy * dy, u = dx * ca + dy * sa, v = dy * ca - dx * sa;
+        const st = max(exp(-d2 / 4), ray(u, v, L), ray(v, u, L), 0.9 * ray((u + v) * 0.7071, (u - v) * 0.7071, 0.65 * L), 0.9 * ray((u - v) * 0.7071, (u + v) * 0.7071, 0.65 * L));
+        put(buf, (yy * W + xx) * 3, tc, min(1, st), 1 - 0.35 * max(exp(-d2 / 20), ray(u, v, L, 6), ray(v, u, L, 6)));
       }
   }
   for (let p = 0; p < NP; p++) {
