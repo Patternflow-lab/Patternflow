@@ -9,7 +9,7 @@
 // Round:   266
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pour=0.8..3, Anise=-1..1, Warmth=0..1
+// @knobs Hue=0..1, Pour=1..3, Anise=-1..1, Warmth=0..1
 //
 // Knob 1: Hue.
 // Knob 2: Pour.
@@ -17,7 +17,9 @@
 // Knob 4: Warmth.
 
 const W = 64, H = 128;
-const NX = 32, NY = 64, NC = NX * NY;
+const NX = 40, NY = 80, NC = NX * NY;
+const CELL = W / NX; // LEDs to a cell of the grid the model runs on
+const R = CELL / 2; // the constants below were tuned on cells of 2 LEDs
 const { floor, sqrt, cbrt, exp, sin, cos, min, max, PI, pow, log } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (a, b, v) => {
@@ -28,17 +30,18 @@ const rnd = () => Math.random();
 
 // ---- the chemistry, in units where the spirit's oil is a fraction of what it could hold
 const KQ = 6.0; // solubility falls as exp(-KQ w) with the water fraction w
-const SCRIT = 1.8; // the supersaturation at which droplets are born
+const SCRIT0 = 1.3; // the supersaturation at which droplets are born is this plus the anise (Q)
 const JN = 90; // nuclei born per second at twice the critical supersaturation
 const VNUC = 0.0012; // volume of a new nucleus, x^3
 const GG = 5; // growth rate
-const DRAIN = 16; // rows at the bottom where the milk is let out
+const DRAIN = Math.round(20 / R); // rows at the bottom where the milk is let out
 const VMAX = 8; // mean droplet volume at most
+const TEMPO = 1.35; // the model's seconds to the panel's
 const JET = 6; // how hard a pipette's stream is pushed down
 // size parameter at which a droplet scatters a channel's wavelength like a wavelength-sized sphere
 const LAM = [0.66, 0.52, 0.42];
 const XLUT = 256, XLO = 0.1, XHI = 2.3;
-const KO = 9; // optical depth per unit of droplet oil
+const KO = 8; // optical depth per unit of droplet oil
 
 function cr(t, o) {
   const t2 = t * t, t3 = t2 * t;
@@ -72,7 +75,7 @@ function build() {
     ix: new Int32Array(NC * 16), wt: new Float32Array(NC * 16),
     t1: new Float64Array(NC),
     Sx: new Float64Array(NX * NX), mm: new Float64Array(NC), cp: new Float64Array(NC),
-    pipes: [], next: 0.2,
+    pipes: [], next: 0.2, mood: 0,
     up: [0, 1, 2, 3].map(() => new Float32Array(W * H)), hz: [0, 1, 2, 3].map(() => new Float32Array(NY * W)),
     lutO: new Float32Array(XLUT + 1), lutC: [0, 1, 2].map(() => new Float32Array(XLUT + 1)),
     lutT: new Float32Array(129 * 3),
@@ -104,19 +107,19 @@ function build() {
     S.lutO[i] = 0.45 + 0.5 * qm;
     const cream = ss(0.35, 0.9, x);
     for (let ch = 0; ch < 3; ch++) {
-      const warmW = ch === 0 ? 1 : ch === 1 ? 0.97 : 0.92;
+      const warmW = ch === 0 ? 1 : ch === 1 ? 0.99 : 0.96;
       const cc = 0.35 + 0.65 * pow(ratio[ch] / (qx + 1e-6), 0.7); // blue for small droplets, white for large
       S.lutC[ch][i] = cc * (1 - cream) + warmW * cream;
     }
   }
   // the sampling positions of the 2x upsample
   for (let X = 0; X < W; X++) {
-    const g = (X - 0.5) / 2, i0 = floor(g), o = [0, 0, 0, 0];
+    const g = (X + 0.5) / CELL - 0.5, i0 = floor(g), o = [0, 0, 0, 0];
     cr(g - i0, o);
     S.colx.push({ i0, o });
   }
   for (let Y = 0; Y < H; Y++) {
-    const g = (Y - 0.5) / 2, j0 = floor(g), o = [0, 0, 0, 0];
+    const g = (Y + 0.5) / CELL - 0.5, j0 = floor(g), o = [0, 0, 0, 0];
     cr(g - j0, o);
     S.rowx.push({ j0, o });
   }
@@ -128,7 +131,7 @@ function knobs(S, kv) {
   S.hue = 0.105 + 0.82 * kv[0];
   S.pour = kv[1];
   const t = (cl(kv[2], -1, 1) + 1) / 2;
-  const Q = 0.3 + 0.68 * pow(t, 1.16);
+  const Q = 0.34 + 0.52 * pow(t, 1.16);
   if (S.Q !== Q && S.ready) {
     const r = Q / S.Q;
     for (let i = 0; i < NC; i++) S.c[i] *= r;
@@ -234,8 +237,8 @@ function diffuse(src, dst, D) {
 // the part of a step that moves things: advection, buoyancy, drag, diffusion
 function flow(S, dt) {
   const pour = S.pour;
-  const g = 3 + 1.4 * pour;
-  const vb = 0.9 + 0.45 * pour;
+  const g = (3 + 1.4 * pour) / R;
+  const vb = (0.9 + 0.6 * pour) / R;
   velocity(S);
   stencil(S, dt, vb);
   advect(S, S.om, S.o2);
@@ -265,21 +268,21 @@ function flow(S, dt) {
     }
   // the pipettes push a little too
   for (const P of S.pipes) {
-    const env = ss(0, 0.3, P.age) * (1 - ss(P.dur - 0.5, P.dur, P.age));
+    const env = ss(0, 0.3, P.age) * (1 - ss(P.dur - 0.5, P.dur, P.age)) * P.amp;
     const s2 = P.sig * P.sig;
-    for (let j = 0; j < 8; j++) {
-      const rowp = 1 - ss(4, 7, j);
+    for (let j = 0; j < 8 / R; j++) {
+      const rowp = 1 - ss(4 / R, 7 / R, j);
       for (let i = max(0, floor(P.x - 3 * P.sig)); i <= min(NX - 1, floor(P.x + 3 * P.sig)); i++) {
         const d = i - P.x;
-        om[j * NX + i] += dt * JET * env * rowp * (-d / s2) * exp((-0.5 * d * d) / s2);
+        om[j * NX + i] += dt * env * rowp * ((JET / R) * (-d / s2) + 2.5 * (rnd() - 0.5)) * exp((-0.5 * d * d) / s2);
       }
     }
   }
-  diffuse(S.om, S.o2, 0.35 * dt);
-  diffuse(S.w, S.w2, 0.07 * dt);
-  diffuse(S.c, S.c2, 0.07 * dt);
-  diffuse(S.Nn, S.N2, 0.05 * dt);
-  diffuse(S.ph, S.p2, 0.05 * dt);
+  diffuse(S.om, S.o2, (0.2 / (R * R)) * dt);
+  diffuse(S.w, S.w2, (0.03 / (R * R)) * dt);
+  diffuse(S.c, S.c2, (0.03 / (R * R)) * dt);
+  diffuse(S.Nn, S.N2, (0.05 / (R * R)) * dt);
+  diffuse(S.ph, S.p2, (0.05 / (R * R)) * dt);
   t = S.om; S.om = S.o2; S.o2 = t;
   t = S.w; S.w = S.w2; S.w2 = t;
   t = S.c; S.c = S.c2; S.c2 = t;
@@ -296,10 +299,11 @@ function step(S, dt, every) {
     flow(S, S.acc);
     S.acc = 0;
   }
-  const kap = 0.004 * exp(5.0 * warm);
-  const vcream = 0.3 + 1.7 * warm;
+  const kap = 0.004 * exp(4.0 * warm);
+  const vcream = (0.3 + 1.0 * warm) / R;
   const Jn = JN * exp(-0.8 * warm);
   const ceq0 = 1 + 0.15 * warm;
+  const SCRIT = SCRIT0 + Q;
   const { w: W_, c: C_, Nn, ph, nf } = S;
 
   // chemistry: droplets are born where the oil is past SCRIT times what the water leaves it, grow while there is
@@ -348,15 +352,18 @@ function step(S, dt, every) {
       if (j > 0) { ph[k - NX] += dp; Nn[k - NX] += dN; }
     }
 
-  // the pipettes
+  // the pipettes. The hand that pours has slow moods: lulls and bursts, a random walk with a memory of about 40 s
   S.t += dt;
+  S.mood += (-S.mood * dt) / 40 + 0.15 * sqrt(dt) * (rnd() + rnd() + rnd() + rnd() - 2) * 1.73;
+  S.mood = cl(S.mood, -2, 2);
+  const hand = exp(0.4 * S.mood);
   S.next -= dt;
   if (S.next <= 0) {
-    S.pipes.push({ x: 3 + rnd() * (NX - 6), age: 0, dur: 0.8 + 1.8 * rnd() * rnd(), sig: 0.7 + 0.5 * rnd(), dx: (rnd() - 0.5) * 0.8 });
-    S.next = min(4, (3.2 / pour) * (0.5 + rnd()));
+    S.pipes.push({ x: 3 / R + rnd() * (NX - 6 / R), age: 0, dur: 0.8 + 1.8 * rnd() * rnd(), sig: (0.7 + 0.5 * rnd()) / R, dx: ((rnd() - 0.5) * 0.8) / R, amp: 0.6 + 0.8 * rnd(), wob: rnd() * 6.28 });
+    S.next = min(3.2, ((3.2 * (0.75 + 0.6 * Q)) / (pour * hand)) * (0.5 + rnd()));
   }
   // fresh spirit at the top
-  for (let j = 0; j < 2; j++)
+  for (let j = 0; j < 2 / R; j++)
     for (let i = 0; i < NX; i++) {
       const k = j * NX + i, r = min(1, 3 * dt);
       W_[k] -= W_[k] * r;
@@ -367,10 +374,10 @@ function step(S, dt, every) {
     const P = S.pipes[q];
     P.age += dt;
     if (P.age > P.dur) { S.pipes.splice(q, 1); continue; }
-    P.x = cl(P.x + P.dx * dt, 2, NX - 3);
-    const env = ss(0, 0.3, P.age) * (1 - ss(P.dur - 0.5, P.dur, P.age));
-    for (let j = 0; j < 7; j++) {
-      const rowp = 1 - ss(3.5, 6, j);
+    P.x = cl(P.x + (P.dx + (1.2 / R) * sin(P.wob + 3.1 * P.age)) * dt, 2 / R, NX - 3 / R);
+    const env = ss(0, 0.3, P.age) * (1 - ss(P.dur - 0.5, P.dur, P.age)) * P.amp;
+    for (let j = 0; j < 7 / R; j++) {
+      const rowp = 1 - ss(3.5 / R, 6 / R, j);
       for (let i = max(0, floor(P.x - 3 * P.sig)); i <= min(NX - 1, floor(P.x + 3 * P.sig)); i++) {
         const d = (i - P.x) / P.sig, G = exp(-0.5 * d * d) * rowp * env;
         const r = min(1, 7 * G * dt);
@@ -439,7 +446,7 @@ export function setup(params) {
 export function update(dt, input, params) {
   if (!params.s) params.s = build();
   const S = params.s;
-  dt = cl(dt, 0.001, 0.1);
+  dt = cl(dt, 0.001, 0.1) * TEMPO;
   knobs(S, input.knobValues);
   if (!S.ready) {
     S.ready = true;
