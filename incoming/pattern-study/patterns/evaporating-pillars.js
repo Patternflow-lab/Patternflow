@@ -1,32 +1,35 @@
 // ===== Patternflow pattern =====
 // Title:   Evaporating Pillars
 // Family:  photoevap
-// Idea:    Starlight from above strips a molecular cloud, and wherever a dense clump casts its shadow the gas behind it survives, so the cloud is carved into dark pillars that stand toward the stars, each with a glowing gold rim on the lit side and a round head that may be cut loose as an egg.
+// Idea:    Starlight from above strips a cloud of cold gas, and wherever a dense clump casts its shadow the gas behind it survives, so the cloud is carved into dark pillars that stand toward the stars, each with a crimson, orange and gold rim on its lit side under a teal glow of ionized gas, until a head is worn away or cut loose as a small egg.
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the ionization front and its speed, the photon flux over the gas it must ionize (Spitzer 1954; Kahn 1954); the columns in the Eagle Nebula seen by Hubble (Hester et al. 1996) and the shadowing of the gas behind a dense clump that leaves it standing as a pillar (Gritschneder et al. 2010, from memory). Original here: a grid of cells, not a hydrodynamic code, and every constant is tuned by eye on the panel; round 266
+// Lineage: photoevaporation at the edge of a molecular cloud: an ionization front moves at the speed of the photon flux over the gas it has to ionize (Spitzer 1954; Kahn 1954); the columns of the Eagle Nebula as Hubble saw them (Hester et al. 1996); a pillar as the gas left in the shadow of a dense clump while the gas round it is stripped (Gritschneder et al. 2010, from memory). Original here: a grid of cells with no gas dynamics and constants tuned by eye on the panel, pattern round 266
 // Round:   266
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Erosion=0.8..4, Clumps=-1..1, Starlight=0..2
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 it is the Hubble one: the rims run crimson through orange to gold and near white, the ionized gas above is teal-green, the sky is blue-black and the cloud a teal-black silhouette. At 0.33 it is green and cyan with a magenta sky, at 0.5 blue rims over a red-brown haze.
-// Knob 2: Erosion. 0.5 to 4, opening at 2. How hard the starlight eats the cloud, which is also how fast the picture runs: the pillars grow, lose their heads and are replaced about four times as fast at 4 as at 0.5, and at 2 the cloud climbs the panel at about 1.5 LED a second. Even at 0.5 the pillars rise at a third of that.
-// Knob 3: Clumps. -1 to 1, opening at 0. The size and the number of the dense clumps in the cloud, so what is left standing: at -1 a few fat pillars with round heads 12 to 16 LED across, at 0 six to eight pillars 6 to 10 LED across at the base, at 1 a forest of thin spires 3 or 4 LED across. New cloud comes in at the bottom with the new clump size, and while the knob is moving the whole scene runs faster, so the change is on the front in a few seconds.
-// Knob 4: Starlight. 0 to 2, opening at 0.06. Where the stars stand and how wide they are: at 0 they are 22 degrees to the upper left and the pillars lean toward them with long dark shadows, at 1 they are overhead, spread wider, and the pillars stand straight and are lit on both flanks, at 2 they have crossed to the right. The stars on the top edge move with it.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 it is the Hubble one: the rims run crimson through orange to gold and near white, the ionized gas is teal-green, the sky blue-black and the cloud teal-black. At 0.35 the rims are green and cyan over a magenta sky, at 0.5 cyan and blue over a dull red haze, at 0.7 violet over green. The dim colours hurry through the oranges and yellows, which would turn brown and khaki on the panel.
+// Knob 2: Erosion. 0.8 to 4, opening at 2. How hard the starlight bites, which is also the pace: the cloud climbs the panel at 1.2 rows a second at 0.8, 2.3 at 2 and 5 at 4, and the pillars grow, lose their heads and are replaced that much faster. The rims and the haze follow the flux: the caps are orange at 0.8, gold at 2 and white at 4.
+// Knob 3: Clumps. -1 to 1, opening at 0. The size and the number of the dense clumps, so what is left standing. Their width (one sigma) is 4.9 LED at -1, 2.3 at 0 and 1.5 at 1, and there are a tenth as many to the panel at -1 as at 0 and five times as many at 1: fat trunks and domes at one end, a crowd of thin spires at the other. Counted over 150 s, peaks of the skyline that stand 12 rows over the valleys either side number 4.7 on the panel at -1 and 6 at 0 and at 1, and at 1 the rest of the crowd is spires 3 to 5 LED across. New gas with the new clump size is laid under the surface at once, so a turn shows on the front in 3 to 5 s, and the scene runs up to four times faster while the knob moves.
+// Knob 4: Starlight. 0 to 2, opening at 0.06. Where the three stars stand: the light leans (1 - K) times 10 degrees from straight down, with a drift of up to 4.5 degrees round that, so at 0 the stars are upper left and the pillars lean toward them with long dark shadows trailing down to the right, at 1 they are overhead and the pillars stand straight, lit on both flanks, and at 2 they have crossed to the right. The outer two stars are 22 degrees apart at the ends and 30 at 1, which is how much of the flank is lit and how soft the shadow edge is. The stars on the top edge move with it.
 
-// What the picture is. A cloud of cold gas fills the bottom of the panel, dark teal against a sky that the starlight has ionized to a teal-green haze, brightest where it meets the cloud. Out of the cloud
-// rise pillars with round heads, and the gas that faces the stars glows: a crimson fringe, an orange to gold rim 2 to 3 LED wide, near white on the cap of a head that looks straight at a star. The side turned away
-// from the stars is a plain silhouette. The pillars climb the panel slowly as the front eats the cloud under them, lose their heads when the head is gone, and now and then a head is cut off from its neck and
-// rises alone as an egg with a short tail. New clumps come in from below for ever.
-// The model. A grid of 64 x 128 cells holds the gas density n (a sum of Gaussian clumps, big, small and fine, laid down in a log-normal way in rows that come in at the bottom) and the share f of each cell that is
-// still neutral. The light comes from three stars, in three directions a few degrees apart, and each ray is followed down through the grid, its transmission reduced by exp(-1) for a whole cell of neutral gas, so a cell sees the
-// fraction T of the starlight that has not been stopped above it. The ionization front moves at a speed that goes as T over n to the 1.4: dense clumps are stripped slowly and the gas in the shadow of a clump
-// not at all. When a cell is ionized it lets the light through. The cloud is a slab that moves toward the stars in the picture, at the speed that keeps the amount of gas on the panel constant, so the front stays
-// in the middle of the panel and the picture can run for ever. Gas is not moved by pressure here, which in the real pillars matters, and the rocket effect and the heating are not modelled; the shapes come from shadows alone.
-// The glow is the lit neutral gas (T times f, blurred) weighted by how squarely its surface faces the stars (from the gradient of f), a gold ramp for the rim and a teal haze that is the rim blurred and carried up
-// along the light. The sub-cell scroll is drawn by blending rows, so the climb is smooth.
+// What the picture is. A cloud of cold gas fills the bottom of the panel, teal-black against a sky that the starlight has ionized to a teal-green haze, brightest where it meets the cloud. Out of the cloud rise pillars, 5 to 9 LED wide a little below their tops and 10 to 20 at
+// the base, with round heads, and the gas that faces the stars glows: a crimson fringe, an orange to gold rim 2 to 3 LED wide, near white on the cap of a head that looks straight at a star. The flank turned away from the stars is a plain
+// silhouette. The pillars climb the panel as the front eats the cloud under them, tapering as their flanks are stripped, and lose their heads when the head is gone. Now and then a head is cut off from its neck and goes
+// up alone as an egg with a short tail. New clumps come in from below for ever, and a pillar that reaches the stars runs off the top.
+// The model. A grid of 64 x 128 cells holds the gas density n (a few clumps added to a floor of 0.3, on a mottling of big and fine soft spots, laid down a row at a time as the cloud comes in at the bottom) and the share f of
+// each cell that is still neutral. The light comes from three stars a few degrees apart and two wide ones that stand for the diffuse light, and each ray is followed down through the grid, its transmission cut by
+// exp(-1) for a whole cell of neutral gas, so a cell sees the fraction T of the starlight that has not been stopped above it. The ionization front moves at a speed that goes as T over n squared: a clump of density 1.5 is
+// stripped 25 times slower than the floor, and the gas in the shadow of a clump is not touched until the clump goes. A cell that is ionized lets the light through. The cloud is a slab that moves toward the stars in the picture,
+// at the speed that holds the amount of gas on the panel constant, so the front stays where it is and the picture can run for ever. The wide lights are what thin a pillar from the sides (with the stars alone a pillar would
+// keep the width of its head), and a bit of gas one cell wide is taken at once. What is not modelled: pressure and flows, which in the real pillars matter, the heating, and the recombination that makes the glow; the shapes
+// come from shadows alone.
+// The glow is faked from the grid. The rim is where the smoothed neutral share is about a half, times the starlight that reaches the open gas beside it, times how squarely its surface faces the three stars (from the
+// gradient of the smoothed share), through a ramp from crimson to near white. The teal is that rim blurred and carried up along the cloud, with the mass of the cloud spread wide and carried up for the haze. The scroll
+// is drawn between cell rows, so the climb is smooth. At the opening the model has already run for 78 units of its time, about 26 s at Erosion 2.
 
 const W = 64, H = 128, NC = W * H;
 const { floor, sqrt, exp, sin, cos, tan, abs, min, max, pow, PI, log, round } = Math;
@@ -43,14 +46,15 @@ const KAP = 0.63; // a whole cell of neutral gas passes 1 - KAP of the starlight
 const TCUT = 0.2; // light weaker than this does not move the front
 const RATE = 0.4; // cells per unit of model time, at density 1 and full light
 const N0 = 0.3; // the density the clumps are laid on
-const DS = 0.2;
-const TS = 3; // model time per second at Erosion 2 // the longest model step
+const DS = 0.2; // the longest model step
+const TS = 3; // model time per second at Erosion 2
 const RAD = PI / 180;
 const SS = 4, RM = W * SS - 1; // the most rays to a cell, and the mask of the ray array
 const SSD = [4, 4, 4, 2, 2]; // rays to a cell for each light; the wide ones do not need the fine grid
+const EGGS = 14; // rows of gas between the dense globules
 const DEEP = 12; // cells of gas over a cell that has been given a new density
 const K2MIN = 0.8, K2MAX = 4;
-const COV = 0.3, KY = 1.6, SC0 = 2.3; // how much of the cloud the clumps cover, how much taller than wide they are, their width at Clumps 0 // how much of the cloud the clumps cover
+const COV = 0.36, KY = 1.6, SC0 = 2.3; // how much of the cloud the clumps cover, how much taller than wide they are, their width at Clumps 0
 const C0 = 4900; // cells of neutral gas the panel should hold; the scroll keeps it there
 const ND = 5, WS = [0.25, 0.38, 0.25, 0.06, 0.06], OFS = [-1, 0.15, 1, 0, 0]; // three stars and two wide ones that stand for the diffuse light
 
@@ -62,39 +66,59 @@ function hsv(h, s, v, out) {
   out[2] = [p, p, t, v, v, q][i % 6];
 }
 
+// the dim colours (haze, sky, cloud) hurry through the oranges and yellows, which turn brown and khaki when they are dark on the panel
+function dim(x) {
+  x -= floor(x);
+  return x + 0.14 * ss(0, 0.1, x) * (1 - ss(0.14, 0.24, x));
+}
+
 export function setup(params) {
+  // the Lab runs with a fixed seed, and the first 296 numbers of that seed lay down a thin first picture, so they are skipped
+  for (let i = 0; i < 296; i++) rnd();
   const mk = () => new Float32Array(NC);
   params.s = {
     ready: false, t: 0, cool: 0, k3g: 0, ks: [0, 2, 0, 0.06], k3p: 0, warp: 0,
     F: mk(), Nd: mk(), IP: mk(), T: mk(), tr: new Float32Array(W * SS), rowN: new Float32Array(W), gtmp: new Float32Array(W), ctmp: new Float32Array(W),
-    blobs: [], ev1: 0, ev2: 0, ev3: 0, Yg: 0, sc: 3.6, off: 0, vf: 1.5, C: C0, th: [0, 0, 0, 0, 0], sw: [[], [], [], [], []],
+    cov: COV, gen: newGen(0), rg: null, Yg: 0, sc: 3.6, off: 0, vf: 1.5, C: C0, th: [0, 0, 0, 0, 0], sw: [[], [], [], [], []],
     Fb: mk(), Fb2: mk(), Fb3: mk(), Lm: mk(), Iv: mk(), Gl: mk(), Hz: mk(), tA: mk(), tB: mk(),
-    lut: new Float32Array(65 * 3), rim: 0,
+    lut: new Float32Array(65 * 3),
   };
 }
 
 // ---- the cloud's density, laid down a row at a time
-function spawn(S, Y) {
-  const sc = S.sc, rc = (W * COV) / (PI * pow(1.7 * sc, 2) * KY);
-  while (S.ev1 <= Y) {
+function newGen(Y) {
+  return { blobs: [], gx: Math.random(), ev1: Y, ev2: Y, ev3: Y, ev4: Y };
+}
+
+function spawn(S, G, Y) {
+  const sc = S.sc, rc = (W * S.cov) / (PI * pow(1.7 * sc, 2) * KY);
+  while (G.ev1 <= Y) {
     const s = sc * exp(0.18 * gauss()), ky = KY * exp(0.15 * gauss());
-    S.blobs.push({ c: 1, x: rnd() * W, y: S.ev1 + 3 * s * ky, s, ky, a: 1.5 + 8 * pow(rnd(), 2), r: 3.2 * s, ry: 3.2 * s * ky });
-    S.ev1 += -log(1 - rnd()) / rc;
+    // each clump lands a golden step along from the last, and the waits are gamma, so the clumps do not gather in lumps with bare stretches between
+    G.gx += 0.618034 + 0.12 * gauss();
+    G.blobs.push({ c: 1, x: (G.gx - floor(G.gx)) * W, y: G.ev1 + 3 * s * ky, s, ky, a: 1.5 + 8 * pow(rnd(), 2), r: 3.2 * s, ry: 3.2 * s * ky });
+    G.ev1 += -log((1 - rnd()) * (1 - rnd()) * (1 - rnd())) / (3 * rc);
   }
-  while (S.ev2 <= Y) {
+  // small dense globules, which are what is left when a pillar loses its head
+  while (G.ev4 <= Y) {
+    const s = 1.5 + 0.6 * rnd();
+    G.blobs.push({ c: 1, x: rnd() * W, y: G.ev4 + 4 * s, s, ky: 1.2, a: 6 + 8 * rnd(), r: 3.2 * s, ry: 3.8 * s });
+    G.ev4 += -log(1 - rnd()) * EGGS;
+  }
+  while (G.ev2 <= Y) {
     const s = 7 + 3 * rnd();
-    S.blobs.push({ x: rnd() * W, y: S.ev2 + 3 * s, s, ky: 1, a: 0.1 * gauss(), r: 3.2 * s, ry: 3.2 * s });
-    S.ev2 += -log(1 - rnd()) * 7;
+    G.blobs.push({ x: rnd() * W, y: G.ev2 + 3 * s, s, ky: 1, a: 0.1 * gauss(), r: 3.2 * s, ry: 3.2 * s });
+    G.ev2 += -log(1 - rnd()) * 7;
   }
-  while (S.ev3 <= Y) {
-    S.blobs.push({ x: rnd() * W, y: S.ev3 + 5, s: 1.5, ky: 1, a: 0.3 * (rnd() < 0.5 ? -1 : 1), r: 5, ry: 5 });
-    S.ev3 += -log(1 - rnd()) / 1.4;
+  while (G.ev3 <= Y) {
+    G.blobs.push({ x: rnd() * W, y: G.ev3 + 5, s: 1.5, ky: 1, a: 0.3 * (rnd() < 0.5 ? -1 : 1), r: 5, ry: 5 });
+    G.ev3 += -log(1 - rnd()) / 1.4;
   }
 }
 
-function genRow(S, Y, out) {
-  spawn(S, Y);
-  const bl = S.blobs, g = S.gtmp, c = S.ctmp;
+function genRow(S, G, Y, out) {
+  spawn(S, G, Y);
+  const bl = G.blobs, g = S.gtmp, c = S.ctmp;
   let j = 0;
   for (let i = 0; i < bl.length; i++) if (bl[i].y + bl[i].ry >= Y) bl[j++] = bl[i];
   bl.length = j;
@@ -115,7 +139,7 @@ function genRow(S, Y, out) {
 }
 
 function putRow(S, y, Y) {
-  genRow(S, Y, S.rowN);
+  genRow(S, S.gen, Y, S.rowN);
   const o = y * W;
   for (let x = 0; x < W; x++) {
     S.Nd[o + x] = S.rowN[x];
@@ -124,27 +148,35 @@ function putRow(S, y, Y) {
   }
 }
 
-// a new clump size is laid into the gas that is more than DEEP cells under the surface, which the front has not reached, so a turn of Clumps shows up in seconds
+// a new clump size is laid into the gas that is more than DEEP cells under the surface, which the front has not reached, so a turn of Clumps shows up in seconds;
+// the new gas is made 16 rows to a frame by a generator of its own, and laid in when it is whole
 function regen(S) {
-  const Y0 = S.Yg - H, nn = S.nn || (S.nn = new Float32Array(NC));
-  S.blobs.length = 0;
-  S.ev1 = S.ev2 = S.ev3 = Y0;
-  for (let y = 0; y < H; y++) {
-    genRow(S, Y0 + y, S.rowN);
-    for (let x = 0; x < W; x++) nn[y * W + x] = S.rowN[x];
+  const R = S.rg;
+  if (!R) {
+    S.rg = { G: newGen(S.Yg - H), Y0: S.Yg - H, y: 0 };
+    S.k3g = S.ks[2];
+    return;
   }
+  const nn = S.nn || (S.nn = new Float32Array(NC));
+  for (let k = 0; k < 16 && R.y < H; k++, R.y++) {
+    genRow(S, R.G, R.Y0 + R.y, S.rowN);
+    for (let x = 0; x < W; x++) nn[R.y * W + x] = S.rowN[x];
+  }
+  if (R.y < H) return;
+  const sh = S.Yg - H - R.Y0;
   for (let x = 0; x < W; x++) {
     let c = 0;
     for (let y = 0; y < H; y++) {
       const i = y * W + x;
       if (S.F[i] > 0.5) c++;
-      if (c > DEEP) {
-        S.Nd[i] = nn[i];
-        S.IP[i] = pow(nn[i], -PEXP);
+      const j = (y + sh) * W + x;
+      if (c > DEEP && y + sh < H) {
+        S.Nd[i] = nn[j];
+        S.IP[i] = pow(nn[j], -PEXP);
       }
     }
   }
-  S.k3g = S.ks[2];
+  S.rg = null;
 }
 
 function shiftUp(S) {
@@ -226,7 +258,8 @@ function step(S, dtm) {
 }
 
 function init(S) {
-  S.sc = SC0 * exp(-0.5 * S.ks[2]);
+  S.sc = SC0 * exp(S.ks[2] < 0 ? -0.75 * S.ks[2] : -0.4 * S.ks[2]);
+  S.cov = COV * exp(0.8 * S.ks[2]);
   for (let y = 0; y < H; y++) putRow(S, y, S.Yg++);
   for (let y = 0; y < 58; y++) S.F.fill(0, y * W, (y + 1) * W);
   lights(S, S.ks[3], 0);
@@ -248,14 +281,16 @@ export function update(dt, input, params) {
   // turning Clumps runs the scene faster for a few seconds, so the new clumps reach the front
   S.warp = cl(S.warp + abs(k[2] - S.k3p) * 3, 0, 1) * exp(-d / 2.2);
   S.cool -= d;
-  if (abs(k[2] - S.k3g) > 0.08 && S.cool <= 0) {
-    S.sc = SC0 * exp(-0.5 * k[2]);
+  if (!S.rg && abs(k[2] - S.k3g) > 0.08 && S.cool <= 0) {
     S.ks[2] = k[2];
-    regen(S);
     S.cool = 1;
-  }
+    S.sc = SC0 * exp(k[2] < 0 ? -0.75 * k[2] : -0.4 * k[2]);
+    S.cov = COV * exp(0.8 * k[2]);
+    regen(S);
+  } else if (S.rg) regen(S);
   S.k3p = k[2];
-  S.sc = SC0 * exp(-0.5 * k[2]);
+  S.sc = SC0 * exp(k[2] < 0 ? -0.75 * k[2] : -0.4 * k[2]);
+  S.cov = COV * exp(0.8 * k[2]);
   S.t += d;
   lights(S, S.ks[3], S.t);
   const dtm = d * S.ks[1] * (TS / 2) * (1 + 3 * S.warp), n = Math.ceil(dtm / DS);
@@ -304,7 +339,8 @@ function prepare(S) {
   const F = S.F, F3 = S.Fb3, T = S.T, Fb = S.Fb, Fb2 = S.Fb2, Lm = S.Lm, Iv = S.Iv, tA = S.tA, tB = S.tB, Gl = S.Gl;
   blur3(F, Fb, tA);
   blur3(Fb, Fb2, tA);
-  blur3(Fb2, S.Fb3, tA);
+  blur3(Fb2, tA, tB);
+  boxV(tA, S.Fb3, 3);
   // how much starlight reaches the open gas beside each surface: T where the gas is open, blurred, over the weight of the open gas
   for (let i = 0; i < NC; i++) {
     const o = 1 - Fb[i];
@@ -350,8 +386,6 @@ function prepare(S) {
   }
 }
 
-const rc = [0, 0, 0], tc = [0, 0, 0];
-
 function buildLut(S, h) {
   // crimson fringe, orange, gold, pale gold, near white
   const stops = [
@@ -376,9 +410,9 @@ export function draw(display, params) {
   const h = S.ks[0], o = S.off, gn = pow(S.ks[1] / 2, 0.5);
   buildLut(S, h);
   const deep = [0, 0, 0], teal = [0, 0, 0], cloud = [0, 0, 0], star = [0, 0, 0];
-  hsv(0.625 + h, 0.95, 0.12, deep);
-  hsv(0.47 + h, 0.9, 1, teal);
-  hsv(0.52 + h, 0.85, 0.16, cloud);
+  hsv(dim(0.625 + h), 0.95, 0.12, deep);
+  hsv(dim(0.47 + h), 0.9, 1, teal);
+  hsv(dim(0.52 + h), 0.85, 0.19, cloud);
   hsv(0.56 + h, 0.25, 1, star);
   const F = S.Fb, G = S.Gl, Iv = S.Iv, Hz = S.Hz, Nd = S.Nd, L = S.lut;
   const buf = S.fr || (S.fr = new Float32Array(NC * 3));
@@ -396,7 +430,7 @@ export function draw(display, params) {
       const sk = (0.5 * pow(hz, 1.2) + 0.9 * g) * (0.5 + 0.5 * gn);
       let r = deep[0] + teal[0] * sk, gg = deep[1] + teal[1] * sk, bb = deep[2] + teal[2] * sk;
       // the cloud, dark with a texture
-      const cv = 0.6 + 0.35 * ty + 1.1 * g * g;
+      const cv = 0.55 + 0.4 * ty + 1.1 * g * g;
       r += (cloud[0] * cv - r) * A;
       gg += (cloud[1] * cv - gg) * A;
       bb += (cloud[2] * cv - bb) * A;
