@@ -424,5 +424,10 @@
   "quasispecies": { "label": "준종·오류 문턱", "color": "#ff2902" },
   "quorum": { "label": "정족수 감지", "color": "#04b88b" },
   "reservoir": { "label": "저수지 계산", "color": "#c88400" },
-  "transopt": { "label": "변환 광학", "color": "#016fef" }
+  "transopt": { "label": "변환 광학", "color": "#016fef" },
+  "socialchoice": { "label": "사회적 선택", "color": "#c42b23" },
+  "secular": { "label": "영년 섭동", "color": "#0a1bb3" },
+  "eventcam": { "label": "사건 카메라", "color": "#0ce01c" },
+  "agentecon": { "label": "행위자 경제", "color": "#7eb40a" },
+  "skypol": { "label": "하늘 편광", "color": "#bf1ead" }
 }
