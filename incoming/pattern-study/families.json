@@ -399,5 +399,10 @@
   "strandbeest": { "label": "얀센 다리", "color": "#dbaa83" },
   "magnetotactic": { "label": "자성 박테리아", "color": "#92f977" },
   "dinisurface": { "label": "디니 곡면", "color": "#e48efa" },
-  "fallingplate": { "label": "떨어지는 판", "color": "#ed85bd" }
+  "fallingplate": { "label": "떨어지는 판", "color": "#ed85bd" },
+  "phononfocus": { "label": "포논 집속", "color": "#ad461a" },
+  "hovmoller": { "label": "시간-경도 도표", "color": "#5fada7" },
+  "ouzo": { "label": "자발 유화", "color": "#ad861a" },
+  "photoevap": { "label": "광증발 기둥", "color": "#a06cd5" },
+  "herbigharo": { "label": "허빅-아로 제트", "color": "#f22443" }
 }
