@@ -1,36 +1,36 @@
 // ===== Patternflow pattern =====
 // Title:   Phonon Focus
 // Family:  phononfocus
-// Idea:    A heat pulse crosses a germanium-like crystal and lands on the far face as a map of bright caustic lines, a time gate sweeps up through the arrival times so the fast longitudinal map, then the two transverse maps, light up in turn, and one knob bends the crystal's elastic anisotropy until the cusps appear, fold and vanish.
+// Idea:    A heat pulse crosses a germanium-like crystal and lands on its far face as bright caustic lines, a time gate sweeps up through the arrival times so the fast longitudinal map and then the two transverse maps light up in turn, and one knob bends the crystal's elastic anisotropy until cusps appear, fold and vanish.
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Phonon focusing in solids (Taylor, Maris and Elbaum, 1969) and the phonon images of Ge, Si and GaAs made by scanning a laser heater over one face and reading a bolometer on the other (Northrop and Wolfe, 1980s), from memory; the Christoffel equation for a cubic crystal; the elastic constants are Ge's, c11 129, c12 48.3, c44 67.1 GPa. Original here: the anisotropy is moved while the bulk modulus is held, and the time gate and the drift are for the panel, pattern round 266
+// Lineage: Phonon focusing in solids (Taylor, Maris and Elbaum, 1969) and the phonon images of Ge, Si and GaAs made by scanning a laser heater over one face of a crystal and reading a bolometer on the other (Northrop and Wolfe, 1980s), from memory; the Christoffel equation of a cubic crystal with Ge's stiffnesses, c11 129, c12 48.3, c44 67.1 GPa. Original here: the anisotropy is moved while the bulk modulus is held, the gate is run through the share of energy that has arrived, and the drifts and the exposure are for the panel, pattern round 266
 // Round:   266
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Anisotropy=0..3, Turn=-1..1, Gate=-1..1
 //
-// Knob 1: Hue. Turns the whole thermal ramp round the wheel. At 0 it runs black, indigo, purple, crimson, orange and white-hot; at 0.33 the same ramp is teal, green and yellow into white; at 0.66 it is blue, violet and pink. The white-hot end stays white.
-// Knob 2: Anisotropy. The crystal's elastic anisotropy ratio A = 2 c44 / (c11 - c12), 0.5 at 0, exactly 1 (an isotropic solid) at 1, 2 where it opens and 3.9 at 3, with the bulk modulus held at Ge's. Ge itself is 1.66 and GaAs 1.84. At 1 the caustics are gone and each branch is a smooth round bloom. Pushed to 1.2 they come back as a thin diamond, at 1.7 and 2 they are a lattice of diamonds with bright caps at top and bottom, at 3 they cross and overlap, and past 3.5 they open into fans. Below 1 the transverse branches change places and the picture is a lens with bright side wings. The value also drifts, by a slow random walk of about 0.2 in the log base 2, so the picture is never quite at the number the knob says.
-// Knob 3: Turn. Rotates the crystal about the face normal, 100 degrees either way, so the long axes of the star swing from the 128 rows to the 64 columns and the lobes are cut by the panel's sides. The picture has a two-fold symmetry, so turning by 180 degrees brings back the opening.
-// Knob 4: Gate. The width and the speed of the time gate. At -1 the gate is 0.43 as wide and a sweep takes 1.7 times longer (about 8 s), so each branch shows as a thin shell of one arrival time; at 0 it is 5 percent of the whole flight window and a sweep takes about 4.6 s; at 1 it is 2.3 times as wide and a sweep takes 2.6 s, wide enough that a branch shows nearly whole.
+// Knob 1: Hue. Four colour ramps from black to white-hot, blended as the knob passes between them. At 0 it is indigo, purple, crimson, orange, white; at 1/3 violet, magenta, pink, peach, white; at 2/3 navy, blue, cyan, aqua, white; at 1 teal, green, lime, pale yellow. The dark end is always blue or teal, so no turn of the knob makes the background brown.
+// Knob 2: Anisotropy. The ratio A = 2 c44 / (c11 - c12) the whole picture turns on, with the bulk modulus held at Ge's: 0.5 at 0, exactly 1 (an isotropic solid) at 1, 2 where it opens and 4 at 3. Ge itself is 1.66 and GaAs 1.84. At 1 every caustic is gone and each branch is a round bloom that spreads as rings. At 1.2 the slow transverse branch draws a thin diamond, at 2 a lattice of diamonds with a bright cap at top and bottom and a lens between, at 3 the diamonds cross, and by 4 they open into fans. Below 1 the branches change places and the lines are arcs. The value also wanders: a random walk of about 14 s scales A - 1 by up to e^0.45 either way and adds 0.14, so the knob sets the middle of it, not the number.
+// Knob 3: Turn. Turns the crystal about the face normal, 100 degrees to a unit: at -1 and 1 the long axis of the star lies along the 64 columns and the panel's sides cut its lobes. A slow rocking of about 23 degrees (one sigma, 35 s) rides on it. The whole picture also wanders across the panel, up to 26 LEDs sideways and 15 up and down, and breathes in size by a third.
+// Knob 4: Gate. How wide the time gate is and how fast it sweeps, together. At 0 the gate holds 26 percent of the directions that land on the panel and a sweep takes 3.4 to 6 s; at -1 it holds 11 percent and a sweep takes 5.9 to 10.4 s, so each branch shows as thin shells of one arrival time; at 1 it holds 60 percent and a sweep takes 2 to 3.4 s, wide enough that a branch shows nearly whole.
 
 // What the picture is. A point heater on one face of a (110) cut of a cubic crystal sends phonons in every direction at once, and a detector on the opposite face reads where and when they land. A phonon's
-// energy goes along the group velocity, not along its wave vector, so equal steps in the direction of the wave vector land very unevenly on the detector. The map from wave-vector direction to detector position
-// folds over on itself, and the energy piles up on the folds as bright lines, the caustics. Here each of tens of thousands of wave-vector directions is pushed to the detector with weight one and splatted
-// into a 64 x 128 buffer, and the caustics appear by themselves wherever many directions land on the same LEDs. Nothing is drawn as a line. The arrival time of each direction is the thickness of the
-// crystal over the component of its group velocity along the normal, so the longitudinal branch lands first, then the fast transverse one, then the slow one, and a gate in arrival time sweeps through them.
-// A pulse fires at a random moment, the gate sweeps up from before the first longitudinal arrival to the end of the slow branch, and under it a faint sum of every direction at every time keeps the map readable.
-// What is modelled. The Christoffel equation for a cubic crystal, solved by an eigen decomposition for each direction: the three eigenvalues are the three branches (slow transverse, fast transverse,
-// longitudinal) and the group velocity is the gradient of each eigenvalue, from its eigenvector. With the stiffnesses in units of c44 the matrix is 1 + P diag(n^2) plus q on the off diagonals,
-// with P = c11/c44 - 1 and q = (c12 + c44)/c44, and the anisotropy A = 2/(P - q + 2). A isotropic at 1. The bulk modulus is held at Ge's, so P and q follow from A alone. The directions are a quarter of
-// a hemisphere in the crystal's own mirror planes (lab x along [001], y along [1 -1 0], z along [1 1 0]) and the other three quarters are mirrored copies. The solutions are tabulated in setup at 18 values of the
-// anisotropy, 0.25 apart in its log base 2, and each frame interpolates the landing point and the arrival time between them with a cubic, so the anisotropy can move smoothly. Turning the crystal
-// about the normal is a rotation of the landing points, which is exact.
-// What is not exact. There is no phonon amplitude, so every direction carries the same energy, and no finite size of the heater or the detector, no scattering, and no mode conversion. The three branches are
-// weighted by eye, 0.75 for the longitudinal one that heat pulses couple weakly to, 1.0 and 1.15 for the transverse ones, and the gate's width and the sweep's speed are chosen for the panel. The elastic
-// constants run through a range no single crystal has, from 0.5 to 3.9 in the ratio A.
+// energy goes along the group velocity, not along its wave vector, so equal steps in the direction of the wave vector land very unevenly on the detector. The map from wave-vector direction to detector
+// position folds over on itself, and the energy piles up on the folds as bright lines, the caustics. Here 56 000 wave-vector directions are pushed to the detector, each with weight one, and splatted into
+// a 64 x 128 buffer; the caustics appear by themselves where many land on the same LEDs. Nothing is drawn as a line. A direction's arrival time is the thickness of the crystal over the part of its group
+// velocity along the normal, so the longitudinal branch lands first, then the fast transverse one, then the slow one, and the gate picks the directions arriving near one moment. Up to four pulses are
+// in flight, each started at a random moment, and under them a faint sum of every direction at every time keeps the whole map readable.
+// What is modelled. The Christoffel equation for a cubic crystal, solved for each direction by Jacobi rotations: the three eigenvalues are the three branches (slow transverse, fast transverse,
+// longitudinal) and the group velocity is the gradient of each, from its eigenvector. In units of c44 the matrix is 1 + P diag(n^2) with q on the off diagonals, P = c11/c44 - 1, q = (c12 + c44)/c44
+// and A = 2/(P - q + 2), so the bulk modulus fixes P and q from A alone. The directions are a quarter of the hemisphere in the (110) cut's own mirror planes (lab x along [001], y along [1 -1 0], z along
+// [1 1 0]) and the other three quarters are mirror copies. The landing points and arrival times are tabulated in setup at 18 values of A, 0.25 apart in log base 2, and each frame interpolates between
+// them with a cubic, so A can move smoothly. Turning the crystal about the normal is a rotation of the landing points, which is exact.
+// What is not exact. Every direction carries the same energy: no phonon amplitude, no finite heater or detector, no scattering, no conversion between branches. The branches are weighted by eye, 1.15
+// for the slow transverse, 1 for the fast transverse and 0.75 for the longitudinal one. The gate runs through the share of the energy that has arrived, not through raw time, so the empty stretches
+// between the branches are skipped. Each pulse gets its own width, speed, branch weights, size (a third either way), heater spot (5 LEDs) and small turn (17 degrees at most), which no one crystal would
+// give, and an exposure control holds the mean brightness. A runs from 0.45 to 5.4, further than any one crystal goes.
 
 const W = 64, H = 128;
 const PADM = 5, PW = W + 2 * PADM, PH = H + 2 * PADM; // the buffer the splats go into, with a margin so the edge needs no test
@@ -51,7 +51,7 @@ const NPULSE = 4; // pulses in flight at once, at most
 const PANX = 26, PANY = 15; // the heater spot wanders across the face, and the picture with it, by about this many LEDs at most
 const NG = 41; // the grid of shares g the arrival-time quantiles are kept on
 
-// the eigen decomposition of a symmetric 3 x 3 matrix by Jacobi rotations, eigenvalues in ascending order
+// the eigen decomposition of a symmetric 3 x 3 matrix by Jacobi rotations, into JE: for each eigenvalue, smallest first, it and its eigenvector
 const JA = new Float64Array(9), JV = new Float64Array(9), JE = new Float64Array(12);
 function eig3(a11, a22, a33, a12, a13, a23) {
   JA[0] = a11; JA[1] = a12; JA[2] = a13; JA[3] = a12; JA[4] = a22; JA[5] = a23; JA[6] = a13; JA[7] = a23; JA[8] = a33;
@@ -82,15 +82,12 @@ function eig3(a11, a22, a33, a12, a13, a23) {
         }
       }
   }
-  let i0 = 0, i1 = 1, i2 = 2;
-  const e0 = JA[0], e1 = JA[4], e2 = JA[8];
-  let lo = e0, mid = e1, hi = e2;
-  if (lo > mid) { const t = lo; lo = mid; mid = t; i0 = 1; i1 = 0; }
-  if (mid > hi) { const t = mid; mid = hi; hi = t; const u = i1; i1 = i2; i2 = u; }
-  if (lo > mid) { const t = lo; lo = mid; mid = t; const u = i0; i0 = i1; i1 = u; }
-  const ids = [i0, i1, i2];
+  let i0 = 0, i1 = 1, i2 = 2, t;
+  if (JA[4 * i0] > JA[4 * i1]) { t = i0; i0 = i1; i1 = t; }
+  if (JA[4 * i1] > JA[4 * i2]) { t = i1; i1 = i2; i2 = t; }
+  if (JA[4 * i0] > JA[4 * i1]) { t = i0; i0 = i1; i1 = t; }
   for (let b = 0; b < 3; b++) {
-    const i = ids[b];
+    const i = b === 0 ? i0 : b === 1 ? i1 : i2;
     JE[b * 4] = JA[i * 4];
     JE[b * 4 + 1] = JV[i];
     JE[b * 4 + 2] = JV[3 + i];
@@ -123,8 +120,8 @@ function buildTables() {
   const dx = new Float64Array(NQ), dy = new Float64Array(NQ), dz = new Float64Array(NQ);
   for (let i = 0; i < NQ; i++) {
     // a Fibonacci lattice, uniform in solid angle, folded into the quadrant, a little jittered
-    const nz = 1 - ((i + 0.5 + 0.35 * (rnd() - 0.5)) / NQ) * (1 - NZMIN);
-    const f = (i * GA + 0.004 * (rnd() - 0.5)) % 1;
+    const nz = 1 - ((i + rnd()) / NQ) * (1 - NZMIN);
+    const f = (i * GA + 0.012 * (rnd() - 0.5)) % 1;
     const ph = cl((f < 0 ? f + 1 : f) * (PI / 2), 0.003, PI / 2 - 0.003);
     const r = sqrt(1 - nz * nz);
     dx[i] = r * cos(ph); dy[i] = r * sin(ph); dz[i] = nz;
@@ -173,10 +170,10 @@ function buildTables() {
   return { tab, keep, qt };
 }
 
-// ---- the colour ramp, black through indigo, purple, crimson and orange to white-hot, with the hue turned by K1
+// ---- the colour ramps
 const TARGET = 0.26; // the mean of 1 - exp(-a) over the panel that the exposure aims for
-const PN = 1024, PEXP = 128; // the lookup is indexed by the accumulated brightness a, in 1/128 steps; the ramp is 1 - exp(-a)
-// four ramps from dark to white-hot, one for each third of the hue knob's way, from 0 to 1, with the knob blending the two nearest; each is a hue, a saturation and a value at nine brightnesses of 1 - exp(-a)
+const PN = 1024, PEXP = 128; // the colour lookup is indexed by the accumulated brightness a in 1/128 steps, and the ramps are laid along 1 - exp(-a)
+// four ramps for the hue knob at 0, 1/3, 2/3 and 1, the two nearest blended: a hue and saturation at the nine brightnesses of STOPS, the value in VAL
 const STOPS = [0.0, 0.05, 0.16, 0.32, 0.48, 0.62, 0.76, 0.88, 1.0];
 const VAL = [0.0, 0.22, 0.55, 0.82, 0.96, 1.0, 1.0, 1.0, 1.0];
 const RAMPS = [
@@ -226,7 +223,7 @@ export function setup(params) {
   const { tab, keep, qt } = buildTables();
   params.s = {
     tab, keep, qt, qf: new Float64Array(NG),
-    acc: new Float32Array(PW * PH), tmp: new Float32Array(PW * PH),
+    acc: new Float32Array(PW * PH), tmp: new Float32Array(PW * PH), accU: new Float32Array(PW * PH), tmpU: new Float32Array(PW * PH), tmpV: new Float32Array(PW * PH),
     idx: new Uint16Array(W * H),
     pal: new Uint8Array(PN * 3), palHue: -9,
     pulses: [], act: new Float64Array(NPULSE * 8), gap: 0, started: false,
@@ -253,12 +250,12 @@ function cubic(u) {
 }
 
 const BW = [1.15, 1.0, 0.75]; // branch weights, slow transverse first: see the header
-const pw = new Float64Array(NPULSE);
+const pw = new Float64Array(NPULSE), pcs = new Float64Array(NPULSE), psn = new Float64Array(NPULSE);
 function newPulse(ph) {
   const g = gauss();
   return {
     ph, rate: 1 / (3.4 + 2.6 * rnd()), wf: exp(cl(0.35 * gauss(), -0.6, 0.6)), amp: 0.85 + 0.3 * rnd(),
-    ox: cl(2 * gauss(), -5, 5), oy: cl(2 * gauss(), -5, 5),
+    ox: cl(2 * gauss(), -5, 5), oy: cl(2 * gauss(), -5, 5), zm: exp(cl(0.22 * gauss(), -0.4, 0.4)), dphi: cl(0.15 * gauss(), -0.3, 0.3),
     bw: [exp(cl(0.5 * g, -0.9, 0.7)), exp(cl(0.5 * gauss(), -0.9, 0.7)), exp(cl(0.6 * gauss(), -1.2, 0.5))],
   };
 }
@@ -304,6 +301,8 @@ export function update(dt, input, params) {
     qf[i] = c0 * qt[(s0 - 1) * NG + i] + c1 * qt[s0 * NG + i] + c2 * qt[(s0 + 1) * NG + i] + c3 * qt[(s0 + 2) * NG + i];
   const wf = pow(2, 1.2 * S.gate), sp = pow(2, 0.8 * S.gate);
 
+  const zm = exp(cl(S.dz, -0.3, 0.3)); // the scan window's size
+
   // pulses: a gate sweeping up through the arrival times, fired at random moments, each with a heater spot, a width, a speed and branch weights of its own
   const first = !S.started;
   if (!S.started) {
@@ -332,12 +331,14 @@ export function update(dt, input, params) {
     act[o] = tc; act[o + 1] = 1 / max(tc - tlo, 0.004); act[o + 2] = 1 / max(thi - tc, 0.004);
     act[o + 3] = fade * p.bw[0]; act[o + 4] = fade * p.bw[1]; act[o + 5] = fade * p.bw[2];
     act[o + 6] = p.ox; act[o + 7] = p.oy;
+    pcs[NA - 1] = zm * p.zm * cos(S.phi + p.dphi); psn[NA - 1] = zm * p.zm * sin(S.phi + p.dphi);
   }
 
   // splat
-  const acc = S.acc;
+  const acc = S.acc, accU = S.accU;
   acc.fill(0);
-  const zm = exp(cl(S.dz, -0.3, 0.3)), cph = zm * cos(S.phi), sph = zm * sin(S.phi);
+  accU.fill(0);
+  const cph = zm * cos(S.phi), sph = zm * sin(S.phi);
   const bx = W / 2 + PADM, by = H / 2 + PADM;
   const ox = bx + PANX * tanh(S.hx / PANX), oy = by + PANY * tanh(S.hy / PANY);
   const base = 0.007;
@@ -362,17 +363,17 @@ export function update(dt, input, params) {
       const y = c0 * tab[o + 1] + c1 * tab[o + 4] + c2 * tab[o + 7] + c3 * tab[o + 10];
       const xr = cph * x, xs = sph * x, yr = cph * y, ys = sph * y;
       if (wbase > 0) {
-        splat(acc, ox + xr - ys, oy + xs + yr, wbase);
-        splat(acc, ox - xr - ys, oy - xs + yr, wbase);
-        splat(acc, ox + xr + ys, oy + xs - yr, wbase);
-        splat(acc, ox - xr + ys, oy - xs - yr, wbase);
+        splat(accU, ox + xr - ys, oy + xs + yr, wbase);
+        splat(accU, ox - xr - ys, oy - xs + yr, wbase);
+        splat(accU, ox + xr + ys, oy + xs - yr, wbase);
+        splat(accU, ox - xr + ys, oy - xs - yr, wbase);
       }
       if (pass)
         for (let a = 0; a < NA; a++) {
           const w = pw[a] * wb;
           if (w === 0) continue;
           const px = ox + act[a * 8 + 6], py = oy + act[a * 8 + 7];
-          const ar = xr, as = xs, br = yr, bs = ys;
+          const cp = pcs[a], sp2 = psn[a], ar = cp * x, as = sp2 * x, br = cp * y, bs = sp2 * y;
           splat(acc, px + ar - bs, py + as + br, w);
           splat(acc, px - ar - bs, py - as + br, w);
           splat(acc, px + ar + bs, py + as - br, w);
@@ -381,13 +382,25 @@ export function update(dt, input, params) {
     }
   }
 
-  // blur, then colour
-  const tmp = S.tmp;
+  // blur, then colour: the underlay is sparser than the pulses, so it is blurred twice as far
+  const tmp = S.tmp, tmpU = S.tmpU, tmpV = S.tmpV;
+  for (let y = PADM - 4; y < PADM + H + 4; y++) {
+    const r = y * PW;
+    for (let x = PADM - 2; x < PADM + W + 2; x++) {
+      const i = r + x;
+      tmpV[i] = (accU[i - 2] + 2 * accU[i - 1] + 3 * accU[i] + 2 * accU[i + 1] + accU[i + 2]) * (1 / 9);
+    }
+    for (let x = PADM; x < PADM + W; x++) {
+      const i = r + x;
+      tmpU[i] = (tmpV[i - 2] + 2 * tmpV[i - 1] + 3 * tmpV[i] + 2 * tmpV[i + 1] + tmpV[i + 2]) * (1 / 9);
+    }
+  }
   for (let y = PADM - 2; y < PADM + H + 2; y++) {
     const r = y * PW;
     for (let x = PADM; x < PADM + W; x++) {
       const i = r + x;
       tmp[i] = (acc[i - 2] + 2 * acc[i - 1] + 3 * acc[i] + 2 * acc[i + 1] + acc[i + 2]) * (1 / 9);
+      tmpV[i] = (tmpU[i - 2 * PW] + 2 * tmpU[i - PW] + 3 * tmpU[i] + 2 * tmpU[i + PW] + tmpU[i + 2 * PW]) * (1 / 9);
     }
   }
   // the exposure follows the mean brightness the panel would show, so a pulse's quiet moments are not dim ones: the first frame settles it at once
@@ -400,7 +413,7 @@ export function update(dt, input, params) {
       const r = (y + PADM) * PW + PADM;
       for (let x = 0; x < W; x++) {
         const i = r + x;
-        const v = (tmp[i - 2 * PW] + 2 * tmp[i - PW] + 3 * tmp[i] + 2 * tmp[i + PW] + tmp[i + 2 * PW]) * (1 / 9);
+        const v = (tmp[i - 2 * PW] + 2 * tmp[i - PW] + 3 * tmp[i] + 2 * tmp[i + PW] + tmp[i + 2 * PW]) * (1 / 9) + (tmpV[i - 2 * PW] + 2 * tmpV[i - PW] + 3 * tmpV[i] + 2 * tmpV[i + PW] + tmpV[i + 2 * PW]) * (1 / 9);
         const q = (v * gain) | 0;
         const qq = q > PN - 1 ? PN - 1 : q;
         idx[o2++] = qq;
