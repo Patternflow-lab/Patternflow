@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=1..3, Hole=-1..1, Defect=0..1
 //
-// Knob 1: Hue. Adds the knob to the hue of every colour, one turn over the range. At 0 the ground is deep blue, the fronts pale cyan, the squeezed grid gold and the hole violet-black; at 0.12 an indigo ground with lime lines, at 0.4 crimson with cyan. The ground and the hole skip the warm middle of the wheel, where a dim colour reads brown.
+// Knob 1: Hue. Adds the knob to the hue of the fronts, the grid lines and the ring, one turn over the range, while the ground, the shadow and the hole keep the luminance they open with in every hue. At 0 the ground is deep blue, the fronts pale cyan, the squeezed grid gold and the hole violet-black; at 0.25 a dark wine ground with pink fronts and green lines; at 0.5 dark green with coral fronts and blue lines; at 0.75 dark teal with pale green fronts and magenta lines. The ground's hue jumps from crimson to green within 0.03 of the knob near 0.4 and skips orange and yellow, where a dim colour reads brown.
 // Knob 2: Speed. How fast the fronts run, 8 LEDs a second per unit of the knob: 8 at 1, 16 at the opening 2 where a front passes every 1.1 s, 24 at 3. The wavelength drifts between 14.1 and 20.9 LEDs, the second wave's a little longer, and the direction turns, whatever the knob says.
 // Knob 3: Hole. The mean size of the hole as a share of the cloak, a/b = 0.16 at -1, 0.44 at 0 and 0.72 at 1, so the big cloak's hole is 3.4, 9.2 or 15 LEDs in radius, and each hole breathes 0.17 either way at most. A small hole leaves the ring wide and the grid a net with the cells hardly bent; a large one squeezes the ring thin, where the grid thins out and the fronts fade, since the panel cannot draw fronts closer than 4 LEDs.
 // Knob 4: Defect. How far each cloak is from perfect, as (K4 to the 1.4) of the way to a bare opaque disc of radius b: the exact map up to 0.1, a ring at 0.39 of its brightness and a wake of Fresnel fringes at 0.5, a dark disc with a shadow 42 LEDs wide that opens out behind it at 1.
@@ -53,18 +53,38 @@ function tint(c, off, o) {
   o[2] *= 255;
 }
 
-// The same for the dim colours, which would go brown at orange: their hue
-// jumps from rose to green over a short stretch of the knob and skips the
-// warm middle.
-function tintDim(c, off, o) {
-  toHsv(c[0], c[1], c[2], tmp);
-  let h = tmp[0] + off;
-  h -= floor(h + 0.04);
-  if (h < 0.26) h = -0.04 + 0.3 * sm((h - 0.03) / 0.1);
-  hsv(h, tmp[1], tmp[2], o);
-  o[0] *= 255;
-  o[1] *= 255;
-  o[2] *= 255;
+// The dim colours (the ground, the shadow, the hole, the grid outside the
+// cloaks) keep one luminance whatever the knob says, so every hue is a dark
+// ground under bright lines and green never glares against blue. The hue goes
+// from crimson to a spring green over a 0.025 stretch of the knob and skips
+// the warm middle, where a dim colour reads brown or olive.
+const lin = (c) => {
+  const L = c / 2.55;
+  return L > 8 ? ((L + 16) / 116) ** 3 : L / 903.3;
+};
+const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+function dimHue(h) {
+  let u = h - floor(h);
+  if (u < 0.36) u += 1;
+  return u <= 0.97 ? u : 0.97 + 0.39 * sm((u - 1.03) / 0.025);
+}
+function greenness(h) {
+  const d = abs(h - 0.4), x = min(d, 1 - d) / 0.16;
+  return exp(-x * x);
+}
+// the colour of hue h and saturation sat whose luminance is Y, 0..255 per channel
+function tone(h, sat, Y, o) {
+  hsv(h, sat, 1, o);
+  const r = o[0], g = o[1], b = o[2];
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 14; i++) {
+    const m = (lo + hi) / 2;
+    if (lum(r * m * 255, g * m * 255, b * m * 255) < Y) lo = m;
+    else hi = m;
+  }
+  o[0] = r * hi * 255;
+  o[1] = g * hi * 255;
+  o[2] = b * hi * 255;
 }
 
 // Fresnel integrals C and S by a rational fit, within 0.002 of the integral
@@ -104,7 +124,8 @@ export function setup(params) {
   };
 }
 
-const DIM = [1, 1, 0, 0, 0, 1, 0, 1, 0];
+const DIM = [1, 1, 0, 1, 0, 1, 0, 1, 1];
+const LINES = [0, 0, 0, 1, 0, 0, 0, 0, 1];
 const BASE = [
   [3, 14, 64],    // 0 ground, lit
   [2, 6, 28],     // 1 ground, in shadow
@@ -116,6 +137,11 @@ const BASE = [
   [40, 12, 80],   // 7 what glows in it
   [44, 150, 255], // 8 cross lines outside
 ];
+// hue, saturation and luminance of each dim colour
+const DIMP = BASE.map((c) => {
+  toHsv(c[0], c[1], c[2], tmp);
+  return [tmp[0], tmp[1], lum(c[0], c[1], c[2])];
+});
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
@@ -158,7 +184,23 @@ export function update(dt, input, params) {
   c1.k = 1 / (1 - q1);
   c2.a = q2 * c2.b;
   c2.k = 1 / (1 - q2);
-  for (let i = 0; i < BASE.length; i++) (DIM[i] ? tintDim : tint)(BASE[i], k[0], S.pal[i]);
+  for (let i = 0; i < BASE.length; i++) {
+    if (DIM[i]) {
+      // the grid outside the cloaks stays at its blue luminance only near blue,
+      // where it is the least glaring, and is dimmer in every other hue
+      const hw = dimHue(DIMP[i][0] + k[0]), dh = abs(hw - DIMP[i][0]), x = min(dh, 1 - dh) / 0.13;
+      // a green ground at a blue ground's luminance reads as black, so it gets a little more
+      const gb = i < 2 ? (1 + 1.3 * greenness(hw)) / (1 + 1.3 * greenness(DIMP[i][0])) : 1;
+      tone(hw, DIMP[i][1], DIMP[i][2] * gb * (LINES[i] ? 0.3 + 0.7 * exp(-x * x) : 1), S.pal[i]);
+    } else if (i === 2) {
+      // the fronts take more saturation in the warm hues, where a pale colour reads tan
+      const h = DIMP[i][0] + k[0], dh = abs(h - floor(h) - 0.1), x = min(dh, 1 - dh) / 0.14;
+      hsv(h, DIMP[i][1] + 0.32 * exp(-x * x), 1, S.pal[i]);
+      S.pal[i][0] *= 255;
+      S.pal[i][1] *= 255;
+      S.pal[i][2] *= 255;
+    } else tint(BASE[i], k[0], S.pal[i]);
+  }
   // what glows in each hole drifts about in it
   S.gx = 0.45 * cos(0.61 * T + 1) + 0.2 * cos(0.37 * T);
   S.gy = 0.45 * sin(0.53 * T + 2) + 0.2 * sin(0.29 * T + 1);
