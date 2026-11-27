@@ -14,7 +14,7 @@
 // Knob 1: Hue. Four colour ramps from black to white-hot, blended as the knob passes between them. At 0 it is indigo, purple, crimson, orange, white; at 1/3 violet, magenta, pink, peach, white; at 2/3 navy, blue, cyan, aqua, white; at 1 teal, green, lime, pale yellow. The dark end is always blue or teal, so no turn of the knob makes the background brown.
 // Knob 2: Anisotropy. The ratio A = 2 c44 / (c11 - c12) the whole picture turns on, with the bulk modulus held at Ge's: 0.5 at 0, exactly 1 (an isotropic solid) at 1, 2 where it opens and 4 at 3. Ge itself is 1.66 and GaAs 1.84. At 1 every caustic is gone and each branch is a round bloom that spreads as rings. At 1.2 the slow transverse branch draws a thin diamond, at 2 a lattice of diamonds with a bright cap at top and bottom and a lens between, at 3 the diamonds cross, and by 4 they open into fans. Below 1 the branches change places and the lines are arcs. The value also wanders: a random walk of about 14 s scales A - 1 by up to e^0.45 either way and adds 0.14, so the knob sets the middle of it, not the number.
 // Knob 3: Turn. Turns the crystal about the face normal, 100 degrees to a unit: at -1 and 1 the long axis of the star lies along the 64 columns and the panel's sides cut its lobes. A slow rocking of about 23 degrees (one sigma, 35 s) rides on it. The whole picture also wanders across the panel, up to 26 LEDs sideways and 15 up and down, and breathes in size by a third.
-// Knob 4: Gate. How wide the time gate is and how fast it sweeps, together. At 0 the gate holds 26 percent of the directions that land on the panel and a sweep takes 3.4 to 6 s; at -1 it holds 11 percent and a sweep takes 5.9 to 10.4 s, so each branch shows as thin shells of one arrival time; at 1 it holds 60 percent and a sweep takes 2 to 3.4 s, wide enough that a branch shows nearly whole.
+// Knob 4: Gate. How wide the time gate is and how fast it sweeps, together. At 0 the gate holds 26 percent of the directions that land on the panel and a sweep takes 3.4 to 6 s; at -1 it holds 11 percent and a sweep takes 5.9 to 10.4 s, so each branch shows as thin shells of one arrival time; at 1 it holds 45 percent and a sweep takes 2 to 3.4 s, wide enough that a branch shows nearly whole.
 
 // What the picture is. A point heater on one face of a (110) cut of a cubic crystal sends phonons in every direction at once, and a detector on the opposite face reads where and when they land. A phonon's
 // energy goes along the group velocity, not along its wave vector, so equal steps in the direction of the wave vector land very unevenly on the detector. The map from wave-vector direction to detector
@@ -33,8 +33,8 @@
 // give, and an exposure control holds the mean brightness. A runs from 0.45 to 5.4, further than any one crystal goes.
 
 const W = 64, H = 128;
-const PADM = 5, PW = W + 2 * PADM, PH = H + 2 * PADM; // the buffer the splats go into, with a margin so the edge needs no test
-const { floor, sqrt, exp, sin, cos, abs, min, max, PI, pow, log, tanh } = Math;
+const PADM = 5, PW = W + 2 * PADM, PH = H + 2 * PADM; // the splat buffer has a margin, so the edge needs no test
+const { floor, sqrt, exp, sin, cos, abs, min, max, PI, pow, log, tanh, round } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.732;
@@ -43,12 +43,12 @@ const R2 = Math.SQRT1_2;
 // ---- the physics
 const BULK = 75.2 / 67.1; // (c11 + 2 c12) / (3 c44) for Ge, held while the anisotropy moves
 const SC = 50; // LEDs per unit of x/L on the detector
-const L2A0 = -1.5, DL = 0.25, NS = 18; // stops of log2 A: -1.5, -1.25 ... 2.75; the cubic needs one on either side, so A runs from 2^-1.25 to 2^2.5
-const NQ = 14000, NZMIN = 0.1; // directions in a quarter of the hemisphere, from the normal down to cos 84 degrees
+const L2A0 = -1.5, DL = 0.25, NS = 18; // stops of log2 A from -1.5 to 2.75; the cubic needs one either side, so A runs 2^-1.25 to 2^2.5
+const NQ = 14000, NZMIN = 0.1; // directions in a quarter hemisphere, down to cos 84 degrees from the normal
 const RKEEP = 84; // a direction that never lands within this many LEDs of the middle is dropped
 const TCAP = 8, XCAP = 500;
 const NPULSE = 4; // pulses in flight at once, at most
-const PANX = 26, PANY = 15; // the heater spot wanders across the face, and the picture with it, by about this many LEDs at most
+const PANX = 26, PANY = 15; // how far the heater spot, and the picture, may wander, in LEDs
 const NG = 41; // the grid of shares g the arrival-time quantiles are kept on
 
 // the eigen decomposition of a symmetric 3 x 3 matrix by Jacobi rotations, into JE: for each eigenvalue, smallest first, it and its eigenvector
@@ -96,7 +96,7 @@ function eig3(a11, a22, a33, a12, a13, a23) {
 }
 
 const VG = new Float64Array(9);
-// group velocity of each branch for the unit wave vector (n1, n2, n3) in the crystal's own axes, in units of the square root of c44 over the density
+// group velocity of each branch for the unit wave vector n in the crystal's axes, in units of sqrt(c44 / density)
 function groupVelocity(P, q, n1, n2, n3) {
   const p1 = P + 1;
   eig3(1 + P * n1 * n1, 1 + P * n2 * n2, 1 + P * n3 * n3, q * n1 * n2, q * n1 * n3, q * n2 * n3);
@@ -114,12 +114,12 @@ function groupVelocity(P, q, n1, n2, n3) {
   }
 }
 
-// ---- the tables: for each direction in the quarter, each branch and each stop of the anisotropy, where the direction lands (LEDs from the middle) and when
+// ---- the tables: where (LEDs from the middle) and when each direction lands, for each branch and each stop of A
 function buildTables() {
   const GA = 0.6180339887498949;
   const dx = new Float64Array(NQ), dy = new Float64Array(NQ), dz = new Float64Array(NQ);
   for (let i = 0; i < NQ; i++) {
-    // a Fibonacci lattice, uniform in solid angle, folded into the quadrant, a little jittered
+    // a jittered Fibonacci lattice, uniform in solid angle, folded into the quadrant
     const nz = 1 - ((i + rnd()) / NQ) * (1 - NZMIN);
     const f = (i * GA + 0.012 * (rnd() - 0.5)) % 1;
     const ph = cl((f < 0 ? f + 1 : f) * (PI / 2), 0.003, PI / 2 - 0.003);
@@ -153,7 +153,7 @@ function buildTables() {
     for (let k = 0; k < NQ; k++) if (near[k * 3 + b]) l.push(k);
     return Int32Array.from(l);
   });
-  // when the energy lands: for each stop, the arrival time below which a share g of the directions that land on the panel have arrived
+  // for each stop, the arrival time by which a share g of the directions landing on the panel have arrived
   const qt = new Float32Array(NS * NG);
   for (let s = 0; s < NS; s++) {
     const ts = [];
@@ -231,7 +231,7 @@ export function setup(params) {
   };
 }
 
-// the arrival time at which a share g of the energy has landed, between the grid's points, carried on past its ends at the slope they have
+// the arrival time by which a share g has landed, between the grid's points and carried on past its ends
 function quant(qf, g) {
   const x = g * (NG - 1);
   if (x <= 0) return qf[0] + x * (qf[1] - qf[0]);
@@ -269,7 +269,7 @@ export function update(dt, input, params) {
   const hue = cl(kn[0], 0, 1);
   if (hue !== S.palHue) { buildPalette(S.pal, hue); S.palHue = hue; }
 
-  // the knobs and the slow drifts: the anisotropy wanders as a share of how far the knob has taken it from isotropic, and a little beside it
+  // the knobs and the slow drifts: A - 1 wanders as a share of itself, so isotropic stays isotropic, and a little besides
   const adt = d / 14, bdt = d / 22, rdt = d / 35, hdt = d / 14;
   S.dla += -S.dla * adt + 0.9 * sqrt(2 * adt) * gauss();
   S.dlb += -S.dlb * bdt + 0.14 * sqrt(2 * bdt) * gauss();
@@ -299,11 +299,11 @@ export function update(dt, input, params) {
   const qf = S.qf, qt = S.qt;
   for (let i = 0; i < NG; i++)
     qf[i] = c0 * qt[(s0 - 1) * NG + i] + c1 * qt[s0 * NG + i] + c2 * qt[(s0 + 1) * NG + i] + c3 * qt[(s0 + 2) * NG + i];
-  const wf = pow(2, 1.2 * S.gate), sp = pow(2, 0.8 * S.gate);
+  const wf = pow(2, (S.gate < 0 ? 1.2 : 0.8) * S.gate), sp = pow(2, 0.8 * S.gate);
 
-  const zm = exp(cl(S.dz, -0.3, 0.3)); // the scan window's size
+  const sphi = sin(S.phi), zm = exp(cl(S.dz, -0.3, 0.3)) * (1 - 0.22 * sphi * sphi); // the scan window's size, a little smaller as the star turns across the panel
 
-  // pulses: a gate sweeping up through the arrival times, fired at random moments, each with a heater spot, a width, a speed and branch weights of its own
+  // pulses: a gate sweeping up through the arrival times, fired at random moments, each with its own spot, width, speed and branch weights
   const first = !S.started;
   if (!S.started) {
     S.started = true;
@@ -313,7 +313,7 @@ export function update(dt, input, params) {
   S.gap -= d * sp;
   let live = 0;
   for (const p of S.pulses) if (p.ph > 0.05 && p.ph < 0.92) live++;
-  if ((S.gap <= 0 || live === 0) && S.pulses.length < NPULSE) {
+  if ((S.gap <= 0 || live === 0) && S.pulses.length < min(NPULSE, round(NPULSE / (0.5 + 0.5 * wf)))) { // a wide gate leaves less room for others
     S.pulses.push(newPulse(rnd() < 0.35 ? 0.12 + 0.3 * rnd() : 0));
     S.gap = 0.4 + 1.6 * rnd() * rnd() + 0.6 * rnd();
   }
@@ -403,8 +403,8 @@ export function update(dt, input, params) {
       tmpV[i] = (tmpU[i - 2 * PW] + 2 * tmpU[i - PW] + 3 * tmpU[i] + 2 * tmpU[i + PW] + tmpU[i + 2 * PW]) * (1 / 9);
     }
   }
-  // the exposure follows the mean brightness the panel would show, so a pulse's quiet moments are not dim ones: the first frame settles it at once
-  const idx = S.idx, target = TARGET * (0.7 + 0.3 * min(1.3, wf)); // a thin gate shows thin lines, which would be blown up to blobs to reach the same mean
+  // the exposure follows the mean brightness the panel would show, and the first frame settles it at once
+  const idx = S.idx, target = TARGET * (0.7 + 0.3 * min(1.3, wf)); // thin lines would be blown up to blobs to reach the same mean
   const rounds = first ? 6 : 1;
   for (let round = 0; round < rounds; round++) {
     const gain = S.ag * PEXP;
