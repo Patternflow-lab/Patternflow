@@ -1,31 +1,31 @@
 // ===== Patternflow pattern =====
 // Title:   Quasispecies
 // Family:  quasispecies
-// Idea:    Eigen's quasispecies equation solved for all 2,048 genomes of 11 bits, one to a 2 by 2 block of the panel through a Gray-code map, so a master sequence and its mutants glow as a self-similar cross of halos that melts into a flat haze when the mutation rate passes the error threshold, takes a one-bit step every few seconds and every half minute or so leaves for a genome far across the hypercube, where its cloud has to grow out of nothing.
+// Idea:    Eigen's quasispecies equation solved for all 2,048 genomes of 11 bits, one to a 2 by 2 block of the panel through a Gray-code map, so four peaks and their mutants glow as crosses of halos that each take a one-bit step every few seconds, swell and shrink with the mutation rate, melt into a haze past the error threshold, and now and then leave for a genome far across the hypercube, where the cloud has to grow out of nothing.
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the quasispecies equation and its error threshold (Manfred Eigen, 1971), the reflected binary Gray code (Frank Gray, 1953), Hamming distance (Richard Hamming, 1950), all from memory. The map of the 11-cube onto the panel, the walking peak, the jumps and the colours are original, pattern round 270.
+// Lineage: the quasispecies equation and its error threshold (Manfred Eigen, 1971), the reflected binary Gray code (Frank Gray, 1953), Hamming distance (Richard Hamming, 1950), all from memory. The map of the 11-cube onto the panel, the walking peaks, the jumps and the colours are original, pattern round 270.
 // Round:   270
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Mutation=0..4, Selection=-1..1, Peaks=1..7
+// @knobs Hue=0..1, Mutation=0..4, Selection=-1..1, Peaks=-1..1
 //
-// Knob 1: Hue. Where the palette starts: the master is amber-white at 0 with the halos turning through red and magenta to indigo as they get further from it, green at 0.25, blue at 0.5 and violet at 0.75, while the ground behind stays in the blues (teal to magenta). The palette also creeps on by 0.0012 of a turn a second, once round in about fourteen minutes, so the knob sets where it is and not where it stays.
-// Knob 2: Mutation. The mutation rate, as the mean number of bit flips per genome per generation, mu times 11: 0.25 at 0, 0.5 at 1, 1.0 where it opens, 2.0 at 3 and 4.0 at 4. The rate breathes round that setting by up to two octaves either way, on periods of 53, 22 and 9 s, so it spends 80 percent of its time within 0.45 to 2.3 times the setting. With selection at 10 the error threshold sits at 2.2: below it a crisp cross of 1-, 2- and 3-flip halos, near it a woven mesh over the whole panel, above it the cloud melts to a violet haze with a faint warm imprint of the master. Where it opens, over 900 s, the haze is full for 6 percent of the time and the cloud is more than half melted for 12 percent.
-// Knob 3: Selection. How much fitter the master is than every other genome, sigma = 10 times 6 to the power of the knob: 1.7 at -1, 4.1 at -0.5, 10 at 0, 24 at 0.5 and 60 at 1. The error threshold moves with it, measured at mu L = 0.59, 1.47, 2.2, 2.8 and 3.4, so a high value keeps a sharp cross standing through mutation rates that melt a low one, and at -1 the opening mutation rate is already past the threshold and the panel is mostly haze.
-// Knob 4: Peaks. How many peaks the landscape has, 1 to 7. Each extra peak sits 3 to 9 flips from the others and carries its own cross of halos in the same palette. Their heights agree to within 6 percent before the dips, and each dips by 10 to 18 percent on a period of its own, 37 to 97 s, so which cloud holds the most population trades places over a minute or two. At 1 the panel holds one lattice, at 4 four crosses overlap into a mesh, and at 7 it is a dense field of cores.
+// Knob 1: Hue. Where the palette of the cloud starts: the core is amber-white at 0 with the halos turning through red and magenta to indigo as they get further from it, teal-green at 0.25, blue at 0.5 and magenta at 0.75. The ground behind and the haze stay in the blue-violets, 0.64 to 0.76 of the wheel, at every setting, so only the cloud changes colour.
+// Knob 2: Mutation. The mutation rate, as the mean number of bit flips per genome per generation, mu times 11: 0.25 at 0, 0.5 at 1, 1.0 where it opens, 2.0 at 3 and 4.0 at 4. The rate breathes round that setting by up to two octaves on periods of 53, 22, 9 and 5 s, so every halo swells and shrinks, and it spends 80 percent of its time within 0.49 to 2.0 times the setting. With selection at 10 the error threshold sits at 2.2: below it a crisp cross of 1-, 2- and 3-flip halos, near it a woven mesh over the whole panel, above it the cloud melts to a violet haze with a faint warm imprint of the peaks. Where it opens, over 900 s, the haze is full for 2 percent of the time and the cloud is more than half melted for 6 percent.
+// Knob 3: Selection. How much fitter a peak is than every other genome, sigma = 10 times 4 to the power of the knob: 2.5 at -1, 5 at -0.5, 10 at 0, 20 at 0.5 and 40 at 1. The error threshold moves with it, measured at mu L = 1.0, 1.6, 2.2, 2.7 and 3.1, so a high value keeps sharp crosses standing through mutation rates that melt a low one, and at -1 the opening mutation rate is past the threshold for a part of every breath.
+// Knob 4: Peaks. How many peaks the landscape has, 4 plus 3 times the knob, from 1 at -1 to 7 at 1, and 4 where it opens. Each peak carries its own cross of halos in the same palette and sits 3 to 9 flips from the others. Their heights agree to within 6 percent before the dips, and each dips by 10 to 18 percent on a period of its own, 37 to 97 s, so which cloud holds the most population trades places over a minute or two. At -1 the panel holds one lattice, at 0 four crosses stand about a hand apart, and at 1 it is a dense field of cores.
 //
-// What the picture is. Every one of the 2^11 = 2,048 bit strings of length 11 has a place on the panel, a 2 by 2 block, 32 blocks across and 64 down. The five high bits give the column, as the Gray code of the column index, and the six low bits give the row the same way, so one block to the left or right, one up or down, is exactly one bit flipped. A block is lit by how much population its genome holds, on a log scale: white where the master is, then the 11 genomes one flip away along its row and column, the 55 two flips away, and so on, each ring about a decade fainter, until the dark ground. Because a Gray code folds back on itself the rings are not rings: the genomes of one ring lie along the master's row and column and in the rectangles those span, over the whole panel, and together they draw a lattice of crosses with the master at the heart of the brightest.
-// What moves. Every few seconds the peak takes one step, one bit of the master flips, and the glow hands over to a neighbour, so the whole lattice re-centres on a block that was a first halo a moment ago. About every 26 s the peak leaves for a genome 3 to 9 flips away, the furthest on the panel from the last six places it sat. The old cloud has nothing to hold it and spreads over the flat landscape while the new peak, fed by the far tails of that spread, grows out of a population of a few parts in 100,000: the lattice smears into a mesh, then the new cross condenses, usually in 1 to 6 s and in 20 s or more if the mutation rate is near the threshold at that moment. The mutation rate breathes, which swells and shrinks every halo.
-// The model. Population x on all 2^11 genomes, one generation of Eigen's equation being x'_i = sum_j Q_ij f_j x_j / phi, with phi = sum f_j x_j the mean fitness, f = sigma at a peak and 1 everywhere else, and Q_ij = (1 - mu)^(11 - d) mu^d for Hamming distance d. Q is a tensor product of eleven 2 by 2 matrices, [[1 - mu, mu], [mu, 1 - mu]], one per bit, so it is applied in eleven butterfly passes over the array, about 45,000 multiply-adds a step, no sampling and no noise. A frame advances x by a fraction a = 1.2 dt of a generation, x <- (1 - a) x + a Q f x / phi, the continuous-time form of the same equation, so its fixed points are the equation's own. x is renormalised and floored at 1e-30 every step. Before the first frame 160 steps of half a generation, 80 generations, are run at the knobs as found.
-// What is exact and what is not. The equation, the single-peak landscape on a flat plateau and the error threshold near mu L = ln sigma are Eigen's. At L = 11 the threshold is a steep crossover and not a step: the master's share of the population falls from 24 percent at mu L = 1.1 to 0.13 percent at 2.5 with sigma 10, and the measured crossing (master at 10 times its uniform share) is mu L = 2.2 against ln 10 = 2.3, and 3.4 against ln 60 = 4.1 at the top of the knob. The breathing, the one-bit steps, the jumps and the dips of the extra peaks are chosen for the picture. In the haze the colours are drawn against the population's own range, because the log of a population that has gone nearly flat has nothing in it to read, so the brightness there says where the master's imprint is and not how much of the population it holds. A real quasispecies is a population of finite size that wanders by chance; this is its mean-field limit, which is why the picture is smooth and the same numbers always give the same picture.
+// What the picture is. Every one of the 2^11 = 2,048 bit strings of length 11 has a place on the panel, a 2 by 2 block, 32 blocks across and 64 down. The five high bits give the column, as the Gray code of the column index, and the six low bits give the row the same way, so one block to the left or right, one up or down, is exactly one bit flipped. A block is lit by how much population its genome holds, on a log scale: white where a peak is, then the 11 genomes one flip away along its row and column, the 55 two flips away, and so on, each ring about a decade fainter, until the dark ground. Because a Gray code folds back on itself the rings are not rings: the genomes of one ring lie along the peak's row and column and in the rectangles those span, over the whole panel, and together they draw a lattice of crosses with a peak at the heart of the brightest. Blocks are coloured by their Hamming distance to the nearby peaks, weighted by how much each peak holds, so the colour hands over smoothly when a peak moves.
+// What moves. Each peak takes one step every 1.6 to 4 s, one bit of its genome flips, and the glow hands over to a neighbour, so its cross re-centres on a block that was a first halo a moment ago and the cloud walks across the panel in jumps along its row and column. With four peaks that is a step somewhere on the panel about every 0.7 s. About every 25 s one peak leaves for a genome 3 to 9 flips away, the furthest on the panel from the last six places a peak sat. The old cloud has nothing to hold it and spreads over the flat landscape while the new peak, fed by the far tails of that spread, grows out of a population of a few parts in 100,000: the lattice smears into a mesh, then the new cross condenses, with one peak in 1 to 2 s, and in 10 to 20 s if the mutation rate is near the threshold at that moment. The mutation rate breathes, which swells and shrinks every halo.
+// The model. Population x on all 2^11 genomes, one generation of Eigen's equation being x'_i = sum_j Q_ij f_j x_j / phi, with phi = sum f_j x_j the mean fitness, f = sigma at a peak and 1 everywhere else, and Q_ij = (1 - mu)^(11 - d) mu^d for Hamming distance d. Q is a tensor product of eleven 2 by 2 matrices, [[1 - mu, mu], [mu, 1 - mu]], one per bit, so it is applied in eleven butterfly passes over the array, about 45,000 multiply-adds a step, no sampling and no noise. A frame advances x by a fraction a = 2 dt of a generation, x <- (1 - a) x + a Q f x / phi, the continuous-time form of the same equation, so its fixed points are the equation's own. x is renormalised and floored at 1e-30 every step. Before the first frame 160 steps of half a generation, 80 generations, are run at the knobs as found.
+// What is exact and what is not. The equation, the single-peak landscape on a flat plateau and the error threshold near mu L = ln sigma are Eigen's. At L = 11 the threshold is a steep crossover and not a step: the master's share of the population falls from 24 percent at mu L = 1.1 to 0.13 percent at 2.5 with sigma 10, and the measured crossing (master at 10 times its uniform share) is mu L = 2.2 against ln 10 = 2.3, and 3.1 against ln 40 = 3.7 at the top of the knob. The breathing, the one-bit steps, the jumps and the dips of the peaks are chosen for the picture. In the haze the brightness is drawn against the population's own range, because the log of a population that has gone nearly flat has nothing in it to read, so there it says where the peaks' imprint is and not how much of the population it holds. A real quasispecies is a population of finite size that wanders by chance; this is its mean-field limit, which is why the picture is smooth and the same numbers always give the same picture.
 
 const W = 64, H = 128;
 const L = 11, N = 1 << L, CB = 5, RB = 6, CW = 1 << CB, CH = 1 << RB;
 const MAXP = 7;
-// RATE generations a second; BA octaves of mutation breathing; the peak steps every HOP0 to HOP0 + HOP1 s; the palette creeps DRIFT of a turn a second
-const RATE = 1.2, BA = 2, HOP0 = 1.8, HOP1 = 3.2, DRIFT = 0.0012;
+// RATE generations a second; BA octaves of mutation breathing; each peak steps every HOP0 to HOP0 + HOP1 s
+const RATE = 2, BA = 2, HOP0 = 1.6, HOP1 = 2.4;
 const { floor, min, max, abs, log, exp, pow, sin, PI, LN10 } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -104,8 +104,8 @@ function step(S, mu, a) {
   for (let i = 0; i < N; i++) x[i] *= inv;
 }
 
-// the mutation rate's breathing, in octaves, three sines whose periods (53.1, 21.7 and 9.37 s) share no ratio of small whole numbers
-const breath = (t) => 0.5 * sin(TAU * (t / 53.1) + 0.9) + 0.32 * sin(TAU * (t / 21.7) + 2.1) + 0.2 * sin(TAU * (t / 9.37) + 4.0);
+// the mutation rate's breathing, in octaves over 2, four sines whose periods (53.1, 21.7, 9.37 and 5.3 s) share no ratio of small whole numbers; the panel opens 18 s in, near the middle of it
+const breath = (t) => 0.4 * sin(TAU * (t / 53.1) + 0.9) + 0.26 * sin(TAU * (t / 21.7) + 2.1) + 0.16 * sin(TAU * (t / 9.37) + 4.0) + 0.22 * sin(TAU * (t / 5.3) + 1.3);
 
 // each peak's height dips on a period of its own, and the peaks after the first sit a hair below it
 const PERIOD = [61, 43, 79, 53, 97, 37, 71];
@@ -116,7 +116,7 @@ export function setup(params) {
     x: new Float64Array(N).fill(1 / N), z: new Float64Array(N), f: new Float64Array(N),
     lum: new Float32Array(N), db: new Float32Array(N), tt: new Float32Array(N), col: new Float32Array(N * 3),
     pm: new Int32Array(MAXP).fill(-1), ph: new Float64Array(MAXP), pphase: new Float64Array(MAXP), pamp: new Float64Array(MAXP),
-    hist: [], old: [], hd: 0, nh: new Float64Array(MAXP), last: new Int32Array(MAXP).fill(-1), t: 0, nextJump: 0, sigma: 10, mL0: 1, nExtra: 0, init: false, hue: 0, loc: 1, mL: 1,
+    hist: [], old: [], nh: new Float64Array(MAXP), last: new Int32Array(MAXP).fill(-1), t: 0, nextJump: 0, sigma: 10, mL0: 1, nExtra: 0, init: false, hue: 0, loc: 1, mL: 1,
   };
   for (let p = 0; p < MAXP; p++) {
     S.pphase[p] = TAU * Math.random();
@@ -187,25 +187,24 @@ function present(S) {
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
-  const S = params.s, k = input.knobValues || [0, 2, 0, 1], d = cl(dt || 0, 0, 0.1);
+  const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
   S.mL0 = 0.25 * pow(16, cl(k[1], 0, 4) / 4);
-  S.sigma = 10 * pow(6, cl(k[2], -1, 1));
-  S.nExtra = cl(k[3], 1, 7) - 1;
+  S.sigma = 10 * pow(4, cl(k[2], -1, 1));
+  S.nExtra = cl(3 + 3.05 * k[3], 0, 6);
   present(S);
   if (!S.init) {
     S.init = true;
     for (let p = 0; p < MAXP; p++) if (S.pm[p] >= 0) S.ph[p] = 1;
-    S.mL = S.mL0 * pow(2, BA * breath(79));
+    S.mL = S.mL0 * pow(2, BA * breath(18));
     for (let i = 0; i < 160; i++) step(S, S.mL / L, 0.5);
   }
   S.t += d;
-  S.hd += d * DRIFT;
   if (S.t >= S.nextJump) jump(S);
   for (let p = 0; p < MAXP; p++) if (S.pm[p] >= 0 && S.t >= S.nh[p] && S.ph[p] > 0.5) hop(S, p);
   const e = 1 - exp(-d / 0.9);
   for (let p = 0; p < MAXP; p++) if (S.pm[p] >= 0) S.ph[p] += (target(S, p) - S.ph[p]) * e;
-  S.mL = S.mL0 * pow(2, BA * breath(S.t + 79));
+  S.mL = S.mL0 * pow(2, BA * breath(S.t + 18));
   step(S, cl(S.mL / L, 0.002, 0.45), min(0.5, RATE * d));
   // how localised the population is: 1 with the top peak standing a thousand times over a uniform spread, 0 when it is lost in it
   let xm = 0;
@@ -233,9 +232,9 @@ export function draw(display, params) {
   mean /= N;
   const rng = max(top - mean, 1e-4);
   for (let g = 0; g < N; g++) {
-    const lr = lum[g], t = cl((lr - mean) / rng, -0.5, 1);
+    const lr = lum[g], t = cl((lr - mean) / rng, -0.3, 1);
     const va = lr >= -1.2 ? 0.14 + 0.86 * pow(min(1, (lr + 1.2) / 4.5), 1.5) : 0.05 + 0.09 * cl((lr + 6.5) / 5.3, 0, 1);
-    lum[g] = loc * va + (1 - loc) * (0.24 + 0.36 * t);
+    lum[g] = loc * va + (1 - loc) * (0.2 + 0.5 * t);
     tt[g] = t > 0 ? t : 0;
   }
   // distance to the cloud each genome belongs to, soft over the live peaks
@@ -254,8 +253,8 @@ export function draw(display, params) {
   // turning from the hue knob's colour through 0.39 of the wheel to indigo with distance. In the glow the cloud's faint imprint
   // gets the warm end of it.
   // the way round the wheel to indigo is the short one, faded through nothing where the two ways are of equal length
-  const s0 = S.hue + S.hd + 0.11;
-  const gh = 0.7 + 0.16 * sin(TAU * (s0 - 0.11));
+  const s0 = S.hue + 0.11;
+  const gh = 0.7 + 0.06 * sin(TAU * (s0 - 0.11));
   let dl = gh - s0;
   dl -= floor(dl + 0.5);
   dl *= 1 - sm((abs(dl) - 0.475) / 0.025);
