@@ -211,8 +211,8 @@ const TR = new Float32Array(W * H), TG = new Float32Array(W * H), TB = new Float
 const GR = new Float32Array(W * H), GG = new Float32Array(W * H), GB = new Float32Array(W * H);
 const C = [0, 0, 0];
 
-// the ramp from round to thin, hue unwrapped so it runs violet, magenta, coral,
-// amber, gold, and gets paler at the thin end
+// the ramp from round to thin, hue unwrapped so it runs from violet through
+// magenta, coral and amber to gold and gets paler at the thin end
 const RE = [0, 0.2, 0.4, 0.58, 0.72, 0.86, 1];
 const RH = [0.7, 0.77, 0.88, 0.97, 1.045, 1.11, 1.14];
 const RS = [0.85, 0.85, 0.85, 0.8, 0.78, 0.7, 0.45];
