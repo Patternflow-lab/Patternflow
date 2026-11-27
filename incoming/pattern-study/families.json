@@ -419,5 +419,10 @@
   "stellarstream": { "label": "항성 흐름", "color": "#0605d3" },
   "levitation": { "label": "음향 부양", "color": "#1ee986" },
   "rivalry": { "label": "양안 경합", "color": "#5a329a" },
-  "cataclysmic": { "label": "격변 쌍성", "color": "#9a334e" }
+  "cataclysmic": { "label": "격변 쌍성", "color": "#9a334e" },
+  "whisper": { "label": "속삭이는 회랑 공진", "color": "#4100fc" },
+  "quasispecies": { "label": "준종·오류 문턱", "color": "#ff2902" },
+  "quorum": { "label": "정족수 감지", "color": "#04b88b" },
+  "reservoir": { "label": "저수지 계산", "color": "#c88400" },
+  "transopt": { "label": "변환 광학", "color": "#016fef" }
 }
