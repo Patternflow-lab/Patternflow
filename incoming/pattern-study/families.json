@@ -414,5 +414,5 @@
   "gc": { "label": "쓰레기 수거", "color": "#158ae0" },
   "nilas": { "label": "해빙 손가락", "color": "#0cadde" },
   "attachment": { "label": "선호 연결", "color": "#cb2870" },
-  "somite": { "label": "체절 시계", "color": "#e725e1" }
+  "ferroxyl": { "label": "방울 부식", "color": "#e725e1" }
 }
