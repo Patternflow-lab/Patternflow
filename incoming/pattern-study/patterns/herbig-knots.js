@@ -1,20 +1,26 @@
 // ===== Patternflow pattern =====
 // Title:   Herbig-Haro Knots
 // Family:  herbigharo
-// Idea:    A newborn star hidden in a dark disc shoots a precessing jet up and a fainter one down, the speed of what it throws out varies, faster shells catch slower ones and each collision lights a knot that cools into a red tail, and both jets end in bow shocks that flare and dim.
+// Idea:    A newborn star hidden in a dark disc shoots a precessing jet up the panel and a fainter one down, the speed of what it throws out varies, faster shells run into slower ones and each collision lights a knot that cools from white to red as it travels, and both jets end in a bow shock that flares and dims.
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Herbig-Haro objects, knots of gas lit by a young star's jet (George Herbig, 1950, and Guillermo Haro, 1952, from memory); the internal-shock model, where a jet thrown out at a varying speed makes faster gas run into slower gas and shock it (Alejandro Raga, Jorge Cantó and colleagues, 1990, from memory); the Hubble pictures of HH 34, HH 47 and HH 111, a chain of knots on a fine beam, an S-shaped wiggle from a precessing axis and a bow shock at each head (from memory). Original code, pattern round 266.
+// Lineage: Herbig-Haro objects, knots of gas lit by the jet of a young star (George Herbig, 1950, and Guillermo Haro, 1952, from memory); the internal-shock model, where a jet thrown out at a varying speed lets faster gas catch slower gas and shock it (Alejandro Raga, Jorge Canto and colleagues, 1990, from memory); the Hubble pictures of HH 34, HH 47 and HH 111, a chain of knots on a fine beam with a bow shock at each head and, in the precessing ones, an S-shaped wiggle (from memory); the dark edge-on disc with a reflection nebula on either side, as in HH 30 (from memory). Original code, pattern round 266.
 // Round:   266
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Variability=0.2..3, Precession=-1..1, Speed=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Variability.
-// Knob 3: Precession.
-// Knob 4: Speed.
+// Knob 1: Hue. Turns every colour round the wheel, one full turn over the knob's travel, keeping each colour's value and saturation, so white stays white and the key colours stay full. At 0 the knots run from deep crimson through red and orange to gold with a white-hot core, the bow shocks have a teal rim, the glow round the source is blue and the dust brown-violet.
+// Knob 2: Variability. 0.2 to 3, opening at 2. How much the speed of what the source throws out varies, as the standard deviation of the speed: 4 percent at 0.2, 35 at 2 and 60 at 3. In the upper jet shells stick 1.8 times a second at 0.2, 5.5 at 2 and 6.2 at 3, and 0.5, 4 and 3.5 knots are bright. At 0.2 the jet is a steady faint beam with a few dim knots. At 3 the collisions are hard, a merged shell weighs 2.2 against 0.8, and the knots are fewer, heavier and whiter (8 shells in flight against 23). It also scales the knots' size 0.85 to 1.15, the beam's brightness 0.62 to 1.22 and the blue glow 0.24 to 0.64 of full.
+// Knob 3: Precession. -1 to 1, opening at 0. The half angle of the cone the axis sweeps: nearly 0 at -1, 7.5 degrees at -0.5, 10.6 at 0, 13 at 0.5 and 15 at 1. A shell flies straight along the angle it was thrown at, so the chain of shells is a helix seen side on: 50 LED out it stands about 9 LED off the axis at 0 and 13 at 1 (the cone swells and shrinks by up to 40 percent and the axis leans by up to 12 degrees on its own, so a jet at -1 is straight but not always upright). The period of the turn is 10 s at -1, 6.7 s at 0 and 3.6 s at 1, so the wiggle is one long bend at -1 and a corkscrew of about a full turn in each jet at 1. The counter-jet bends the other way, an S over both. The dark lane across the source tilts with the axis, and two faint cavity walls open from it as wide as the cone.
+// Knob 4: Speed. -1 to 1, opening at 0.06. Jet speed and the density of the cloud together. Shells fly at 8.5 LED a second at -1, 14.4 at the opening and 23 at 1, and the head of the upper jet stands 42 LED from the source at -1, 51 at the opening and 59 at 1 (the counter-jet 31, 41 and 48). The bow is 9 LED half wide at -1, 10 at the opening and 11 at 1; the beam is 0.8 to 1.3 times as bright and the dust 0.7 to 1.0 times.
+
+// What the picture is. A dark blue cloud with a star buried in it on row 66. Its disc is a dark lane 6 LED thick and 40 wide, seen edge on, with a soft blue reflection glow on either side. A faster, brighter jet leaves up the panel and a slower, fainter one down, each a fine crimson beam with knots on it: crescents 4 to 7 LED wide, white-hot or gold where two shells have just collided, then orange and red as they cool on the way out, with a narrower tail behind. Each jet ends in a bow shock, an arc 3 to 4 LED thick and 18 to 24 across, teal at the rim, yellow behind it and red in its wake. It flares when a heavy knot arrives or the head meets a clump of denser cloud, and it swells and dims with the ambient density, which also moves the head by up to 10 LED. The dust is smooth noise at two scales that drifts and changes over half a minute.
+// The model. Each jet is a list of up to 80 shells on a line. The source throws one out every 0.14 s on average up and 0.2 s down (mass 0.45 to 0.85) at a speed 1 + A g(t), where g is three sines of 3.13, 1.37 and 0.71 s (2.71, 1.19 and 0.63 s down) and two random walks with memories of 1.6 and 7 s, and A is set by Variability. A shell flies ballistically at 14 LED a second times its speed. When a faster shell comes within 0.7 LED of the one ahead they stick: masses add, the speed and the sideways speed are the mass-weighted means, so momentum is conserved. The merger flashes to 0.2 + 0.45 of the two heats' mean + 1.5 (1 - exp(-50 mu dv^2 / 1.5)), mu the reduced mass and dv the speed jump, which is the energy a perfectly inelastic collision loses, saturated so the largest go white. Heat falls back to a floor of 0.2 to 0.36 in 2.4 s and is read through a palette of crimson, red, red-orange, gold, yellow-white and white. A second number, the fast fraction, jumps with dv, lasts about a second and puts the teal edge on the crescent. The beam is a smooth curve through every shell. A shell that reaches the head is taken in and feeds the bow's energy by its mass and speed, which decays in 1.6 s.
+// Precession. A shell carries the sine of the precession phase at the moment it was thrown and moves sideways at the cone width times that per LED of distance, so the helix comes from where the shells are. The phase turns at a rate that wanders by a fifth, the cone width, the lean and the ambient density follow sines of 9 to 71 s that do not divide one another plus a random walk, and the counter-jet has a phase offset that slides and a cone and lean of its own, so the two are not mirror images. On average every 54 s the source flares for a few seconds, which more than doubles the spread and brightens the jets and the glow, and every 24 s a denser clump meets a head. Both come at random times.
+// What is not exact. The time is sped up by tens of billions, a real knot taking years to cool. The colours stand for the emission lines of the Hubble pictures, red for sulphur and hydrogen, teal for oxygen, and are tuned by eye, not computed from a cooling law. The bow is a parabola with a wake whose size and brightness are set by hand from the ambient density and the arriving energy, and the head follows a slow target, not a momentum balance. The lane tilting with the axis, the cavity walls, the glow following the ejection speed and the flares of the source are for the picture.
+// Opening. The first update runs 16 s of the model at the opening knobs, so the shells are out along both jets and the heads are in place. A knob acts at once on the cone, speed, colours and glow, and on the shells in flight over the 2 to 4 s they take to cross.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, exp, sin, cos, min, max, abs, PI, pow, round } = Math;
@@ -32,7 +38,7 @@ const VNOM = 14;                   // LED a second at speed 1 and ejection speed
 const DM = 0.7;                    // shells closer than this stick
 const NS = 80;                     // most shells kept in one jet
 
-// ---- the emission palette: heat 0 to 1.7 -> deep crimson, red, red-orange, gold, yellow-white, white
+// heat 0 to 1.7 through crimson, red, red-orange, gold, yellow-white, white
 const RS = 150;
 const RAMP = new Float32Array(3 * 256);
 (function () {
@@ -49,7 +55,7 @@ const RAMP = new Float32Array(3 * 256);
   }
 })();
 
-// ---- value noise for the dust
+// value noise for the dust
 function hash3(i, j, k) {
   let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(k, 2246822519)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -70,7 +76,6 @@ function vn3(x, y, z) {
 }
 const GX = 17, GY = 33; // dust nodes, 4 LED apart
 
-// ---- a jet: the source's side of the story
 function makeLobe(up) {
   return {
     up, sy: up ? -1 : 1, lat: up ? 1 : -1,
@@ -85,14 +90,14 @@ function makeLobe(up) {
     cp: up ? [47.3, 19.7, 33.1] : [39.1, 23.3, 61.7], cph: [rnd() * TAU, rnd() * TAU, rnd() * TAU],
     nou: 0, n: 1, nb: 0, cT: 5 + 12 * rnd(), act: 1, ap: [rnd() * TAU, rnd() * TAU], aou: 0,
     vscale: up ? 1 : 0.72, gain: up ? 1 : 0.68, ivl: up ? 0.14 : 0.2, base: up ? 52 : 42,
-    head: up ? 52 : 42, hx: 0, hsl: 0, lastv: 1, eb: 0.3, fb: 0.9,
+    head: up ? 52 : 42, hx: 0, hsl: 0, lastv: 1, eb: 0.3,
   };
 }
 
 function knobsOf(ks) {
   const t2 = cl((ks[1] - 0.2) / 2.8, 0, 1), t3 = cl((ks[2] + 1) / 2, 0, 1), k4 = cl(ks[3], -1, 1);
   const sp = exp(0.5 * k4);
-  const cone = 17 * sqrt(t3) * PI / 180;
+  const cone = 15 * sqrt(t3) * PI / 180;
   return {
     hue: cl(ks[0], 0, 1),
     A: 0.05 + 0.75 * pow(t2, 1.3),
@@ -136,7 +141,7 @@ function merge(L, a, b, i) {
 function stepLobe(S, L, dt) {
   const K = S.K;
   L.t += dt;
-  // each jet has its own small differences from the common axis: a phase that slides, a cone a little wider or narrower, a lean
+  // each jet differs a little from the common axis: a sliding phase, a wider or narrower cone, a lean
   const tt = L.t;
   L.dph += -L.dph * dt / 25 + sqrt(2 * dt / 25) * L.dpa * gauss();
   L.cc = K.cc * (1 + L.cfa * (0.6 * sin(TAU * tt / L.cp[0] + L.cph[0]) + 0.4 * sin(TAU * tt / L.cp[1] + L.cph[1])));
@@ -145,9 +150,8 @@ function stepLobe(S, L, dt) {
   L.ou1 += -L.ou1 * dt / 1.6 + e1 * gauss();
   L.ou2 += -L.ou2 * dt / 7 + e2 * gauss();
   L.nou += -L.nou * dt / 9 + e3 * gauss();
-  // ambient density, slowly varying
-  const t = L.t;
-  // and a clump of denser cloud now and then, which the head runs into
+  // ambient density, slowly varying, and now and then a denser clump the head runs into
+  const t = tt;
   L.cT -= dt;
   if (L.cT <= 0) {
     L.nb = 0.8 + 0.6 * rnd();
@@ -175,7 +179,7 @@ function stepLobe(S, L, dt) {
     b.H = hf + (b.H - hf) * cool;
     b.F *= coolF;
   }
-  // sticky collisions
+  // collisions
   let i = 0;
   while (i < sh.length - 1) {
     const a = sh[i], b = sh[i + 1];
@@ -191,11 +195,9 @@ function stepLobe(S, L, dt) {
     const b = sh.pop();
     const vr = max(0, b.v - 0.55);
     L.eb += 0.07 * b.m * (0.6 + 3 * vr * vr);
-    L.fb = max(L.fb, 0.5 * b.F);
   }
   L.eb = min(L.eb, 2.2) * exp(-dt / 1.6);
-  L.fb = 0.9 + (L.fb - 0.9) * exp(-dt / 1.2);
-  // lateral place and direction of the head follow the last shell
+  // the head's place and direction follow the last shell
   let tx = 0, ts = 0;
   if (sh.length) {
     const b = sh[sh.length - 1], g = min(18, L.head - b.s);
@@ -203,7 +205,7 @@ function stepLobe(S, L, dt) {
     tx = L.lat * (L.cc * b.X + L.tl * b.s) + ts * g;
   }
   const f = 1 - exp(-dt / 0.6);
-  tx = cl(tx, -21, 21);
+  tx = cl(tx, -19, 19);
   L.hx += (tx - L.hx) * f;
   L.hsl += (ts - L.hsl) * f;
 }
@@ -211,13 +213,13 @@ function stepLobe(S, L, dt) {
 function advance(S, dt) {
   S.t += dt;
   const K = (S.K = knobsOf(S.ks)), t = S.t;
-  // the axis itself wanders: how wide it precesses, how fast, and a slight lean of the whole jet
+  // the axis wanders: how wide it precesses, how fast, and how it leans
   S.ou += -S.ou * dt / 12 + sqrt(2 * dt / 12) * gauss();
   S.ph += (TAU * dt / K.Tp) * cl(1 + 0.22 * sin(TAU * t / 37.3 + 1.1) + 0.14 * sin(TAU * t / 16.9 + 2.3) + 0.2 * S.ou, 0.35, 1.9);
-  K.cc = K.c * cl(1 + 0.38 * sin(TAU * t / 53.1 + 0.4) + 0.25 * sin(TAU * t / 21.7 + 3.1) + 0.12 * S.ou, 0.3, 1.8);
-  K.tl = 0.14 * sin(TAU * t / 71.3 + 2.0) + 0.1 * sin(TAU * t / 29.3 + 5.0);
+  K.cc = K.c * cl(1 + 0.24 * sin(TAU * t / 53.1 + 0.4) + 0.16 * sin(TAU * t / 21.7 + 3.1) + 0.08 * S.ou, 0.6, 1.5);
+  K.tl = 0.12 * sin(TAU * t / 71.3 + 2.0) + 0.09 * sin(TAU * t / 29.3 + 5.0);
   S.tilt = 0.8 * Math.atan(S.up.cc * sin(S.ph + S.up.dph) + S.up.tl);
-  // now and then the source flares for a few seconds: the speed varies more, the jets and the glow brighten
+  // now and then the source flares: the speed varies more and the jets and the glow brighten
   S.obT -= dt;
   if (S.obT <= 0) {
     S.obU = 1.4;
@@ -320,7 +322,7 @@ function shock(buf, px, py, dx, dy, a, wmax, sig, lw, hh, ff, gg, wkg, wlat) {
     }
 }
 
-// the faint beam through the knots, one row at a time: a smooth curve through the source, every shell and the head
+// the beam, one row at a time: a smooth curve through the source, every shell and the head
 const CS = new Float64Array(NS + 3), CXs = new Float64Array(NS + 3), CM = new Float64Array(NS + 3), CH = new Float64Array(NS + 3);
 function beam(buf, L, K) {
   const sh = L.sh, n = sh.length + 2;
@@ -340,12 +342,12 @@ function beam(buf, L, K) {
     if (y < 0 || y >= H) break;
     while (j < n - 1 && CS[j] < s) j++;
     const sa = CS[j - 1], sb = CS[j], dsg = max(sb - sa, 1e-3);
-    // a cubic Hermite between two neighbours, the slopes taken from the points round them
+    // cubic Hermite between two neighbours, slopes from the points round them
     const t = cl((s - sa) / dsg, 0, 1), t2 = t * t, t3 = t2 * t;
     const xc = CX + (2 * t3 - 3 * t2 + 1) * CXs[j - 1] + (t3 - 2 * t2 + t) * dsg * CM[j - 1] +
       (-2 * t3 + 3 * t2) * CXs[j] + (t3 - t2) * dsg * CM[j];
     const hh = CH[j - 1] + (CH[j] - CH[j - 1]) * t;
-    const sg = 1.1 + 0.01 * s, vis = sm(3, 12, s) * (1 - sm(L.head - 6, L.head - 1, s)) * L.gain * L.act;
+    const sg = 1.0 + 0.008 * s, vis = sm(3, 12, s) * (1 - sm(L.head - 6, L.head - 1, s)) * L.gain * L.act;
     const lv = (0.55 + 0.3 * min(1, hh)) * vis * K.bb * (0.62 + 0.6 * K.t2) * K.ob;
     const hi = cl(round((0.06 + 0.22 * min(1, hh)) * RS), 0, 255) * 3;
     const sc = 3.4 + 0.05 * s, xs = max(0, floor(xc - 4 * sc)), xe = min(W - 1, ceil(xc + 4 * sc));
@@ -374,12 +376,12 @@ function drawLobe(S, L) {
   // the bow shock at the head
   const nn = sqrt(1 + L.hsl * L.hsl);
   const bs = K.bk * (0.7 + 0.45 * L.n);
-  const a = (2.4 + 1.5 * L.n) * K.bk, wmax = 6.5 + 4 * bs;
+  const wmax = 5.5 + 3.6 * bs, a = 0.3 * wmax * (0.8 + 0.2 * L.n);
   const hh = cl(0.42 + 0.35 * L.eb + 0.2 * (L.n - 1), 0.3, 1.1);
-  shock(buf, CX + L.hx, SY + L.sy * L.head, L.hsl / nn, L.sy / nn, a, wmax, 1.7, 2.5 + 2 * bs, hh, cl(L.fb + 0.3 * (L.n - 1), 0.7, 1), L.gain * (0.65 + 0.3 * bs + 0.2 * L.act), 0.4, 0.75);
+  shock(buf, CX + L.hx, SY + L.sy * L.head, L.hsl / nn, L.sy / nn, a, wmax, 1.7, 2.5 + 2 * bs, hh, cl(0.9 + 0.3 * (L.n - 1), 0.7, 1), L.gain * (0.65 + 0.3 * bs + 0.2 * L.act), 0.4, 0.75);
 }
 
-// turn the hue of a colour round the wheel by h (0 to 1) and keep its value and saturation, so the key colours stay full
+// turn a colour round the wheel by h (0 to 1), keeping its value and saturation
 const hc = [0, 0, 0];
 function turn(r, g, b, h) {
   const mx = max(r, g, b), mn = min(r, g, b), d = mx - mn;
@@ -397,10 +399,10 @@ function turn(r, g, b, h) {
   }
 }
 
-// the dark lane of the disc seen edge-on and the glow either side of it, in a frame turned by the tilt of the axis
+// the dark lane and the glow either side of it, in a frame turned by the tilt of the axis
 const dk = [0, 0, 0];
 function disc(dx, dy, ct, st) {
-  const ux = dx * ct + dy * st, uy = dy * ct - dx * st, q = (ux / 20) * (ux / 20) + (uy / 18) * (uy / 18);
+  const ux = dx * ct + dy * st, uy = dy * ct - dx * st, q = (ux / 17) * (ux / 17) + (uy / 15) * (uy / 15);
   if (q > 7) { dk[0] = dk[1] = dk[2] = 0; return; }
   const ax = abs(ux), ay = abs(uy), rr = (ay - 6) / 4, wl = ay / 2.8, wx = ax / 21, rx = ax / 17;
   dk[0] = exp(-q) * (1 + 0.25 * exp(-rr * rr - rx * rx));
@@ -417,13 +419,12 @@ export function draw(display, params) {
   buf.fill(0);
   drawLobe(S, S.dn);
   drawLobe(S, S.up);
-  // the cloud: deep blue-black with a brown-violet dust, a bluish reflection glow either side of the dark lane;
-  // the jet's light covers it rather than adding to it, so red over the blue glow stays red
+  // the cloud; the jets' light covers it instead of adding to it, so red over the blue glow stays red
   const breath = 0.92 + 0.08 * sin(TAU * S.t / 31.7) + 0.05 * sin(TAU * S.t / 13.1) + 0.05 * sin(TAU * S.t / 57.9 + 1.3);
-  // the reflection glow follows the source: brighter when the ejection speed runs high, and more so the more it varies
+  // the glow follows the source: brighter when the ejection speed runs high
   const ct = cos(S.tilt), sn = sin(S.tilt), dk0 = 0.7 + 0.15 * (K.k4 + 1);
-  const cvk = 0.2 * sm(0.02, 0.2, K.c);
-  const gk = (0.26 + 0.42 * K.t2) * breath * (1 + 0.2 * S.ob) * cl(1 + 0.6 * (S.pl - 1), 0.7, 1.4);
+  const cvk = 0.3 * sm(0.02, 0.2, K.c);
+  const gk = (0.24 + 0.4 * K.t2) * breath * (1 + 0.2 * S.ob) * cl(1 + 0.6 * (S.pl - 1), 0.7, 1.4);
   for (let y = 0; y < H; y++) {
     const gy = y / 4, j = floor(gy), fy = gy - j, wy = fy * fy * (3 - 2 * fy);
     for (let x = 0; x < W; x++) {
@@ -432,7 +433,7 @@ export function draw(display, params) {
       const dd = (d0 + (d1 - d0) * wx) * (1 - wy) + (S.dust[o + GX] + (S.dust[o + GX + 1] - S.dust[o + GX]) * wx) * wy;
       const p = y * W + x, q = p * 3;
       disc(x + 0.5 - CX, y + 0.5 - SY, ct, sn);
-      // the cavity the jet has swept: two faint walls opening from the source as wide as the cone
+      // the cavity the jets swept: two faint walls as wide as the cone
       const cs = abs(y + 0.5 - SY), ce = abs(x + 0.5 - CX - K.tl * (y + 0.5 - SY)), hw = 2 + K.cc * 0.9 * cs, cq = (ce - hw) / 3.6;
       const cav = exp(-cq * cq) * exp(-cs / 40) * sm(4, 12, cs) * (1 - 0.8 * dk[1]) * cvk;
       const lane = dk[1], gl = dk[0] * (1 - 0.93 * lane) * gk + cav;
