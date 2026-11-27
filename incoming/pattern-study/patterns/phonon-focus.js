@@ -47,7 +47,7 @@ const L2A0 = -1.5, DL = 0.25, NS = 18; // stops of log2 A: -1.5, -1.25 ... 2.75;
 const NQ = 14000, NZMIN = 0.1; // directions in a quarter of the hemisphere, from the normal down to cos 84 degrees
 const RKEEP = 84; // a direction that never lands within this many LEDs of the middle is dropped
 const TCAP = 8, XCAP = 500;
-const NPULSE = 3; // pulses in flight at once, at most
+const NPULSE = 4; // pulses in flight at once, at most
 const NG = 41; // the grid of shares g the arrival-time quantiles are kept on
 
 // the eigen decomposition of a symmetric 3 x 3 matrix by Jacobi rotations, eigenvalues in ascending order
@@ -173,7 +173,7 @@ function buildTables() {
 }
 
 // ---- the colour ramp, black through indigo, purple, crimson and orange to white-hot, with the hue turned by K1
-const TARGET = 0.16; // the mean of 1 - exp(-a) over the panel that the exposure aims for
+const TARGET = 0.26; // the mean of 1 - exp(-a) over the panel that the exposure aims for
 const PN = 1024, PEXP = 128; // the lookup is indexed by the accumulated brightness a, in 1/128 steps; the ramp is 1 - exp(-a)
 const RAMP = [
   // u, hue, saturation, value
@@ -223,8 +223,6 @@ export function setup(params) {
     pal: new Uint8Array(PN * 3), palHue: -9,
     pulses: [], act: new Float64Array(NPULSE * 8), gap: 0, started: false,
     ag: 1, dz: 0, dla: 0, dlb: 0, dph: 0, hx: 0, hy: 0, la: 0, phi: 0, gate: 0,
-    tc: [1, 1, 1], tmin: 0.6, tmax: 2,
-    time: 0,
   };
 }
 
@@ -261,7 +259,6 @@ export function update(dt, input, params) {
   const S = params.s;
   const kn = input && input.knobValues ? input.knobValues : [0, 2, 0, 0.06];
   const d = cl(dt || 0, 0, 0.1);
-  S.time += d;
 
   // palette
   const hue = cl(kn[0], 0, 1);
@@ -271,10 +268,10 @@ export function update(dt, input, params) {
   const adt = d / 14, bdt = d / 22, rdt = d / 35, hdt = d / 14;
   S.dla += -S.dla * adt + 0.9 * sqrt(2 * adt) * gauss();
   S.dlb += -S.dlb * bdt + 0.14 * sqrt(2 * bdt) * gauss();
-  S.dph += -S.dph * rdt + 0.45 * sqrt(2 * rdt) * gauss();
-  S.dz += -S.dz * (d / 20) + 0.22 * sqrt(2 * d / 20) * gauss();
-  S.hx += -S.hx * hdt + 11 * sqrt(2 * hdt) * gauss();
-  S.hy += -S.hy * hdt + 18 * sqrt(2 * hdt) * gauss();
+  S.dph += -S.dph * rdt + 0.7 * sqrt(2 * rdt) * gauss();
+  S.dz += -S.dz * (d / 20) + 0.32 * sqrt(2 * d / 20) * gauss();
+  S.hx += -S.hx * hdt + 15 * sqrt(2 * hdt) * gauss();
+  S.hy += -S.hy * hdt + 24 * sqrt(2 * hdt) * gauss();
   const Ak = pow(2, cl(kn[1], 0, 3) - 1);
   const Ae = cl(1 + (Ak - 1) * exp(0.5 * S.dla) + S.dlb, 0.45, 5.4);
   const laT = log(Ae) / log(2);
@@ -311,7 +308,7 @@ export function update(dt, input, params) {
   for (const p of S.pulses) if (p.ph > 0.05 && p.ph < 0.92) live++;
   if ((S.gap <= 0 || live === 0) && S.pulses.length < NPULSE) {
     S.pulses.push(newPulse(rnd() < 0.35 ? 0.12 + 0.3 * rnd() : -0.05));
-    S.gap = 0.7 + 2.4 * rnd() * rnd() + 0.8 * rnd();
+    S.gap = 0.4 + 1.6 * rnd() * rnd() + 0.6 * rnd();
   }
   const act = S.act;
   let NA = 0;
