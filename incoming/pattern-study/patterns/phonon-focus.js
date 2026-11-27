@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Anisotropy=0..3, Turn=-1..1, Gate=-1..1
 //
 // Knob 1: Hue. Four colour ramps from black to white-hot, blended as the knob passes between them. At 0 it is indigo, purple, crimson, orange, white; at 1/3 violet, magenta, pink, peach, white; at 2/3 navy, blue, cyan, aqua, white; at 1 teal, green, lime, pale yellow. The dark end is always blue or teal, so no turn of the knob makes the background brown.
-// Knob 2: Anisotropy. The ratio A = 2 c44 / (c11 - c12) the whole picture turns on, with the bulk modulus held at Ge's: 0.5 at 0, exactly 1 (an isotropic solid) at 1, 2 where it opens and 4 at 3. Ge itself is 1.66 and GaAs 1.84. At 1 every caustic is gone and each branch is a round bloom that spreads as rings. At 1.2 the slow transverse branch draws a thin diamond, at 2 a lattice of diamonds with a bright cap at top and bottom and a lens between, at 3 the diamonds cross, and by 4 they open into fans. Below 1 the branches change places and the lines are arcs. The value also wanders: a random walk of about 14 s scales A - 1 by up to e^0.45 either way and adds 0.14, so the knob sets the middle of it, not the number.
-// Knob 3: Turn. Turns the crystal about the face normal, 100 degrees to a unit: at -1 and 1 the long axis of the star lies along the 64 columns and the panel's sides cut its lobes. A slow rocking of about 23 degrees (one sigma, 35 s) rides on it. The whole picture also wanders across the panel, up to 26 LEDs sideways and 15 up and down, and breathes in size by a third.
+// Knob 2: Anisotropy. The ratio A = 2 c44 / (c11 - c12) the whole picture turns on, with the bulk modulus held at Ge's: 0.5 at 0, exactly 1 (an isotropic solid) at 1, 2 where it opens and 3 at 3. Ge itself is 1.66 and GaAs 1.84. At 1 every caustic is gone and each branch is a round bloom that spreads as rings. At 1.2 the slow transverse branch draws a thin diamond, at 2 a lattice of diamonds with a bright cap at top and bottom and a lens between, and at 3 the diamonds cross and begin to open into fans. Below 1 the branches change places and the lines are arcs. The value also wanders: a random walk of about 14 s scales A - 1 by up to e^0.45 either way and adds 0.14, so the knob sets the middle of it, not the number.
+// Knob 3: Turn. Turns the crystal about the face normal, 100 degrees to a unit: at -1 and 1 the long axis of the star lies along the 64 columns and the panel's sides cut its lobes. A slow rocking of about 23 degrees (one sigma, 35 s) rides on it. The whole picture also wanders across the panel, up to 26 LEDs sideways and 15 up and down, and breathes in size by a third; turned across the panel the star is drawn up to 22 percent smaller, so more of it shows.
 // Knob 4: Gate. How wide the time gate is and how fast it sweeps, together. At 0 the gate holds 26 percent of the directions that land on the panel and a sweep takes 3.4 to 6 s; at -1 it holds 11 percent and a sweep takes 5.9 to 10.4 s, so each branch shows as thin shells of one arrival time; at 1 it holds 45 percent and a sweep takes 2 to 3.4 s, wide enough that a branch shows nearly whole.
 
 // What the picture is. A point heater on one face of a (110) cut of a cubic crystal sends phonons in every direction at once, and a detector on the opposite face reads where and when they land. A phonon's
@@ -29,7 +29,7 @@
 // them with a cubic, so A can move smoothly. Turning the crystal about the normal is a rotation of the landing points, which is exact.
 // What is not exact. Every direction carries the same energy: no phonon amplitude, no finite heater or detector, no scattering, no conversion between branches. The branches are weighted by eye, 1.15
 // for the slow transverse, 1 for the fast transverse and 0.75 for the longitudinal one. The gate runs through the share of the energy that has arrived, not through raw time, so the empty stretches
-// between the branches are skipped. Each pulse gets its own width, speed, branch weights, size (a third either way), heater spot (5 LEDs) and small turn (17 degrees at most), which no one crystal would
+// between the branches are skipped. Each pulse gets its own width, speed, branch weights, size (22 percent at one sigma), heater spot (5 LEDs) and small turn (17 degrees at most), which no one crystal would
 // give, and an exposure control holds the mean brightness. A runs from 0.45 to 5.4, further than any one crystal goes.
 
 const W = 64, H = 128;
@@ -277,7 +277,7 @@ export function update(dt, input, params) {
   S.dz += -S.dz * (d / 20) + 0.32 * sqrt(2 * d / 20) * gauss();
   S.hx += -S.hx * hdt + 18 * sqrt(2 * hdt) * gauss();
   S.hy += -S.hy * hdt + 10 * sqrt(2 * hdt) * gauss();
-  const Ak = pow(2, cl(kn[1], 0, 3) - 1);
+  const kk = cl(kn[1], 0, 3), Ak = pow(2, kk <= 2 ? kk - 1 : 1 + 0.585 * (kk - 2));
   const Ae = cl(1 + (Ak - 1) * exp(0.5 * S.dla) + S.dlb, 0.45, 5.4);
   const laT = log(Ae) / log(2);
   const phiT = cl(kn[2], -1, 1) * 1.745 + S.dph;
