@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Win Set
-// Family:  socialchoice
+// Family:  agendachaos
 // Idea:    Eleven voters drift over a two-dimensional policy space, each preferring every point nearer to their own ideal point than the status quo, so every LED counts the discs through the status quo that cover it, the points that a quota of the voters prefer glow as warm petals that all meet at the status quo, and the status quo hops to a point inside the petals again and again until a quota near unanimity empties them and it freezes.
 // Author:  patternflow-lab
 // Date:    2026-11-27
