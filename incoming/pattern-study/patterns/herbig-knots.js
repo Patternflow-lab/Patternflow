@@ -213,7 +213,7 @@ function stepLobe(S, L, dt) {
 function advance(S, dt) {
   S.t += dt;
   const K = (S.K = knobsOf(S.ks)), t = S.t;
-  // the axis wanders: how wide it precesses, how fast, and how it leans
+  // the axis wanders in cone width and speed of turn, and leans
   S.ou += -S.ou * dt / 12 + sqrt(2 * dt / 12) * gauss();
   S.ph += (TAU * dt / K.Tp) * cl(1 + 0.22 * sin(TAU * t / 37.3 + 1.1) + 0.14 * sin(TAU * t / 16.9 + 2.3) + 0.2 * S.ou, 0.35, 1.9);
   K.cc = K.c * cl(1 + 0.24 * sin(TAU * t / 53.1 + 0.4) + 0.16 * sin(TAU * t / 21.7 + 3.1) + 0.08 * S.ou, 0.6, 1.5);
