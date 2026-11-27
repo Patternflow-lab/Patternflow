@@ -20,6 +20,10 @@ All notable changes to Patternflow will be documented in this file, newest first
 - **The power clamp holds while the brightness is being set.** Turning the brightness knob wrote the new level to the panel without telling the clamp, which then thought its own lower level was still there and left the panel above its budget until the picture changed.
 - **A thumbnail is painted without dividing.** 24,576 integer divisions became two lookups a pixel: 1,073 to 524 µs.
 
+### Hardware
+
+- **2 × 2 case, drawn and checked, not yet built.** `hardware/case/remixes/big-2x2/` lays out four 320 × 160 mm panels as one 320 × 640 mm display driven by a Raspberry Pi 5 and a Colorlight 5A-75B receiving card running receiver75, after patternflood: a laser-cut 3 mm plywood box on seven 600 × 300 mm sheets (DXF and SVG, every part under 480 × 270 mm), one card output per panel, separate supplies for the panels (LRS-150F-5) and for the Pi and card (LRS-50-5), four I²C knobs in the standard Patternflow order with a 5-inch Raspberry Pi Touch Display 2 under them, a BOM, and the software path for running Patternflow's patterns on the Pi. `source/big_2x2.py` draws every file, and `--check` reads every DXF back and measures it against the panel drawing, the boards' and the screen's holes, the inlet, the supplies' wiring room, the other parts and the BOM.
+
 ### Web
 
 - **A layer stack's header composites without dividing.** On the S3 a float divide by 255 is a call into `__divsf3`, and the header made one for every layer on every pixel, three more in multiply and screen, and one in a code mask's test: seven call sites in `draw()`, none now. The quotients come from a 256-entry table the compiler works out, so the pixels are the ones the divide gave. Recolor happens where a layer writes a pixel, not in a second walk over its buffer.
