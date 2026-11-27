@@ -404,5 +404,10 @@
   "hovmoller": { "label": "시간-경도 도표", "color": "#5fada7" },
   "ouzo": { "label": "자발 유화", "color": "#ad861a" },
   "photoevap": { "label": "광증발 기둥", "color": "#a06cd5" },
-  "herbigharo": { "label": "허빅-아로 제트", "color": "#f22443" }
+  "herbigharo": { "label": "허빅-아로 제트", "color": "#f22443" },
+  "seismite": { "label": "지진 퇴적층", "color": "#ad661a" },
+  "scanprobe": { "label": "주사 탐침 영상", "color": "#b8a64f" },
+  "ionosphere": { "label": "극광 타원", "color": "#379e78" },
+  "intertidal": { "label": "갯바위 군집", "color": "#4d8a9e" },
+  "woundhealing": { "label": "상처 닫힘", "color": "#a32999" }
 }
