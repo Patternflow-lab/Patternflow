@@ -34,7 +34,7 @@
 
 const W = 64, H = 128;
 const PADM = 5, PW = W + 2 * PADM, PH = H + 2 * PADM; // the buffer the splats go into, with a margin so the edge needs no test
-const { floor, sqrt, exp, sin, cos, abs, min, max, PI, pow, log } = Math;
+const { floor, sqrt, exp, sin, cos, abs, min, max, PI, pow, log, tanh } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.732;
@@ -48,6 +48,7 @@ const NQ = 14000, NZMIN = 0.1; // directions in a quarter of the hemisphere, fro
 const RKEEP = 84; // a direction that never lands within this many LEDs of the middle is dropped
 const TCAP = 8, XCAP = 500;
 const NPULSE = 4; // pulses in flight at once, at most
+const PANX = 26, PANY = 15; // the heater spot wanders across the face, and the picture with it, by about this many LEDs at most
 const NG = 41; // the grid of shares g the arrival-time quantiles are kept on
 
 // the eigen decomposition of a symmetric 3 x 3 matrix by Jacobi rotations, eigenvalues in ascending order
@@ -175,17 +176,14 @@ function buildTables() {
 // ---- the colour ramp, black through indigo, purple, crimson and orange to white-hot, with the hue turned by K1
 const TARGET = 0.26; // the mean of 1 - exp(-a) over the panel that the exposure aims for
 const PN = 1024, PEXP = 128; // the lookup is indexed by the accumulated brightness a, in 1/128 steps; the ramp is 1 - exp(-a)
-const RAMP = [
-  // u, hue, saturation, value
-  [0.0, 0.72, 1.0, 0.0],
-  [0.05, 0.72, 1.0, 0.22],
-  [0.16, 0.74, 1.0, 0.55],
-  [0.32, 0.86, 1.0, 0.82],
-  [0.48, 0.975, 1.0, 0.96],
-  [0.62, 1.03, 1.0, 1.0],
-  [0.76, 1.085, 1.0, 1.0],
-  [0.88, 1.14, 0.85, 1.0],
-  [1.0, 1.15, 0.22, 1.0],
+// four ramps from dark to white-hot, one for each third of the hue knob's way, from 0 to 1, with the knob blending the two nearest; each is a hue, a saturation and a value at nine brightnesses of 1 - exp(-a)
+const STOPS = [0.0, 0.05, 0.16, 0.32, 0.48, 0.62, 0.76, 0.88, 1.0];
+const VAL = [0.0, 0.22, 0.55, 0.82, 0.96, 1.0, 1.0, 1.0, 1.0];
+const RAMPS = [
+  { h: [0.72, 0.72, 0.74, 0.86, 0.975, 1.03, 1.085, 1.14, 1.15], s: [1, 1, 1, 1, 1, 1, 1, 0.85, 0.22] }, // heat: indigo, purple, crimson, orange, white
+  { h: [0.77, 0.77, 0.79, 0.86, 0.915, 0.96, 1.0, 1.04, 1.04], s: [1, 1, 1, 1, 0.95, 0.9, 0.8, 0.6, 0.2] }, // rose: violet, magenta, pink, peach, white
+  { h: [0.68, 0.66, 0.63, 0.6, 0.57, 0.55, 0.54, 0.56, 0.56], s: [1, 1, 1, 1, 1, 1, 0.95, 0.55, 0.18] }, // ice: navy, blue, cyan, aqua, white
+  { h: [0.56, 0.54, 0.5, 0.44, 0.38, 0.32, 0.25, 0.19, 0.17], s: [1, 1, 1, 1, 1, 1, 0.95, 0.75, 0.22] }, // moss: teal, green, lime, pale yellow
 ];
 const EXPT = new Float32Array(PN);
 for (let i = 0; i < PN; i++) EXPT[i] = 1 - exp(-i / PEXP);
@@ -203,13 +201,23 @@ function hsv(h, s, v, out, o) {
   }
   out[o] = floor(r * 255 + 0.5); out[o + 1] = floor(g * 255 + 0.5); out[o + 2] = floor(b * 255 + 0.5);
 }
+function rampAt(r, j, f, out) {
+  out[0] = r.h[j] + (r.h[j + 1] - r.h[j]) * f;
+  out[1] = r.s[j] + (r.s[j + 1] - r.s[j]) * f;
+}
+const RA = [0, 0], RB = [0, 0];
 function buildPalette(pal, hue) {
+  const k = cl(hue, 0, 1) * 3, ai = min(2, floor(k)), af = k - ai;
   for (let i = 0; i < PN; i++) {
     const u = 1 - exp(-i / PEXP);
     let j = 0;
-    while (j < RAMP.length - 2 && u > RAMP[j + 1][0]) j++;
-    const a = RAMP[j], b = RAMP[j + 1], f = cl((u - a[0]) / (b[0] - a[0]), 0, 1);
-    hsv(a[1] + (b[1] - a[1]) * f + hue, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f, pal, i * 3);
+    while (j < STOPS.length - 2 && u > STOPS[j + 1]) j++;
+    const f = cl((u - STOPS[j]) / (STOPS[j + 1] - STOPS[j]), 0, 1);
+    rampAt(RAMPS[ai], j, f, RA);
+    rampAt(RAMPS[ai + 1], j, f, RB);
+    let dh = RB[0] - RA[0];
+    dh -= floor(dh + 0.5); // the short way round the wheel
+    hsv(RA[0] + dh * af, RA[1] + (RB[1] - RA[1]) * af, VAL[j] + (VAL[j + 1] - VAL[j]) * f, pal, i * 3);
   }
 }
 
@@ -268,10 +276,10 @@ export function update(dt, input, params) {
   const adt = d / 14, bdt = d / 22, rdt = d / 35, hdt = d / 14;
   S.dla += -S.dla * adt + 0.9 * sqrt(2 * adt) * gauss();
   S.dlb += -S.dlb * bdt + 0.14 * sqrt(2 * bdt) * gauss();
-  S.dph += -S.dph * rdt + 0.7 * sqrt(2 * rdt) * gauss();
+  S.dph += -S.dph * rdt + 0.4 * sqrt(2 * rdt) * gauss();
   S.dz += -S.dz * (d / 20) + 0.32 * sqrt(2 * d / 20) * gauss();
-  S.hx += -S.hx * hdt + 15 * sqrt(2 * hdt) * gauss();
-  S.hy += -S.hy * hdt + 24 * sqrt(2 * hdt) * gauss();
+  S.hx += -S.hx * hdt + 18 * sqrt(2 * hdt) * gauss();
+  S.hy += -S.hy * hdt + 10 * sqrt(2 * hdt) * gauss();
   const Ak = pow(2, cl(kn[1], 0, 3) - 1);
   const Ae = cl(1 + (Ak - 1) * exp(0.5 * S.dla) + S.dlb, 0.45, 5.4);
   const laT = log(Ae) / log(2);
@@ -300,14 +308,14 @@ export function update(dt, input, params) {
   const first = !S.started;
   if (!S.started) {
     S.started = true;
-    S.pulses.push(newPulse(0.3));
+    S.pulses.push(newPulse(0.62), newPulse(0.2));
     S.gap = 1.2 + 2 * rnd();
   }
   S.gap -= d * sp;
   let live = 0;
   for (const p of S.pulses) if (p.ph > 0.05 && p.ph < 0.92) live++;
   if ((S.gap <= 0 || live === 0) && S.pulses.length < NPULSE) {
-    S.pulses.push(newPulse(rnd() < 0.35 ? 0.12 + 0.3 * rnd() : -0.05));
+    S.pulses.push(newPulse(rnd() < 0.35 ? 0.12 + 0.3 * rnd() : 0));
     S.gap = 0.4 + 1.6 * rnd() * rnd() + 0.6 * rnd();
   }
   const act = S.act;
@@ -329,9 +337,9 @@ export function update(dt, input, params) {
   // splat
   const acc = S.acc;
   acc.fill(0);
-  const zm = exp(cl(S.dz, -0.45, 0.45)), cph = zm * cos(S.phi), sph = zm * sin(S.phi);
+  const zm = exp(cl(S.dz, -0.3, 0.3)), cph = zm * cos(S.phi), sph = zm * sin(S.phi);
   const bx = W / 2 + PADM, by = H / 2 + PADM;
-  const ox = bx + S.hx, oy = by + S.hy;
+  const ox = bx + PANX * tanh(S.hx / PANX), oy = by + PANY * tanh(S.hy / PANY);
   const base = 0.007;
   const keep = S.keep;
   const ST = NS * 3;
@@ -383,7 +391,7 @@ export function update(dt, input, params) {
     }
   }
   // the exposure follows the mean brightness the panel would show, so a pulse's quiet moments are not dim ones: the first frame settles it at once
-  const idx = S.idx;
+  const idx = S.idx, target = TARGET * (0.7 + 0.3 * min(1.3, wf)); // a thin gate shows thin lines, which would be blown up to blobs to reach the same mean
   const rounds = first ? 6 : 1;
   for (let round = 0; round < rounds; round++) {
     const gain = S.ag * PEXP;
@@ -400,7 +408,7 @@ export function update(dt, input, params) {
       }
     }
     const m = sum / (W * H);
-    S.ag = cl(S.ag * pow(TARGET / max(m, 0.01), first ? 0.8 : min(1, d * 1.5)), 0.3, 4);
+    S.ag = cl(S.ag * pow(target / max(m, 0.01), first ? 0.8 : min(1, d * 1.5)), 0.3, 2.6);
   }
 }
 
