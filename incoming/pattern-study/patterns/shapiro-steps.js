@@ -19,14 +19,16 @@
 // x.
 
 const W = 64, H = 128, NR = 64, NCOL = 68;
-const { floor, ceil, sqrt, exp, sin, cos, min, max, abs, round, PI } = Math;
+const { floor, ceil, exp, sin, cos, min, max, abs, round, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-const IMAX = 6.0;                 // bias current at the top and bottom edge, in units of the critical current
+const IMAX = 6.4;                 // bias current at the top and bottom edge, in units of the critical current
 const DI = IMAX / NR;             // current per row
-const BURN = 4, MEAS = 6;         // drive periods integrated before and while averaging
+const BURN = 4, MEAS = 6;
+const H0 = 0.13;                  // hue of the zero step when the Hue knob is at 0
+const DH = -0.075;                  // hue step between one plateau and the next         // drive periods integrated before and while averaging
 
 function hsv(h, s, v, o) {
   h = (h - floor(h)) * 6;
@@ -42,18 +44,18 @@ export function setup(params) {
     t: 0, acc: 0, head: -1, k: null,
     col: new Float32Array(NCOL * H * 3),
     phi: new Float32Array(NCOL * NR),
-    ct: new Float32Array(NCOL), cOm: new Float32Array(NCOL), cA0: new Float32Array(NCOL),
-    rho: new Float32Array(NR),
+    ct: new Float32Array(NCOL), cOm: new Float32Array(NCOL), cB0: new Float32Array(NCOL), cH: new Float32Array(NCOL),
+    rho: new Float32Array(NR), dro: new Float32Array(NR), cr: new Float32Array(NCOL * NR), cd: new Float32Array(NCOL * NR),
     drv: new Float32Array(4096),
   };
 }
 
 // the wander of the drive amplitude, between -1 and 1: sines whose periods do not divide each other
 function wander(t) {
-  return 0.40 * sin(TAU * t / 17.3 + 1.1) + 0.27 * sin(TAU * t / 29.1 + 2.3) + 0.19 * sin(TAU * t / 11.9 + 0.4) + 0.14 * sin(TAU * t / 47.7 + 4.0);
+  return 0.5 * sin(TAU * t / 17.3 + 2.65) + 0.28 * sin(TAU * t / 29.1 + 1.36) + 0.14 * sin(TAU * t / 11.9 + 0.56) + 0.08 * sin(TAU * t / 47.7 + 1.06);
 }
-const a0Of = (k) => 3.8 + 2.4 * cl(k, -1, 1);
-const ampOf = (a0) => min(1.9, a0 - 0.7);
+const b0Of = (k) => 3.9 + 2.3 * cl(k, -1, 1);
+const ampOf = (b0) => min(2.4, b0 - 0.7);
 const omOf = (om, t) => om * (1 + 0.035 * sin(TAU * t / 37.3 + 0.7));
 
 // one column: the rotation number of the junction for each bias row
@@ -64,74 +66,99 @@ function integrate(S, slot, om, a, nburn) {
   const phi = S.phi, base = slot * NR;
   for (let k = 0; k < NR; k++) {
     const I = (k + 0.5) * DI;
-    let p = phi[base + k], p0 = 0;
-    const tot = (nburn + MEAS) * spp, st = nburn * spp;
+    let p = phi[base + k], p0 = 0, p1 = 0;
+    const tot = (nburn + 2 * MEAS) * spp, st = nburn * spp, mid = (nburn + MEAS) * spp;
     for (let n = 0; n < tot; n++) {
       if (n === st) p0 = p;
+      else if (n === mid) p1 = p;
       const j = (n % spp) * 2;
       const pm = p + hd * (I + drv[j] - sin(p));
       p += dt * (I + drv[j + 1] - sin(pm));
     }
-    S.rho[k] = (p - p0) / (TAU * MEAS);
+    S.cr[base + k] = (p - p0) / (TAU * 2 * MEAS);
+    S.cd[base + k] = ((p - p1) - (p1 - p0)) / (TAU * 2 * MEAS);
     phi[base + k] = p - TAU * round((p) / TAU);
   }
 }
 
 const NEU = [0, 0, 0], BC = [0, 0, 0];
-const RR = new Float32Array(NR), RG = new Float32Array(NR), RB = new Float32Array(NR), TR = new Float32Array(NR), TG = new Float32Array(NR), TB = new Float32Array(NR);
+const BR = new Float32Array(NR), BG = new Float32Array(NR), BB = new Float32Array(NR);
+const WT = new Float32Array(NR), MM = new Int16Array(NR);
+// a Gaussian of 3.4 rows for the halo, a narrow one of 0.85 for the edge of a band
+const HK = 9, GH = new Float32Array(2 * HK + 1), GE = new Float32Array(5);
+{
+  let a = 0, b = 0;
+  for (let i = -HK; i <= HK; i++) a += (GH[i + HK] = exp(-(i * i) / (2 * 3.4 * 3.4)));
+  for (let i = 0; i < GH.length; i++) GH[i] /= a;
+  for (let i = -2; i <= 2; i++) b += (GE[i + 2] = exp(-(i * i) / (2 * 0.85 * 0.85)));
+  for (let i = 0; i < 5; i++) GE[i] /= b;
+}
 
 function paint(S, slot, h0) {
-  const rho = S.rho;
+  const rho = S.rho, dro = S.dro, o0 = slot * NR;
   for (let k = 0; k < NR; k++) {
-    const r = rho[k], n = round(r), d = abs(r - n);
-    hsv(h0 + 0.62, 0.35, 0.05 + 0.1 * k / NR, NEU);
-    let w = 1 - sm(0.02, 0.08, d), hue = h0 + 0.11 * n, sat = 0.85, val = 0.95;
-    if (w < 0.01) {
-      // the fractional steps, halves and thirds
-      const m2 = round(r * 2), d2 = abs(r - m2 / 2), m3 = round(r * 3), d3 = abs(r - m3 / 3);
-      if (m2 % 2 !== 0 && d2 < 0.06) {
-        w = 1 - sm(0.015, 0.05, d2);
-        hue = h0 + 0.11 * (m2 / 2) + 0.5;
-        sat = 0.6;
-        val = 0.8;
-      } else if (m3 % 3 !== 0 && d3 < 0.06) {
-        w = 1 - sm(0.015, 0.05, d3);
-        hue = h0 + 0.11 * (m3 / 3) + 0.5;
-        sat = 0.6;
-        val = 0.7;
-      }
-    }
-    hsv(hue, sat, val, BC);
-    RR[k] = NEU[0] + (BC[0] - NEU[0]) * w;
-    RG[k] = NEU[1] + (BC[1] - NEU[1]) * w;
-    RB[k] = NEU[2] + (BC[2] - NEU[2]) * w;
+    rho[k] = S.cr[o0 + k];
+    dro[k] = S.cd[o0 + k];
   }
-  // soft edges: one pass of 1 2 1 along the current, reflected at the middle row
   for (let k = 0; k < NR; k++) {
-    const a = k > 0 ? k - 1 : 0, b = k < NR - 1 ? k + 1 : k;
-    TR[k] = 0.25 * RR[a] + 0.5 * RR[k] + 0.25 * RR[b];
-    TG[k] = 0.25 * RG[a] + 0.5 * RG[k] + 0.25 * RG[b];
-    TB[k] = 0.25 * RB[a] + 0.5 * RB[k] + 0.25 * RB[b];
+    const r = rho[k], n = round(r), d = abs(r - n), dd = abs(dro[k]);
+    WT[k] = (1 - sm(0.02, 0.08, d)) * (1 - sm(0.006, 0.03, dd));
+    MM[k] = n;
+  }
+  // each plateau is shaded like a bead, darker toward its two edges, so that plateaus that touch stay apart
+  for (let k = 0; k < NR; k++) {
+    let sh = 1;
+    if (WT[k] > 0.5) {
+      let a = k, e = k;
+      while (a > 0 && MM[a - 1] === MM[k] && WT[a - 1] > 0.5) a--;
+      while (e < NR - 1 && MM[e + 1] === MM[k] && WT[e + 1] > 0.5) e++;
+      const len = e - a + 1, dist = min(a === 0 ? 99 : k - a + 0.5, e === NR - 1 ? 99 : e - k + 0.5);
+      sh = 0.55 + 0.45 * sm(0, 1, dist / min(2.6, 0.5 * len + 0.01));
+    }
+    hsv(h0 + DH * MM[k], 0.88, 1, BC);
+    BR[k] = BC[0] * WT[k] * sh;
+    BG[k] = BC[1] * WT[k] * sh;
+    BB[k] = BC[2] * WT[k] * sh;
   }
   const col = S.col, o = slot * H * 3;
   for (let k = 0; k < NR; k++) {
+    let er = 0, eg = 0, eb = 0, hr = 0, hg = 0, hb = 0;
+    for (let j = -2; j <= 2; j++) {
+      let q = k + j;
+      q = q < 0 ? -q - 1 : q >= NR ? NR - 1 : q;
+      const g = GE[j + 2];
+      er += g * BR[q];
+      eg += g * BG[q];
+      eb += g * BB[q];
+    }
+    for (let j = -HK; j <= HK; j++) {
+      let q = k + j;
+      q = q < 0 ? -q - 1 : q >= NR ? NR - 1 : q;
+      const g = GH[j + HK];
+      hr += g * BR[q];
+      hg += g * BG[q];
+      hb += g * BB[q];
+    }
+    hsv(h0 + 0.62, 0.4, 0.04 + 0.07 * k / NR, NEU);
+    const r = min(1, NEU[0] + 0.92 * er + 0.62 * pow(hr, 0.72)), g = min(1, NEU[1] + 0.92 * eg + 0.62 * pow(hg, 0.72)), b = min(1, NEU[2] + 0.92 * eb + 0.62 * pow(hb, 0.72));
     const u = o + (NR + k) * 3, v = o + (NR - 1 - k) * 3;
-    col[u] = col[v] = TR[k];
-    col[u + 1] = col[v + 1] = TG[k];
-    col[u + 2] = col[v + 2] = TB[k];
+    col[u] = col[v] = r;
+    col[u + 1] = col[v + 1] = g;
+    col[u + 2] = col[v + 2] = b;
   }
 }
 
 function compute(S, slot, t, nburn) {
-  const a0 = a0Of(S.k[2]), a = max(0.3, a0 + ampOf(a0) * wander(t)), om = omOf(S.k[1], t);
-  integrate(S, slot, om, a, nburn);
-  paint(S, slot, S.k[0] + 0.02);
+  const b0 = b0Of(S.k[2]), b = max(0.4, b0 + ampOf(b0) * wander(t)), om = omOf(S.k[1], t);
+  integrate(S, slot, om, b * om, nburn);
+  paint(S, slot, S.k[0] + H0);
   S.ct[slot] = t;
   S.cOm[slot] = S.k[1];
-  S.cA0[slot] = S.k[2];
+  S.cB0[slot] = S.k[2];
+  S.cH[slot] = S.k[0];
 }
 
-const speedOf = (k) => 4.5 * exp(0.85 * cl(k, -1, 1));
+const speedOf = (k) => 4.5 * exp(0.85 * cl(k, -1, 1));   // columns a second
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
@@ -141,6 +168,7 @@ export function update(dt, input, params) {
     const sp = speedOf(S.k[3]);
     for (let i = 0; i < NCOL; i++) {
       S.head = i;
+      if (i > 0) S.phi.copyWithin(i * NR, (i - 1) * NR, i * NR);
       compute(S, i, (i - (NCOL - 1)) / sp, i === 0 ? 12 : BURN);
     }
     return;
@@ -152,8 +180,23 @@ export function update(dt, input, params) {
   S.acc += d * sp;
   while (S.acc >= 1) {
     S.acc -= 1;
+    const prev = S.head;
     S.head = (S.head + 1) % NCOL;
+    S.phi.copyWithin(S.head * NR, prev * NR, prev * NR + NR);
     compute(S, S.head, S.t - S.acc / sp, BURN);
+  }
+  // columns made under other knobs are worked out again, the newest first, two a frame; a new hue only repaints
+  let left = 2, paints = 16;
+  for (let j = 0; j < NCOL - 1; j++) {
+    const i = (S.head - j + NCOL) % NCOL;
+    if (left > 0 && (abs(S.cOm[i] - S.k[1]) > 0.01 || abs(S.cB0[i] - S.k[2]) > 0.02)) {
+      compute(S, i, S.ct[i], BURN);
+      left--;
+    } else if (paints > 0 && abs(S.cH[i] - S.k[0]) > 0.004) {
+      paint(S, i, S.k[0] + H0);
+      S.cH[i] = S.k[0];
+      paints--;
+    }
   }
 }
 
