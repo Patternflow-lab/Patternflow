@@ -87,6 +87,9 @@ const G4S = new Float32Array(N4W * N4H), G4A = new Float32Array(N4W * N4H), G4K 
 const CGW = GW / 4, CGH = GH / 4;             // the height field averaged to 4 x 4 LEDs, for the wide occlusion
 const HC = new Float32Array(CGW * CGH), VC = new Float32Array(CGW * CGH);
 const CSTEP = [2, 4, 7], CRAD = 30;
+const WARPG = 0.42;
+const NWV = 10;                                 // waves in each component of the warp
+const WKX = new Float32Array(2 * NWV), WKY = new Float32Array(2 * NWV), WOM = new Float32Array(2 * NWV), WPH = new Float32Array(2 * NWV), WAM = new Float32Array(2 * NWV), WP = new Float32Array(2 * NWV);
 const FH0 = new Float32Array(256), FH1 = new Float32Array(256), FH2 = new Float32Array(256); // the depth of each fold, by its number
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
@@ -129,6 +132,21 @@ export function setup(params) {
     FH1[i] = 0.55 + 0.9 * r();
     FH2[i] = 0.55 + 0.9 * r();
   }
+  // the warp is a field of 2 x 10 travelling waves, wavelengths 36 to 150 LEDs, each at its own pace, scaled so a fold's spacing changes by 0.42 rms
+  for (let c = 0; c < 2; c++) {
+    let v = 0;
+    for (let i = 0; i < NWV; i++) {
+      const n = c * NWV + i, lam = 36 * pow(4.2, r()), dir = TAU * ((i + r()) / NWV), kk = TAU / lam;
+      WKX[n] = kk * cos(dir);
+      WKY[n] = kk * sin(dir);
+      WOM[n] = (r() < 0.5 ? -1 : 1) * kk * (0.35 + 0.65 * r()) * 1.6;
+      WPH[n] = TAU * r();
+      WAM[n] = pow(lam / 60, 1.4);
+      v += WAM[n] * WAM[n] * kk * kk * 0.5;
+    }
+    const g = WARPG / (28 * sqrt(v));
+    for (let i = 0; i < NWV; i++) WAM[c * NWV + i] *= g;
+  }
 }
 
 export function update(dt, input, params) {
@@ -137,7 +155,7 @@ export function update(dt, input, params) {
   if (!S.k) S.k = [kv[0], kv[1], kv[2], kv[3]];
   const al = 1 - exp(-d / 0.2);
   for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
-  S.t += d;
+  S.t += d * 1.4;
 }
 
 // ---------------------------------------------------------------- draw
@@ -203,19 +221,23 @@ export function draw(display, params) {
   PSI0 = 0.07 * T + 1.3 * sin(0.0237 * T + ph[10]);
   PSI2 = -0.09 * T;
   PSI3 = 0.1 * T + 1.7 * sin(0.0431 * T + ph[8]);
-  AW = 28; A1 = 3.4 * relief; A1m = 0.62 * A1; A2 = 0.25 * A1; AS = 10 * relief;
+  AW = 28; A1 = 3.4 * relief; A1m = 0.62 * A1; A2 = 0.3 * A1; AS = 10 * relief;
   KC0 = PI / (Pc * 1.6); KC = PI / Pc; KB = PI / (Pc * 0.85); KF = PI / P2;
 
   // ---- the smooth fields: the warp on every second cell, the slow ones on every fourth
   const tz = T * 0.04, dx1 = T * 0.011, dy1 = T * 0.007;
+  for (let q = 0; q < 2 * NWV; q++) WP[q] = WOM[q] * T + WPH[q];
   for (let j = 0; j < NH; j++) {
     const y = j * 2 - M - CY;
     for (let i = 0; i < NW; i++) {
       const x = i * 2 - M - CX, n = j * NW + i;
-      const a = x / 56 + dx1 + of[0], b = y / 56 + dy1 + of[1];
-      const a2 = x / 26 - dx1 * 1.6 + of[2], b2 = y / 26 + dy1 * 1.3 + of[3];
-      FWX[n] = noise3(a, b, tz) + 0.38 * noise3(a2, b2, tz * 1.9 + 7.1);
-      FWY[n] = noise3(a + 31.7, b + 11.3, tz + 3.7) + 0.38 * noise3(a2 + 17.2, b2 + 5.9, tz * 1.9 + 1.3);
+      let wx = 0, wy = 0;
+      for (let q = 0; q < NWV; q++) {
+        wx += WAM[q] * sinL(WKX[q] * x + WKY[q] * y + WP[q]);
+        wy += WAM[NWV + q] * sinL(WKX[NWV + q] * x + WKY[NWV + q] * y + WP[NWV + q]);
+      }
+      FWX[n] = wx;
+      FWY[n] = wy;
     }
   }
   // where the warp squeezes a family of creases closer than the panel can draw, its folds fade out
@@ -242,7 +264,7 @@ export function draw(display, params) {
       G4S[n] = noise3(x / 100 + of[4] - dx1 * 0.5, y / 100 + of[5], tz * 0.6 + 2.2);
       G4A[n] = 0.75 + 0.5 * sm(-0.4, 0.5, noise3(x / 64 + of[6], y / 64 + of[7] + dy1, tz * 0.8 + 9.1));
       G4B[n] = sm(-0.25, 0.25, noise3(x / 52 + of[10] - dx1, y / 52 + of[11], tz * 0.9 + 5.7));
-      G4K[n] = sm(-0.3, 0.3, noise3(x / 40 + of[8] + dx1, y / 40 + of[9], tz * 1.2 + 4.4));
+      G4K[n] = 0.45 + 0.55 * sm(-0.3, 0.3, noise3(x / 40 + of[8] + dx1, y / 40 + of[9], tz * 1.2 + 4.4));
     }
   }
   up(G4S, FSW); up(G4A, FAM); up(G4B, FMB); up(G4K, FMK);
