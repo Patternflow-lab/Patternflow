@@ -42,10 +42,10 @@ function hsv(h, s, v, o) {
   o[2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
 const RAMP = [
-  [0.665, 0.85, 0.16, 0],
-  [0.690, 0.82, 0.26, 0],
-  [0.660, 0.70, 0.46, 0],
-  [0.500, 0.88, 0.70, 1],
+  [0.665, 0.85, 0.13, 0],
+  [0.690, 0.82, 0.20, 0],
+  [0.660, 0.72, 0.40, 0],
+  [0.500, 0.88, 0.72, 1],
   [0.200, 0.78, 0.95, 1],
   [0.150, 0.08, 1.00, 1],
 ];
@@ -158,7 +158,7 @@ function field(N, P, rho, t0, sh, q, tp, ox, oy, CELL) {
 export function setup(params) {
   const ph = [];
   for (let i = 0; i < 48; i++) ph.push(TAU * Math.random());
-  params.s = { t: 51, k: null, ph, hue: -9 }; // opens 51 model seconds in, where the opening frame is a lattice of peaks round a bright one
+  params.s = { t: 96, k: null, ph, hue: -9 }; // opens 96 model seconds in, where the opening frame is a few bright ridges on the dark ground
 }
 
 export function update(dt, input, params) {
