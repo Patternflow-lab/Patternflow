@@ -89,7 +89,7 @@ function Row({ f }: { f: Feature }) {
             </div>
           </div>
           {f.reel ? (
-            <Reel reel={f.reel} />
+            <Reel reel={f.reel} feature={f.name} />
           ) : (
             <p className={styles.noReel}>No reel of this one yet.</p>
           )}

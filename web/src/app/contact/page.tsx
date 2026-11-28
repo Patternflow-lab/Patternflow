@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Contact / Patternflow",
   description:
     "Partnership, installation, distribution, and custom AV inquiries for Patternflow.",
+  alternates: { canonical: "/contact" },
   openGraph: { ...SITE_OPEN_GRAPH, url: "/contact" },
 };
 

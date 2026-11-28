@@ -46,11 +46,26 @@ describe("site metadata", () => {
     ["/contact", () => import("@/app/contact/page")],
     ["/terms", () => import("@/app/terms/page")],
     ["/update", () => import("@/app/update/page")],
+    ["/editions", () => import("@/app/editions/page")],
+    ["/compliance", () => import("@/app/compliance/page")],
+    ["/roadmap", () => import("@/app/roadmap/page")],
+    ["/journal", () => import("@/app/journal/page")],
+    ["/journal/en", () => import("@/app/journal/en/page")],
   ] as const)("%s previews with its own address and the site's picture", async (path, load) => {
     const { metadata } = (await load()) as { metadata: Metadata };
     const og = metadata.openGraph as OpenGraph;
     expect(og.images).toEqual(SITE_OPEN_GRAPH.images);
     expect(urlOf(og).replace("https://patternflow.work", "") || "/").toBe(path);
+  });
+
+  it.each([
+    ["/contact", () => import("@/app/contact/page")],
+    ["/terms", () => import("@/app/terms/page")],
+    ["/update", () => import("@/app/update/page")],
+    ["/roadmap", () => import("@/app/roadmap/page")],
+  ] as const)("%s names itself as the canonical address", async (path, load) => {
+    const { metadata } = (await load()) as { metadata: Metadata };
+    expect(metadata.alternates?.canonical).toBe(path);
   });
 
   it("gives /build/breadboard a title of its own", async () => {

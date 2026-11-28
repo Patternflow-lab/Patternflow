@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import styles from "./Compliance.module.css";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ export const metadata: Metadata = {
   description:
     "Regulatory and compliance information for Patternflow products: EU declaration of conformity, FCC radio module certification, WEEE disposal, and manufacturer details.",
   alternates: { canonical: "/compliance" },
+  openGraph: { ...SITE_OPEN_GRAPH, url: "/compliance" },
 };
 
 // Explicit, not incidental. This page has to be readable with JS disabled and

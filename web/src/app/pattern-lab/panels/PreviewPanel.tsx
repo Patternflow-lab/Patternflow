@@ -136,6 +136,7 @@ export default function PreviewPanel() {
     let statsFrames = 0;
     let lastRenderMs = 0;
     let lastErrorSync = 0;
+    let image: ImageData | null = null;
 
     const tick = (now: number) => {
       const dt = Math.min(Math.max(0, (now - lastNow) / 1000), 0.05);
@@ -162,9 +163,13 @@ export default function PreviewPanel() {
         if (canvas.height !== frame.height) canvas.height = frame.height;
         const context = canvas.getContext("2d");
         if (context) {
-          const imageData = context.createImageData(frame.width, frame.height);
-          imageData.data.set(frame.data);
-          context.putImageData(imageData, 0, 0);
+          // One ImageData over the engine's own buffer, made again only when
+          // the engine allocates a new one (a frame resize). The loop used to
+          // create an ImageData and copy the frame into it 60 times a second.
+          if (!image || image.data !== frame.data) {
+            image = new ImageData(frame.data as Uint8ClampedArray<ArrayBuffer>, frame.width, frame.height);
+          }
+          context.putImageData(image, 0, 0);
         }
       }
 

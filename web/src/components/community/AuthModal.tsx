@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { authClient, dummyEmailFor } from "@/lib/community/auth-client";
 import { PASSWORD_MIN, USERNAME_RE } from "@/lib/community/validate";
 import { useDialog } from "@/lib/hooks/useDialog";
@@ -12,13 +13,15 @@ import styles from "./Community.module.css";
 
 type Props = {
   onClose: () => void;
-  /** Called after a successful sign-in/up (session is established). */
+  /** Called after a successful sign-in/up (session is established). Without
+   *  one, the modal refreshes the route itself. */
   onAuthed?: () => void;
   /** Renders without its own overlay when embedded in another modal. */
   embedded?: boolean;
 };
 
 export default function AuthModal({ onClose, onAuthed, embedded = false }: Props) {
+  const router = useRouter();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
@@ -60,15 +63,30 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
           return;
         }
       }
-      onAuthed?.();
+      // The header's handle follows the session by itself, but what the server
+      // rendered does not: after signing in from a card's heart, which passed
+      // no onAuthed, the page kept the signed-out CTA and had no Alerts link
+      // and no Liked tab until a reload. So a caller with nothing of its own to
+      // do gets the refresh every other caller was already asking for.
+      if (onAuthed) onAuthed();
+      else router.refresh();
       onClose();
     } finally {
       setBusy(false);
     }
   };
 
+  // A form, so Enter signs in from the username field as well as the password
+  // one, and a password manager finds a pair of fields to fill.
   const body = (
-    <>
+    <form
+      className={styles.modalBody}
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!busy) void submit();
+      }}
+    >
       <div className={styles.authTabs}>
         <button type="button" data-active={tab === "signin"} onClick={() => setTab("signin")}>
           Sign in
@@ -100,9 +118,6 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
           value={password}
           autoComplete={tab === "signup" ? "new-password" : "current-password"}
           onChange={(event) => setPassword(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void submit();
-          }}
         />
         {tab === "signup" && <span className={styles.fieldHint}>At least 8 characters.</span>}
       </label>
@@ -123,15 +138,19 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
         </label>
       )}
 
-      {error && <div className={styles.formError}>{error}</div>}
+      {error && (
+        <div className={styles.formError} role="alert">
+          {error}
+        </div>
+      )}
 
-      <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void submit()}>
+      <button type="submit" className={styles.btnPrimary} disabled={busy}>
         {busy ? "…" : tab === "signup" ? "Create account" : "Sign in"}
       </button>
-    </>
+    </form>
   );
 
-  if (embedded) return <div className={styles.modalBody}>{body}</div>;
+  if (embedded) return body;
 
   return <AuthWindow onClose={onClose}>{body}</AuthWindow>;
 }
@@ -155,7 +174,7 @@ function AuthWindow({ onClose, children }: { onClose: () => void; children: Reac
             ×
           </button>
         </div>
-        <div className={styles.modalBody}>{children}</div>
+        {children}
       </div>
     </div>
   );

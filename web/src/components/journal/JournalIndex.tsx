@@ -35,6 +35,7 @@ export default function JournalIndex({ posts, lang }: JournalIndexProps) {
           <Link
             className={`journal-featured${hero.cover ? "" : " journal-featured-text-only"}`}
             href={getPostHref(hero.slug)}
+            lang={lang}
           >
             <div className="journal-featured-copy">
               <h1>{hero.title}</h1>
@@ -60,7 +61,7 @@ export default function JournalIndex({ posts, lang }: JournalIndexProps) {
         {archive.length > 0 && (
           <>
             <div className="journal-archive-label">Archive</div>
-            <ol className="journal-post-list">
+            <ol className="journal-post-list" lang={lang}>
               {archive.map((post) => (
                 <li key={post.slug}>
                   <Link

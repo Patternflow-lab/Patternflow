@@ -23,7 +23,7 @@ describe('Project map language', () => {
     expect(screen.getByRole('heading', { name: 'Project map' })).toHaveAttribute('lang', 'en');
     expect(screen.getByRole('link', { name: '← Patternflow' })).toHaveAttribute('lang', 'en');
     expect(screen.getByRole('group', { name: '언어' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /^Patternflow 프로젝트 지도/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /^Patternflow 프로젝트 지도/ })).toBeInTheDocument();
   });
 
   it('names each language in its own language', async () => {
@@ -45,7 +45,7 @@ describe('Project map language', () => {
     expect(en).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Overview' })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /^Patternflow project map/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /^Patternflow project map/ })).toBeInTheDocument();
   });
 });
 

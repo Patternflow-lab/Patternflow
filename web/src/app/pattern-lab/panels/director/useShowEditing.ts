@@ -225,14 +225,21 @@ export function useShowEditing({
       }
       patchKey(drag.lane, drag.id, { cp });
     };
+    // A drag also ends when the browser cancels the pointer or the window
+    // loses focus. Neither sends a pointerup, and with only that listener the
+    // key stayed held: it followed the next pointer that moved, button up.
     const up = () => {
       dragRef.current = null;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("blur", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("blur", up);
     };
   }, [patchKey, snapTime, ppsRef]);
 

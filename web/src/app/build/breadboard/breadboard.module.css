@@ -5,6 +5,9 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  /* Under its diagram, 440px at most, as in print. The photos are 9:16, and
+     one as wide as the 772px column stood 1,372px tall. */
+  max-width: 440px;
   margin-top: 16px;
 }
 
@@ -28,6 +31,7 @@
     top: 50%;
     transform: translateY(-50%);
     width: calc(50vw - 394px);
+    max-width: none;
     margin-top: 0;
     padding: 0 32px;
     align-items: center;

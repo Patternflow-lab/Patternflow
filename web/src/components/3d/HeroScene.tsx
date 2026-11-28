@@ -28,7 +28,13 @@ import patterns from './patterns';
 import { useAppStore, type HomeTabType } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
 import { ObraDemo } from './demos/obra';
-import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
+import {
+  LOGICAL_KNOB_TO_WEB_KNOB,
+  LOGICAL_KNOB_WRAP,
+  knobDetentStep,
+  knobUnitsPerTurn,
+  webKnobRange,
+} from '@/lib/pattern/controls';
 import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -132,9 +138,65 @@ const MESH_TO_KNOB: Record<string, KnobId> = {
   c4: 'c4',
 };
 
+/**
+ * The four knobs as pattern code counts them, Knob 1 to 4 (K1 to K4 on the
+ * board): which value each turns, the mesh that is drawn for it, and its
+ * range, whether it runs round the end of it, and one detent's worth of it.
+ */
+const KNOBS = LOGICAL_KNOB_TO_WEB_KNOB.map((knob, index) => ({
+  knob,
+  mesh: (Object.keys(MESH_TO_KNOB).find((mesh) => MESH_TO_KNOB[mesh] === knob) ?? knob) as KnobId,
+  number: index + 1,
+  range: webKnobRange(knob),
+  wrap: LOGICAL_KNOB_WRAP[index],
+  step: knobDetentStep(webKnobRange(knob)),
+}));
+type Knob = (typeof KNOBS)[number];
+const knobOf = (id: KnobId) => KNOBS.find((k) => k.knob === id) ?? KNOBS[0];
+
+/**
+ * Turns a knob by `delta` of its value, by the one rule the pointer and the
+ * keyboard share: a knob that wraps comes round the end of its range, any
+ * other stops there. The pointer used to keep its own copy of the four
+ * ranges.
+ */
+function turnKnob({ knob, range: [min, max], wrap }: Knob, delta: number) {
+  const store = useAppStore.getState();
+  const value = store.knobValues[knob] + delta;
+  const span = max - min;
+  store.setKnobValue(
+    knob,
+    wrap ? min + ((((value - min) % span) + span) % span) : THREE.MathUtils.clamp(value, min, max),
+  );
+}
+
+/** The angle a knob turns through for `delta` of its value, radians. */
+const turnAngle = ({ range }: Knob, delta: number) => (delta / knobUnitsPerTurn(range)) * 2 * Math.PI;
+
+/**
+ * How far a key turns a knob, in detents: an arrow one click, as on the
+ * community's knobs (knobArrowValue), and Page Up and Down a quarter turn.
+ */
+const KEY_DETENTS: Record<string, number> = {
+  ArrowRight: 1,
+  ArrowUp: 1,
+  ArrowLeft: -1,
+  ArrowDown: -1,
+  PageUp: 6,
+  PageDown: -6,
+};
+
 /** A case's knob lights with a pattern that does not colour them, and how bright they shine (into the bloom). */
 const KNOB_LIGHT_IDLE: [number, number, number] = [0.55, 0.5, 0.42];
 const KNOB_LIGHT_GAIN = 6;
+
+/**
+ * How near and how far the wheel or a pinch takes the camera, from the 11.2
+ * it rests at. Unbounded, it went through the front of the case and out of
+ * the back, or off until the device was a dot.
+ */
+const ZOOM_NEAREST = 5;
+const ZOOM_FARTHEST = 24;
 
 /** Where the preview looks: OrbitControls' target, and where the device is centred. */
 const TARGET = new THREE.Vector3(0, 1.7, 0);
@@ -258,6 +320,7 @@ function ProductPreview({
   hovered,
   onFailed,
   onPick,
+  keyTurn,
 }: {
   /** The case whose full model is on the stage, or on its way there; none before the stage is first used. */
   caseId: CaseId | null;
@@ -274,6 +337,8 @@ function ProductPreview({
   hovered: RefObject<CaseId | null>;
   onFailed: (id: CaseId) => void;
   onPick: (id: CaseId) => void;
+  /** How far the keyboard has turned each knob since the last frame, by mesh name, radians. */
+  keyTurn: RefObject<Partial<Record<string, number>>>;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<PreparedCase | null>(null);
@@ -282,6 +347,9 @@ function ProductPreview({
   // Whether the device on the stage has power this frame: a light model
   // standing there is lit, or dark, as the full one would be.
   const stageLit = useRef(true);
+  // Whether a light model has been painted lit since the frame loop last
+  // looked: one on the shelf, or on its way to or from it (paintLight).
+  const lightLit = useRef(false);
   // Where the view is centred, in the group's own frame; eased like the rest.
   const focus = useRef(FRAME_CENTRE.clone());
   const lift = useRef(0);
@@ -334,6 +402,7 @@ function ProductPreview({
     vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
+  useEffect(() => () => customMat.dispose(), [customMat]);
 
   // Patternflood's Obra, for a case whose model names it (CaseModel.demo);
   // it draws only while that case is lit on the Build tab.
@@ -350,6 +419,8 @@ function ProductPreview({
   useEffect(() => () => demoMat.dispose(), [demoMat]);
 
   const blackMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 }), []);
+  useEffect(() => () => blackMat.dispose(), [blackMat]);
+  useEffect(() => () => ledMatrix.texture.dispose(), [ledMatrix]);
 
   // The light models' panels show what a full model's would: the pattern, the
   // editor's code or the case's own demo. The three materials above carry one
@@ -381,6 +452,7 @@ function ProductPreview({
   // shelf has power, and one on the stage has it when the step does.
   const paintLight = useCallback((light: PreparedLight, onStage: boolean) => {
     const lit = onStage ? stageLit.current : true;
+    if (lit) lightLit.current = true;
     const demo = useAppStore.getState().homeTab === 'build' && light.model.demo === 'obra';
     const panels = lightPanels.of(light.model.ledGrid ?? LED_GRID);
     const target = !lit ? blackMat : demo ? panels.demo : activePatternId === 'custom' ? panels.custom : panels.pattern;
@@ -423,16 +495,8 @@ function ProductPreview({
       // Sensitivity: the same rule as the physical encoder, the whole range
       // in a set number of turns (knobUnitsPerTurn).
       const knobName = d.knob;
-      const currentVal = useAppStore.getState().knobValues[knobName];
       const deltaVal = deltaAngle * (knobUnitsPerTurn(webKnobRange(knobName)) / (2 * Math.PI));
-
-      let newVal = currentVal + deltaVal;
-      if (knobName === 'c1') newVal = (newVal % 1.0 + 1.0) % 1.0; // Hue
-      if (knobName === 'c2') newVal = THREE.MathUtils.clamp(newVal, 0.1, 10.0); // Speed
-      if (knobName === 'c3') newVal = (newVal % 1.0 + 1.0) % 1.0; // Freq/Offset
-      if (knobName === 'c4') newVal = THREE.MathUtils.clamp(newVal, 0.0, 4.9); // Mode
-
-      useAppStore.getState().setKnobValue(knobName, newVal);
+      turnKnob(knobOf(knobName), deltaVal);
     };
 
     const handlePointerUp = () => {
@@ -524,10 +588,20 @@ function ProductPreview({
     const caseDemo = homeTab === 'build' && deviceRef.current?.model.demo === 'obra';
     // ...and so does its light model, on the shelf or standing in.
     const lightDemo = homeTab === 'build' && handoff.current.demoShown;
+    const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
+    // A panel on screen shows the pattern: the stage's, on a step that has it
+    // lit, or a light model's off the stage, which always is.
+    const panelLit = pose.lit || shelfOpen || lightLit.current;
+    lightLit.current = false;
 
     // The pattern on the panel.
     if (caseDemo) {
       // Drawn below, once the step says the panel is lit.
+    } else if (!panelLit) {
+      // Not run on the three Build steps that show the panel dark, with no
+      // light model lit: the editor's code drew all 8192 pixels and uploaded
+      // them every frame for a panel painted black. What the knobs were
+      // turned meanwhile reaches it as one delta when a panel comes back on.
     } else if (activePatternId === 'custom') {
       ledMatrix.render(delta, t, knobValues, prevKnobValues.current);
       prevKnobValues.current = { ...knobValues };
@@ -552,8 +626,9 @@ function ProductPreview({
 
     const group = groupRef.current;
     if (!group) return;
-    const kView = ease(0.05, delta);
-    const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
+    // With less motion asked for, a Build step is a cut to its pose, as the
+    // shelf's moves are (CaseShelf.tsx).
+    const kView = still ? 1 : ease(0.05, delta);
     stageLit.current = pose.lit;
     // The case's own demo, drawn once a frame for whichever is showing it.
     if ((caseDemo && pose.lit) || lightDemo) obra.render(delta, knobValues, prevKnobValues.current);
@@ -592,7 +667,7 @@ function ProductPreview({
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;
     device.root.userData.settled = true;
-    const kPart = fresh ? 1 : ease(0.08, delta);
+    const kPart = fresh || still ? 1 : ease(0.08, delta);
 
     // The panel: the pattern while there is power, black while it is being built.
     const ledTarget = !pose.lit ? blackMat : caseDemo ? demoMat : activePatternId === 'custom' ? customMat : ledMat;
@@ -632,8 +707,14 @@ function ProductPreview({
       p.node.visible = p.presence > 0.01;
     }
 
-    // The knob in hand wears its ring and goes grey.
+    // The knob in hand wears its ring and goes grey, and one the keyboard
+    // has turned turns as far.
     for (const k of device.knobs) {
+      const turned = keyTurn.current[k.node.name];
+      if (turned) {
+        k.node.rotation.z -= turned;
+        keyTurn.current[k.node.name] = 0;
+      }
       const held = activeKnobId === k.node.name;
       k.ring.visible = held;
       for (const tint of k.tints) {
@@ -716,6 +797,79 @@ function ShelfCamera({ open, controls }: { open: boolean; controls: RefObject<Or
   return null;
 }
 
+/**
+ * The knobs for a keyboard, and for whatever reads the page aloud: the four
+ * on the device are drawn in the canvas, where neither reaches. One slider
+ * each, Knob 1 to 4, with nothing of its own to see. The knob in the picture
+ * wears its ring while its slider has the focus, and the line over the
+ * device says which keys turn it. They are there while one device is on the
+ * stage, not over the shelf, whose cases are picked and not turned.
+ */
+function KnobKeys({
+  caseId,
+  keyTurn,
+  onFocusChange,
+}: {
+  /** The case on the stage. */
+  caseId: CaseId;
+  keyTurn: RefObject<Partial<Record<string, number>>>;
+  /** The number of the knob whose slider has the focus, or null. */
+  onFocusChange: (knob: number | null) => void;
+}) {
+  const knobValues = useAppStore((state) => state.knobValues);
+  // A step with the knobs off the device has none to turn: Solder's board
+  // alone, or a boardless build's sheets.
+  const buildStep = useAppStore((state) => state.buildStep);
+  const away = !poseFor(buildStep, 0, 0, false, CASE_MODELS[caseId].boardless).show.knob;
+
+  const turn = (knob: Knob, delta: number) => {
+    turnKnob(knob, delta);
+    keyTurn.current[knob.mesh] = (keyTurn.current[knob.mesh] ?? 0) + turnAngle(knob, delta);
+  };
+
+  return (
+    <div className={styles.knobKeys} role="group" aria-label="Knobs">
+      {KNOBS.map((knob) => {
+        const value = knobValues[knob.knob];
+        return (
+          <input
+            key={knob.knob}
+            type="range"
+            aria-label={`Knob ${knob.number}`}
+            aria-valuetext={value.toFixed(2)}
+            min={knob.range[0]}
+            max={knob.range[1]}
+            step="any"
+            value={value}
+            disabled={away}
+            onFocus={() => {
+              useAppStore.getState().setActiveKnobId(knob.mesh);
+              onFocusChange(knob.number);
+            }}
+            onBlur={() => {
+              // A knob taken by the pointer keeps its ring until it is let go.
+              const store = useAppStore.getState();
+              if (!store.isDraggingKnob) store.setActiveKnobId(null);
+              onFocusChange(null);
+            }}
+            onKeyDown={(event) => {
+              // With Alt, Ctrl or Cmd the key is the browser's, as knobArrowValue leaves it.
+              if (event.altKey || event.ctrlKey || event.metaKey) return;
+              const detents = KEY_DETENTS[event.key];
+              if (!detents) return;
+              // The slider's own arrows would stop at the end of the range,
+              // where a knob that wraps goes on round.
+              event.preventDefault();
+              turn(knob, detents * knob.step);
+            }}
+            onChange={(event) => turn(knob, Number(event.target.value) - value)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 const caseName = (id: CaseId) => BUILD_CASES.find((c) => c.id === id)?.tab ?? id;
 
 /**
@@ -748,6 +902,10 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
   if (activeKnobId && !hasInteracted) {
     setHasInteracted(true);
   }
+  // The keyboard's knobs (KnobKeys): which one has the focus, for the hint,
+  // and how far each has been turned, for the frame loop to turn its mesh.
+  const [keyKnob, setKeyKnob] = useState<number | null>(null);
+  const keyTurn = useRef<Partial<Record<string, number>>>({});
 
   // The case whose full model is on the stage, and the one wanted: the picked
   // case once its model is in, the official one for a case whose model would
@@ -838,7 +996,8 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
         </div>
       )}
 
-      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐) */}
+      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐). While a knob's slider
+          has the keyboard's focus it comes back to say which keys turn it. */}
       <div
         className={`viewer-hint${titled ? ` ${styles.hintUnderTitle}` : ''}`}
         style={{
@@ -851,12 +1010,16 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
           pointerEvents: 'none',
-          opacity: shelfOpen || !hasInteracted ? 1 : 0,
-          transition: 'opacity 1.5s ease-in-out',
+          opacity: shelfOpen || keyKnob !== null || !hasInteracted ? 1 : 0,
+          transition: keyKnob !== null ? 'opacity 0.2s ease' : 'opacity 1.5s ease-in-out',
           zIndex: 10,
         }}
       >
-        {shelfOpen ? 'Pick a case' : 'Rotate the knobs to explore'}
+        {shelfOpen
+          ? 'Pick a case'
+          : keyKnob !== null
+            ? `Knob ${keyKnob}: arrow keys turn it`
+            : 'Rotate the knobs to explore'}
       </div>
 
       {/* The shelf's cases by name, each a button on the front edge of its
@@ -929,6 +1092,8 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
         />
       )}
 
+      {!shelfOpen && <KnobKeys caseId={wanted} keyTurn={keyTurn} onFocusChange={setKeyKnob} />}
+
       <Canvas camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
         <ambientLight intensity={0.3} color="#fef6e8" />
         <directionalLight position={[2.3, 3.9, 6]} intensity={2.60} color="#ffffff" castShadow
@@ -964,6 +1129,7 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           hovered={shelfHover}
           onFailed={onFailed}
           onPick={pickFromShelf}
+          keyTurn={keyTurn}
         />
         <ShelfCamera open={shelfOpen} controls={controlsRef} />
         {loading && (
@@ -979,6 +1145,11 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           target={[0, 1.7, 0]}
           enablePan={false}
           enableZoom={!shelfOpen}
+          // Only off the shelf. Bringing the camera back to the shelf runs a
+          // straight line through these bounds (ShelfCamera), and the zoom
+          // is off there anyway.
+          minDistance={shelfOpen ? 0 : ZOOM_NEAREST}
+          maxDistance={shelfOpen ? Infinity : ZOOM_FARTHEST}
           enableRotate={!isDraggingKnob && !shelfOpen}
         />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />

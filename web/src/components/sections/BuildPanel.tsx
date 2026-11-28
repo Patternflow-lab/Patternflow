@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useAppStore, SectionType } from '@/store/useAppStore';
+import { useAppStore } from '@/store/useAppStore';
 import { SectionContent } from '@/lib/content';
 import { captureEvent } from '@/lib/posthogEvents';
 import { preloadCaseModel } from '@/components/3d/preloadCaseModel';
@@ -87,12 +87,10 @@ function caseFromUrl(): CaseId | null {
 }
 
 export default function BuildPanel({ content, isActive }: BuildPanelProps) {
-  const setActiveSection = useAppStore((state) => state.setActiveSection);
   const buildStep = useAppStore((state) => state.buildStep);
   const setBuildStep = useAppStore((state) => state.setBuildStep);
   const explode = useAppStore((state) => state.explode);
   const setExplode = useAppStore((state) => state.setExplode);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [lockedStep, setLockedStep] = useState<number | null>(null);
   const [activeTouchStep, setActiveTouchStep] = useState<number | null>(null);
@@ -172,25 +170,6 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
     return () => window.cancelAnimationFrame(frame);
   }, [activeTouchStep, isActive, isMobile, setBuildStep]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.getAttribute('data-section') as SectionType;
-            if (id) setActiveSection(id);
-          }
-        });
-      },
-      { threshold: 0.5 },
-    );
-
-    const sections = containerRef.current?.querySelectorAll('[data-section]');
-    sections?.forEach((sec) => observer.observe(sec));
-
-    return () => observer.disconnect();
-  }, [setActiveSection]);
-
   // A step is acted out on a device, so asking for one takes the 3D view off
   // the shelf it opens on and onto the case the switch is on. Only a step the
   // reader asked for: the first step a phone opens by itself (above) leaves
@@ -208,7 +187,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
     setBuildStep(0);
   };
 
-  const handleStepClick = (stepId: number) => {
+  const handleStepClick = (stepId: number, fromKeyboard = false) => {
     const step = steps.find((item) => item.id === stepId);
     leaveShelf();
 
@@ -231,6 +210,10 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
 
     if (lockedStep === stepId) {
       setLockedStep(null);
+      // A pointer is still over the row, and goes on previewing it until it
+      // leaves. The keyboard has no hover to leave: letting the step go from
+      // there left the device in pieces with no key to mend it.
+      if (fromKeyboard) setBuildStep(0);
       return;
     }
 
@@ -251,7 +234,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
         <p className="pf-sub">{flow?.subtitle ?? (content.subtitle || 'Print, solder, assemble, flash.')}</p>
       </div>
 
-      <div className={`panel-body ${styles.buildPanel}`} ref={containerRef}>
+      <div className={`panel-body ${styles.buildPanel}`}>
         {/* Cost and time first: the reader decides whether to build at all
             before they care what the four steps are. */}
         <div className={styles.factsBand}>
@@ -295,13 +278,16 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
                   key={step.id}
                   role="button"
                   tabIndex={0}
+                  // Held, as a click or a key holds it, and not merely
+                  // hovered: a second press lets it go.
+                  aria-pressed={(isMobile ? activeTouchStep : lockedStep) === step.id}
                   className={`pf-row ${styles.stepCard} ${isActive ? 'on' : ''}`}
                   onMouseEnter={() => handleStepEnter(step.id)}
                   onClick={() => handleStepClick(step.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      handleStepClick(step.id);
+                      handleStepClick(step.id, true);
                     }
                   }}
                 >

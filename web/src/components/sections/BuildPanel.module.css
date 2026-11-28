@@ -110,10 +110,17 @@
 /* Keep the fill — emptying a solid on hover reads as disabled. */
 .guideCard:hover,
 .guideCard:focus-visible {
-  outline: 0;
   background: var(--pf-ink-muted);
   border-color: var(--pf-ink-muted);
   text-decoration: none;
+}
+
+/* Focus from the keyboard wears a ring as well, the quick links' ring just
+   outside the card. The fill alone is the hover's, and says nothing about
+   where the keyboard is. */
+.guideCard:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: 2px;
 }
 
 .quickLinks {

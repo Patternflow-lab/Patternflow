@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: "Firmware update / Patternflow",
   description:
     "Update your Patternflow over Wi-Fi. Your patterns, Wi-Fi networks and storage are untouched — an update rewrites the program only.",
+  alternates: { canonical: "/update" },
   openGraph: { ...SITE_OPEN_GRAPH, url: "/update" },
 };
 

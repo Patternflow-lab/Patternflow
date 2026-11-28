@@ -4,6 +4,14 @@
   display: none;
 }
 
+/* Outside the media query below: the image component warns when a photo
+   that fills its parent loads inside one that is not positioned, and on a
+   wide screen these load too, unseen, once the strip has fetched the same
+   file. */
+.photo {
+  position: relative;
+}
+
 /* The card sits inside .panel-body, whose global `p` rule (17px on mobile,
    plus a 28px bottom margin) outranks a bare module class. Both paragraph
    styles below are scoped through .card to win that. */
@@ -76,7 +84,6 @@
   }
 
   .photo {
-    position: relative;
     aspect-ratio: 4 / 3;
     overflow: hidden;
     padding: 0;

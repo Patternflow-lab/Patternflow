@@ -59,6 +59,13 @@ let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
+  // The card asks whether it is on a phone, and jsdom has no matchMedia.
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
 });
 afterEach(() => {
   vi.unstubAllGlobals();

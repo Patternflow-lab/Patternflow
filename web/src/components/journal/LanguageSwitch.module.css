@@ -1,0 +1,8 @@
+/* The two links are set as 18 by 19 px of text. A finger needs more, so each
+   one's box grows by padding and gives the same back in margin: nothing
+   moves, and the target is 26 by 43. The 4 px each side keeps the two from
+   overlapping across the 10 px gap between them. */
+.target {
+  padding: 12px 4px;
+  margin: -12px -4px;
+}

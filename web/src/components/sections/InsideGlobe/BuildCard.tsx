@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import PhotoLightbox from './PhotoLightbox';
 import PinLink from './PinLink';
-import { formatBuildDate, CARD_TILES } from './builds';
+import { formatBuildDate, CARD_TILES, TILE_SIZES } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import styles from './BuildCard.module.css';
 
@@ -97,7 +97,7 @@ export default function BuildCard() {
                   onClick={() => setGalleryIndex(index)}
                   aria-label={image.alt}
                 >
-                  <Image src={image.src} alt="" fill sizes="45vw" />
+                  <Image src={image.src} alt="" fill sizes={TILE_SIZES} />
                   {index === tiles.length - 1 && hidden > 0 && (
                     <span className={styles.more}>+{hidden}</span>
                   )}

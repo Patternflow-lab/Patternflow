@@ -205,9 +205,6 @@
   .app-layout {
     display: flex;
   }
-  .mobile-page-links {
-    display: none;
-  }
   .viewer-panel {
     position: sticky;
     top: 0;
@@ -252,12 +249,6 @@
     .viewer-panel { display: none; }
     .content-panel { width: 100%; }
     .viewer-hint { display: none; }
-
-    /* Page links (Journal / Contact) live as a fixed, layered header in the
-       top-right — independent of the 3D preview, sitting above everything. */
-    .mobile-page-links {
-      display: none;
-    }
 
     /* The 3D preview is hidden while the hero is full-screen, then "drops down"
        and pins to the top once a section tab is opened from the bottom nav.

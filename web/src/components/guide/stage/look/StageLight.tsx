@@ -204,6 +204,8 @@ export function StageFloor() {
       uTooth: { value: grainTexture() as THREE.Texture },
     };
     const mat = new THREE.MeshStandardMaterial({ color: "#141210", roughness: 0.92, metalness: 0, transparent: true, alphaMap: alpha });
+    // The two that move, where the stage's signature reads them (rest.ts): the floor is drawn again while either does.
+    mat.userData.uniforms = { uPanelPower: uniforms.uPanelPower, uContact: uniforms.uContact };
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
       shader.vertexShader = shader.vertexShader

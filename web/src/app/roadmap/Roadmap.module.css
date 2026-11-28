@@ -83,6 +83,16 @@
   color: var(--pf-cream);
 }
 
+/* The group clips its buttons (overflow: hidden), so the ring sits inside. */
+.toggleBtn:focus-visible {
+  outline: 2px solid var(--pf-ink);
+  outline-offset: -4px;
+}
+
+.toggleOn:focus-visible {
+  outline-color: var(--pf-cream);
+}
+
 /* One row of back link, title and both toggle groups is 572px wide. Below
    that the toggles ended at 422px on a 390px phone and cut 「상세보기」 in
    half, so on a phone they take the second row. */
@@ -242,6 +252,14 @@
   outline: none;
 }
 
+/* A ring outside the box. A thicker stroke alone did not show on the
+   selected node, which is ink on ink. */
+.nodeGroup:focus-visible {
+  outline: 2px solid var(--pf-ink);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
 .nodeGroup:focus-visible rect {
   stroke-width: 2.5;
 }
@@ -337,7 +355,14 @@
   border: 1px solid var(--pf-ink);
   border-radius: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   cursor: auto;
+}
+
+/* Focus lands here when a node is opened from the keyboard. The popup's own
+   border already marks it. */
+.popup:focus {
+  outline: none;
 }
 
 .popupHead {

@@ -254,4 +254,36 @@ describe('Hero', () => {
     setReduce(false);
     expect(stopButton()).not.toBeNull();
   });
+
+  // RightPanel keeps the hero mounted under the other tabs. The embed kept
+  // streaming there, and a link straight to /build started it too.
+  it('leaves the embed out while another tab is open, and the poster waits for the hero', () => {
+    const html = renderToString(<Hero isActive={false} />);
+    const img = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
+    expect(img?.getAttribute('loading')).toBe('lazy');
+    expect(img?.getAttribute('fetchpriority')).toBe('auto');
+
+    const { container, rerender } = render(<Hero isActive={false} />);
+    act(() => vi.advanceTimersByTime(3000));
+    expect(video(container)).toBeNull();
+    expect(poster(container)).not.toBeNull();
+
+    // Back on the hero: a fresh one from the top, hidden while it loads.
+    rerender(<Hero isActive />);
+    expect(video(container)?.style.opacity).toBe('0');
+    act(() => vi.advanceTimersByTime(3000));
+    expect(video(container)?.style.opacity).toBe('1');
+
+    // Away again, and back: Stop pressed before stays pressed.
+    fireEvent.click(stopButton());
+    rerender(<Hero isActive={false} />);
+    rerender(<Hero isActive />);
+    expect(video(container)).toBeNull();
+    expect(playButton()).not.toBeNull();
+  });
+
+  it('keeps the embed out of the tab order', () => {
+    const { container } = render(<Hero />);
+    expect(video(container)).toHaveAttribute('tabindex', '-1');
+  });
 });
