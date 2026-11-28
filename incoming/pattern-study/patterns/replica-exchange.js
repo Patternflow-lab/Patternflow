@@ -11,13 +11,13 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Ladder=0..4, Rugged=-1..1, Swap=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the coldest band is blue, then violet, magenta and rose, and the hottest is amber; at 0.5 it runs from yellow-green to teal. The walkers and the streaks turn with it.
-// Knob 2: Ladder. How hot the hottest copy is, 0 to 4. The temperature ratio of the top band to the bottom one is 1.3 x 40^(K/4): 1.3 at 0, 8 at 2 where it opens, 52 at 4. At 0 all six bands are cold, all blue, every walker sits in a well and a swap is accepted nine times in ten; at 4 the top bands are amber and wander over the whole panel, and neighbours swap one try in five.
-// Knob 3: Rugged. How deep the wells are and how many there are, -1 to 1, opening at 0. The depth scale is 0.55 + 0.9 s with s = (K + 1) / 2, and a well or hump is in the landscape only above its own s (from 0 to 0.65), so there are 3 at -1, 6 at the opening and 8 at 1. A cold walker needs a rarer jump to leave the deeper wells.
-// Knob 4: Swap. How often neighbouring copies try to trade, -1 to 1, opening at 0.06. The tries come every 0.42 s / 2.4^K, 0.40 s at the opening and 0.17 s at 1; below -0.6 they thin out, and at -1 there are none, so the cold walker stays in whichever well it fell into and the landscape drifts under it.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the coldest band is blue, then violet, magenta and salmon, and the hottest is amber; at 0.5 the bottom is yellow and the top cyan. The walkers and the streaks turn with it.
+// Knob 2: Ladder. How hot the hottest copy is, 0 to 4. The temperature of the top band over the bottom one is 1.3 x (400 / 1.3)^(K / 4): 1.3 at 0, 23 at 2 where it opens, 400 at 4. The colours follow the real temperatures, so at 0 all six bands are blue and violet, every walker sits in a well and 92 percent of the swap tries are accepted. At 2 the three colder pairs accept 62 to 70 percent and the two hotter 79 and 88. At 4 the top three bands wander over the whole panel in coral and amber, the two coldest pairs accept 41 and 45 percent and the hotter three 80, 94 and 99.
+// Knob 3: Rugged. How deep the wells are and how many there are, -1 to 1, opening at 0. The depth scale is 0.7 + 0.7 s with s = (K + 1) / 2, and a well or hump joins the landscape only above its own s, so of the eight that come and go there are 3.5 strong ones (depth over 0.35) at -1, 6.5 at 0 and 7.4 at 1, with two broad swells always there. The line is a smooth bump at -1 and a row of sharp wells and teeth at 1, at once.
+// Knob 4: Swap. How often neighbouring copies try to trade, -1 to 1, opening at 0.06. Rounds of tries come every 0.34 s / 2.4^K, 0.32 s at the opening and 0.14 s at 1, and thin out below -0.6. Accepted swaps a second: 12.8 at 1, 5.6 at the opening, 1.3 at -0.8, none at -1. With none the cold walker stood in the deepest well 24 percent of the time (landscape drift moved it now and then); at the opening 78 percent.
 //
-// What the picture is. Six bands of about 20 rows, coldest at the bottom. Each band shows the same energy U(x) over 64 columns as a bright line, wells down and humps up, with the area under it shaded in the band's temperature colour. Light pools in the wells where that copy has been lately (a memory of about 40 s), a white 3 x 3 walker sits on the line with a trail of about half a second, and a swap is a 3 LED wide streak from the old place of each of the two walkers to the new, fading over 0.45 s. A refused swap is a dim stub in the dark gap between the bands.
-// What is exact and what is drawn. The model is exact: U is a sum of eight Gaussians with their depths, centres and widths on clocks of 47 to 229 s that share no factor, six Metropolis walkers with step widths that grow as T^0.65, 90 moves a second each, a geometric ladder of beta, and the swap test min(1, exp((beta_i - beta_j)(U_i - U_j))) tried on the even then the odd pairs. The compression of U to rows (a tanh), the shading under the line, the blur of the visit counts, the walker smoothing of 0.06 s and the palette are drawing choices. Nothing is a label: no axis, no figure.
+// What the picture is. Six bands of about 20 rows, coldest at the bottom, the dark gap between them 2 rows. Each shows the same energy U(x) over the 64 columns as a bright line, wells down and humps up, with the area under it shaded in the band's temperature colour. Light pools in the wells that copy has visited in the last 30 s, a white 3 x 3 walker sits on the line with a trail of half a second, and a swap is a 3 LED streak down each of the two columns the exchanged states stood in, fading in 0.45 s. A refused try is a dim stub in the gap. Wells deepen and fade on clocks of 37 to 127 s that share no factor, so the deepest well moves about every 15 s and a hot copy has to find the new one before the cold copy can follow.
+// What is exact and what is drawn. The model is exact: U is ten Gaussians (eight wells and humps, two broad swells) with depths, centres and widths on clocks; six Metropolis walkers make 70 moves a second with step widths that grow as T^0.65 (0.5 column cold, 2.6 at most); beta runs geometrically from 10; the swap test is min(1, exp((beta_i - beta_j)(U_i - U_j))), tried on the even then the odd pairs. With the landscape held still for 1200 s the cold copy's visit counts came to within 0.2 to 0.34 (of 2) of the Boltzmann weights, in three runs. The tanh that squeezes U into rows, the shading, the blur of the visit counts, the walker's smoothing (0.04 s cold, 0.16 s hot), the trail and the palette are drawing choices. Nothing is a label.
 
 const W = 64, H = 128, NB = 6, GAP = 2, NC = 10, NG = 257;
 const { floor, exp, log, sin, tanh, min, max, abs, pow, PI } = Math;
@@ -49,9 +49,9 @@ const PRE = 70;             // model seconds run before the first frame
 const HMIN = 3, HRNG = 14.5; // lowest the line goes above the band floor, and how far it climbs
 // centre, width, depth (negative is a well), the s at which it joins the landscape
 const COMP = [
-  [0.13, 0.034, -1.00, -0.5, 0], [0.38, 0.028, -0.80, -0.35, 0], [0.62, 0.042, -1.10, -0.2, 0], [0.84, 0.026, -0.70, 0.15, 1],
+  [0.13, 0.034, -1.00, -0.5, 0], [0.38, 0.028, -0.80, -0.35, 0], [0.62, 0.042, -1.10, -0.2, 0], [0.84, 0.026, -0.70, 0.15, 0],
   [0.50, 0.024, 0.90, -0.05, 0], [0.26, 0.022, 0.80, 0.3, 1], [0.74, 0.022, 0.85, 0.45, 1], [0.96, 0.024, -0.60, 0.6, 1],
-  [0.30, 0.110, 0.40, -1, 0, 2.5], [0.72, 0.130, -0.45, -1, 0, 2.5],
+  [0.30, 0.110, 0.28, -1, 0, 2.5], [0.72, 0.130, -0.32, -1, 0, 2.5],
 ];
 const AP = [37, 47, 59, 67, 79, 43, 53, 71, 41, 73];            // depth clocks, s
 const XP = [83, 97, 89, 103, 113, 79, 67, 107, 61, 127];     // position clocks
@@ -70,7 +70,7 @@ export function setup(params) {
     U: new Float64Array(NG), x, xd: Float64Array.from(x), beta: new Float64Array(NB), sig: new Float64Array(NB), tc: new Float64Array(NB),
     mc: new Float64Array(NB), hist: arr(NB, W), g: arr(NB, W), tr: arr(NB, W), sw: Math.random() * SWT, par: 0, ev: [],
     hc: new Float64Array(W + 2), hmin: new Float64Array(W), hmax: new Float64Array(W),
-    col: [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0]), lit: [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0]),
+    col: [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0]), sk: [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0]), lit: [0, 1, 2, 3, 4, 5].map(() => [0, 0, 0]),
   };
   for (let r = 0; r < NB; r++) for (let i = 0; i < W; i++) params.s.hist[r][i] = MPS * TH / W;
 }
@@ -82,7 +82,7 @@ function buildLandscape(S) {
   for (let i = 0; i < NC; i++) {
     const c = COMP[i];
     const pres = sm(c[3] - 0.22, c[3] + 0.22, s), gate = c[4] ? sm(-0.95, -0.5, sin(S.thG[i])) : 1;
-    aa[i] = AS * c[2] * exp(0.65 * sin(S.thA[i])) * pres * gate;
+    aa[i] = AS * c[2] * exp(0.55 * sin(S.thA[i])) * pres * gate;
     cc[i] = c[0] + (c[5] || 1) * (0.06 * sin(S.thX[i]) + 0.025 * sin(1.7 * S.thX[i] + 1.3));
     ww[i] = c[1] * (1 + 0.18 * sin(0.6 * S.thA[i] + 2));
   }
@@ -96,6 +96,11 @@ function buildLandscape(S) {
     }
     U[j] = u;
   }
+  // zero of energy at the panel's mean, so the line stays in the middle of the band whatever the wells do
+  let m = 0;
+  for (let j = 0; j < NG; j++) m += U[j];
+  m /= NG;
+  for (let j = 0; j < NG; j++) U[j] -= m;
 }
 
 function uAt(S, x) {
@@ -103,7 +108,7 @@ function uAt(S, x) {
   return S.U[i] + (S.U[i + 1] - S.U[i]) * f;
 }
 
-const heightOf = (u) => HMIN + HRNG * (0.5 + 0.5 * tanh(u / 0.85));
+const heightOf = (u) => HMIN + HRNG * (0.5 + 0.5 * tanh(u / 1.4));
 
 function deposit(hs, x) {
   const p = x * W - 0.5, i = floor(p), f = p - i;
@@ -201,8 +206,8 @@ function prepare(S) {
       g[i] = 1 - exp(-(0.25 * a + 0.5 * b + 0.25 * c) * nrm / 2.2);
     }
     palette(S.tc[r], S.k[0], S.col[r]);
-    const c = S.col[r], l = S.lit[r];
-    l[0] = c[0] + (1 - c[0]) * 0.45; l[1] = c[1] + (1 - c[1]) * 0.45; l[2] = c[2] + (1 - c[2]) * 0.45;
+    const c = S.col[r], l = S.lit[r], k = S.sk[r];
+    for (let m = 0; m < 3; m++) { l[m] = c[m] + (1 - c[m]) * 0.45; k[m] = c[m] * 0.8 + 0.2 * l[m]; }
   }
 }
 
@@ -243,13 +248,13 @@ export function draw(display, params) {
         let v, gl;
         if (yc >= yB) {
           const dB = yc - yB;
-          v = 0.2 + 0.24 * exp(-dB / 9);
-          gl = 1.6 * g[x] * (0.3 + 0.7 * exp(-dB / 7));
+          v = 0.25 + 0.28 * exp(-dB / 9);
+          gl = 1.7 * g[x] * (0.3 + 0.7 * exp(-dB / 7));
         } else if (yc <= yT) {
           const dA = yT - yc;
-          v = 0.13 + 0.12 * exp(-dA / 4);
+          v = 0.16 + 0.14 * exp(-dA / 4);
           gl = 0.5 * g[x] * g[x] * exp(-dA / (0.8 + 3 * g[x]));
-        } else { v = 0.3; gl = 0.5 * g[x]; }
+        } else { v = 0.35; gl = 0.5 * g[x]; }
         const dist = max(yT - yc, yc - yB, 0);
         const lw = cl(1.5 - dist, 0, 1), ln = lw * 0.9, wt = lw * tr[x] * 0.5;
         const p = (y * W + x) * 3, vg = v + gl;
@@ -262,7 +267,7 @@ export function draw(display, params) {
   // swap streaks: each state keeps its column and drops to the other band
   for (const e of S.ev) {
     const env = pow(1 - e.age / EVLIFE, 1.5) * (e.ok ? 1 : 0.28);
-    const ci = S.lit[e.i], cj = S.lit[e.j];
+    const ci = S.sk[e.i], cj = S.sk[e.j];
     const bi = NB - 1 - e.i, bj = NB - 1 - e.j;
     for (let n = 0; n < 2; n++) {
       const x = n === 0 ? e.xa : e.xb;
@@ -284,9 +289,9 @@ export function draw(display, params) {
           const wx = cl(1.75 - abs(xx + 0.5 - xc), 0, 1) * edge * env;
           if (wx <= 0) continue;
           const p = (yy * W + xx) * 3;
-          BUF[p] += (cs[0] + (ce[0] - cs[0]) * f) * wx * 1.1;
-          BUF[p + 1] += (cs[1] + (ce[1] - cs[1]) * f) * wx * 1.1;
-          BUF[p + 2] += (cs[2] + (ce[2] - cs[2]) * f) * wx * 1.1;
+          BUF[p] += (cs[0] + (ce[0] - cs[0]) * f) * wx * 1.5;
+          BUF[p + 1] += (cs[1] + (ce[1] - cs[1]) * f) * wx * 1.5;
+          BUF[p + 2] += (cs[2] + (ce[2] - cs[2]) * f) * wx * 1.5;
         }
       }
     }
