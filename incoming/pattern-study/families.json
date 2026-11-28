@@ -459,5 +459,10 @@
   "congestion": { "label": "혼잡 제어", "color": "#8ccf2e" },
   "mohrcoulomb": { "label": "모어-쿨롱 파괴", "color": "#c43c5c" },
   "nichepacking": { "label": "지위 겹침", "color": "#3d6fd1" },
-  "floodrouting": { "label": "홍수 추적", "color": "#12b5cb" }
+  "floodrouting": { "label": "홍수 추적", "color": "#12b5cb" },
+  "taylordispersion": { "label": "전단 분산", "color": "#e0912c" },
+  "shibori": { "label": "접어 염색", "color": "#3b4fb8" },
+  "tempering": { "label": "복제 교환", "color": "#d6498f" },
+  "daisyworld": { "label": "항상성 행성", "color": "#8fbf3a" },
+  "efflorescence": { "label": "백화", "color": "#bfa98a" }
 }
