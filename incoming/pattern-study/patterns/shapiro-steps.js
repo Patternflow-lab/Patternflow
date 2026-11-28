@@ -18,7 +18,7 @@
 //
 // x.
 
-const W = 64, H = 128, NR = 64, NS = 2 * NR, NCOL = 68;
+const W = 64, H = 128, NR = 64, NS = 2 * NR, NCOL = 66;
 const { floor, ceil, exp, sin, cos, min, max, abs, round, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -190,15 +190,17 @@ export function update(dt, input, params) {
   const sp = speedOf(S.k[3]);
   S.t += d;
   S.acc += d * sp;
+  let made = 0;
   while (S.acc >= 1) {
     S.acc -= 1;
+    made++;
     const prev = S.head;
     S.head = (S.head + 1) % NCOL;
     S.phi.copyWithin(S.head * NS, prev * NS, prev * NS + NS);
     compute(S, S.head, S.t - S.acc / sp, BURN);
   }
   // columns made under other knobs are worked out again, the newest first; a new hue only repaints
-  let left = S.k[1] > 1.3 ? 2 : 1, paints = 16;
+  let left = S.k[1] > 1.6 ? 2 - min(made, 1) : 1 - min(made, 1), paints = 16;
   for (let j = 0; j < NCOL - 1; j++) {
     const i = (S.head - j + NCOL) % NCOL;
     if (left > 0 && (abs(S.cOm[i] - S.k[1]) > 0.01 || abs(S.cB0[i] - S.k[2]) > 0.02)) {
