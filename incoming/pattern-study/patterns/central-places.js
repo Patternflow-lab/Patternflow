@@ -1,28 +1,30 @@
 // ===== Patternflow pattern =====
 // Title:   Central Places
 // Family:  centralplace
-// Idea:    Christaller's hierarchy of market towns on a plain, four nested nets of hexagonal market areas of villages, towns, cities and a metropolis, whose nets swing from the marketing principle (k = 3) through the transport principle (k = 4) to the administrative principle (k = 7), so that the coarse nets slide across the fine ones and towns win or lose a rank wherever the two come into step.
+// Idea:    Christaller's central places on a plain, four nested nets of hexagonal market areas for villages, towns, cities and a metropolis, whose nets swing from the marketing principle (k = 3) through the transport principle (k = 4) to the administrative principle (k = 7), so that the coarse nets slide across the fine ones and towns win or lose a rank wherever the two fall into step.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: central place theory (Walter Christaller, Die zentralen Orte in Suddeutschland, 1933, from memory), the rotated nets that share centres (August Losch, 1940, from memory), Voronoi cells as market areas (Georgy Voronoi, 1908), the exact distance to a hexagonal cell edge computed here, original code, pattern round 276
+// Lineage: central place theory with its k = 3, 4 and 7 nets (Walter Christaller, Die zentralen Orte in Suddeutschland, 1933, from memory), the nets turned to share centres (August Losch, 1940, from memory), market areas as Voronoi cells (Georgy Voronoi, 1908), the exact distance to a hexagonal cell edge worked out for this pattern, original code, pattern round 276
 // Round:   276
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Spacing=0..4, Principle=-1..1, Tilt=0..1
 //
-// Knob 1: Hue. Turns every line, dot and tint round the colour wheel together. At 0 the villages are teal, the towns coral, the cities gold and the metropolis cream, on a deep indigo ground that does not move.
-// Knob 2: Spacing. The distance between neighbouring villages, a = 6 + 2 K LEDs: 6 at 0, 10 at 2 where it opens, 14 at 4. The towns are a sqrt(k) apart, the cities a k, the metropolis a k sqrt(k), so at 6 the whole hierarchy is crowded and the village net has faded out, at 14 the cities are the size of the panel.
-// Knob 3: Principle. Where on the way from k = 3 through 4 to 7 the hierarchy sits: k = 4 + K below 0 and 4 + 3 K above, so 3 at -1, 4 at 0 where it opens, 7 at 1. Round that the hierarchy keeps swinging on its own by up to 0.85 of a unit either way, on clocks of 131 and 79 s.
-// Knob 4: Tilt. How far the nets are let off the ideal. At 0 every net is turned and sized exactly as its principle says and the villages only wander 2 degrees against the rest. At 1 each net is turned up to 33 degrees more, its centre sits up to 0.28 of its own spacing off the others, the villages twist by 5.5 degrees and the whole plain bends by 5 LEDs.
+// Knob 1: Hue. Turns every line, dot, ring and tint round the colour wheel together. At 0 the villages are teal, the towns coral, the cities gold and the metropolis cream on a deep indigo ground that does not turn; the city cells are tinted from cyan-blue to violet.
+// Knob 2: Spacing. The distance a between neighbouring villages, a = 8 + 2 K LEDs: 8 at 0, 12 at 2 where it opens, 16 at 4. Towns lie a sqrt(k) apart, cities a k, the metropolis a k sqrt(k). At k = 4 that is 24, 48 and 96 LEDs for a = 12; at k = 3 and a = 8 it is 14, 24 and 42, with about 150 villages on the panel; at k = 7 and a = 16 it is 42, 112 and 296, with about 37 villages, a town or two and at most a piece of one city.
+// Knob 3: Principle. Where the hierarchy swings from. k = 4 + K below 0 and 4 + 3 K above, so 3 at -1, 4 at 0 where it opens, 7 at 1. On top of that k keeps moving by itself along a cosine fold between 3 and 7, on three clocks of 311, 163 and 97 s. At the opening position k ran from 3.15 to 6.02 over 15 minutes, at -1 from 3.00 to 4.02, at +1 from 5.98 to 7.00. Rank changes come about 0.7 a second at the opening, about 0.16 a second at +1 where the nets are far from the villages and few come near one.
+// Knob 4: Tilt. How far the nets are let off the ideal. At 0 every net sits and turns exactly as its principle says and only the village net twists, by up to 2 degrees. At 1 the towns, cities and metropolis are turned a further 19, -25 and 33 degrees (each wobbling by 40 percent on 173 s), each net's centre sits 0.28 of its own spacing off the common one, the village net twists by up to 5.4 degrees and the plain is bent by up to 5 LEDs, which curves the lines.
 //
-// What the picture is. A plain with villages on a triangular net of spacing a. A town is a centre of the next net, a sublattice of the villages of index k: its basis is a sqrt(k) long and turned from the net below by 30 degrees for k = 3, 0 for k = 4 and 19.1 degrees for k = 7, which is exactly where every centre of a coarse net lands on a village. Between those k the scale is sqrt(k) and the turn runs smoothly between the three, so the nets are real lattices that do not line up and the moire of the nested nets sweeps across the panel. Four such nets are drawn, each one a sqrt(k) coarser and turned further than the one below.
-// The lines. Every LED finds the nearest centre of each net and its distance to the edge of that centre's hexagon exactly: s / 2 minus the largest of three projections on the lattice directions. A line is a soft band at that distance, 1.8 LEDs wide for villages, 2.5 for towns, 3.4 for cities and 4.4 for the metropolis, dimmer the finer the net, so rank reads as weight. The village net fades out as its spacing falls from 7 to 5 LEDs, since a cell below that is only a tangle.
-// The towns. A dot sits on every centre, sized by rank, and each pulses on its own clock, slower the higher the rank. Wherever a finer centre lies within 0.13 of its own spacing of a coarser one (it lets go at 0.23) it is absorbed into it and only the higher rank is drawn; that moment, in either direction, is a promotion or a demotion, and a ring in the colour of the higher rank grows out from the place or draws in to it. A faint tint fills every city cell and every metropolis cell, and a slow wave of prosperity brightens the tints and the dots as it crosses.
-// The drift. The whole map turns by 0.5 degree a second with two swings on top, the nets breathe by about 4 percent, the centre wanders over the panel and the village net twists against the rest. Periods run from 23 to 227 s, none a multiple of another, and nothing is stored but the ranks, so the map does not come round again.
+// What the picture is. A plain with villages on a triangular net of spacing a. The towns are the centres of the next net, a sublattice of the villages of index k: its basis is a sqrt(k) long and turned from the net below by 30 degrees for k = 3, 0 for k = 4 and 19.1 degrees for k = 7, which are exactly the angles at which every centre of the coarse net falls on a village. Between those k the scale is sqrt(k) and the turn runs on smoothly from one angle to the next, so the nets are still lattices but they no longer line up, and the moire of nested nets sweeps over the panel. Four such nets are drawn, each a sqrt(k) coarser and turned on from the one below.
+// The lines. Every LED finds the nearest centre of each net and its distance to the edge of that centre's hexagon: s / 2 minus the largest of the three projections on the lattice directions, s the spacing of the net. That is the exact distance to the Voronoi edge. A line is a soft band at that distance, 1.8 LEDs wide at half height for villages, 2.2 for towns, 2.8 for cities and 3.5 for the metropolis, dimmer the finer the net, with a dark casing round each of the coarser ones so that a minor road is seen to run under a major one. The finest net would fade out as its spacing fell from 7 to 5 LEDs, but the Spacing knob stops at 8.
+// The towns. A dot sits on every centre, bigger with rank, and every dot pulses on its own clock, slower the higher the rank (3 s for a village, 12 s for the metropolis, each stretched or squeezed by up to a quarter for each town). Where a finer centre comes within 0.13 of its own spacing of a coarser one, and stays until it is 0.23 away, it is absorbed into it and only the higher rank is drawn. Each such change is a promotion or a demotion. A promotion grows a ring in the colour of the higher rank out of the place with a flash at its middle, a demotion draws one in, and a place gives one ring in 7 s at most. A faint tint fills every city cell and every metropolis cell, and a slow wave of prosperity, two sine waves 30 and 48 s long, brightens the tints and the dots as it crosses.
+// The drift. The map turns by 0.49 degree a second with swings of 5.7 and 3.4 degrees on top, the nets breathe by 3.5 and 2 percent on 37 and 23 s, the centre wanders 14 and 4 LEDs across and 30 and 8 down, and the village net twists against the rest. The periods run from 23 to 311 s and none is a multiple of another. The only state kept is which places hold which rank and the rings, so the map does not come round again.
+// What is exact and what is drawn. The lattices, the three turns that make a coarse net a sublattice, the scale sqrt(k), the Voronoi edge distance and the alignment test are the real geometry. The smooth turn between those three angles, the cosine fold of k, the bend of the plain, the line widths, casings and colours, the tints, the waves, the pulses and the rings are drawing choices.
 
 const W = 64, H = 128, NL = 4, STR = 18;
-const { floor, ceil, sqrt, exp, sin, cos, min, max, abs, pow, PI } = Math;
+const { floor, ceil, sqrt, exp, sin, cos, acos, min, max, abs, pow, PI } = Math;
+const P1 = 4.5, P2 = 1, P3 = 1.5;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -39,7 +41,7 @@ function hsv(h, s, v, o) {
 const HW = [0.9, 1.1, 1.4, 1.75];
 const AL = [0.38, 0.55, 0.72, 0.85];
 const CAS = [0, 0.35, 0.5, 0.6];
-const DA = [0.6, 0.8, 0.9, 0.9];
+const DA = [0.8, 0.9, 0.9, 0.9];
 const SG = [1.0, 1.4, 1.95, 2.7];
 const PT = [2.9, 4.6, 7.3, 11.9];
 // hue, saturation, value of each rank
@@ -78,25 +80,25 @@ function configure(S) {
   const t = S.t, kn = S.k;
   const hue = kn[0], a = 8 + 2 * cl(kn[1], 0, 4), tilt = cl(kn[3], 0, 1);
   const kb = kn[2] < 0 ? 4 + cl(kn[2], -1, 0) : 4 + 3 * cl(kn[2], 0, 1);
-  let x = kb + 0.85 * (0.62 * sin((TAU * t) / 131 + 1.3) + 0.38 * sin((TAU * t) / 79 + 4.1)) - 3;
-  x -= 8 * floor(x / 8);
-  const keff = 3 + (x > 4 ? 8 - x : x);
+  // k swings between 3 and 7 on a cosine fold, so it lingers near either end instead of bouncing off it
+  const w = 0.5 * sin((TAU * t) / 311 + P1) + 0.3 * sin((TAU * t) / 163 + P2) + 0.2 * sin((TAU * t) / 97 + P3);
+  const keff = 5 - 2 * cos(PI * (acos(cl((5 - kb) / 2, -1, 1)) / PI + 0.34 * w));
   S.a = a; S.keff = keff; S.tilt = tilt; S.hue = hue;
   const sq = sqrt(keff), th = turnOf(keff);
   const zoom = 1 + 0.035 * sin((TAU * t) / 37 + 1) + 0.02 * sin((TAU * t) / 23 + 3);
   const phi = 0.2 + 0.0085 * t + 0.1 * sin((TAU * t) / 113 + 2) + 0.06 * sin((TAU * t) / 71 + 0.5);
   const cx = 32 + 14 * sin((TAU * t) / 151 + 0.4) + 4 * sin((TAU * t) / 61 + 2.6);
   const cy = 64 + 30 * sin((TAU * t) / 227 + 5.1) + 8 * sin((TAU * t) / 89 + 1.1);
-  const eps = (0.035 + 0.06 * tilt) * (0.6 * sin((TAU * t) / 97 + 0.7) + 0.4 * sin((TAU * t) / 59 + 2.2));
-  const tr = tilt * 0.34 * (1 + 0.4 * sin((TAU * t) / 157 + 0.9));
-  const MU = [0, 1, -1.3, 1.7];
+  const eps = (0.035 + 0.06 * tilt) * (0.6 * sin((TAU * t) / 101 + 0.7) + 0.4 * sin((TAU * t) / 59 + 2.2));
+  const tr = tilt * 0.34 * (1 + 0.4 * sin((TAU * t) / 173 + 0.9));
+  const MU = [0, 1, -1.3, 1.7], RT = [0, 0.0431, 0.0583, 0.0711];
   const L = S.L;
   let sp = a * zoom;
   for (let n = 0; n < NL; n++) {
     const o = n * STR;
     const ang = n === 0 ? phi + eps : phi + n * th + MU[n] * tr;
-    const ox = n === 0 ? cx : cx + tilt * 0.28 * sp * cos(1.7 * n + 0.021 * (n + 1) * t);
-    const oy = n === 0 ? cy : cy + tilt * 0.28 * sp * sin(1.7 * n + 0.021 * (n + 1) * t);
+    const ox = n === 0 ? cx : cx + tilt * 0.28 * sp * cos(1.7 * n + RT[n] * t);
+    const oy = n === 0 ? cy : cy + tilt * 0.28 * sp * sin(1.7 * n + RT[n] * t);
     const c0 = cos(ang), s0 = sin(ang), c1 = cos(ang + PI / 3), s1 = sin(ang + PI / 3), c2 = cos(ang + (2 * PI) / 3), s2 = sin(ang + (2 * PI) / 3);
     const b1x = sp * c0, b1y = sp * s0, b2x = sp * c1, b2y = sp * s1, det = b1x * b2y - b1y * b2x;
     L[o] = ox; L[o + 1] = oy;
@@ -131,7 +133,7 @@ function configure(S) {
 function unbend(S, px, py, out) {
   const t = S.t, aw = S.aw;
   let qx = px, qy = py;
-  for (let it = 0; it < 3; it++) {
+  for (let it = 0; it < 4; it++) {
     qx = px - (aw / 1.5) * (sin((TAU / 137) * qy + 0.8 + 0.037 * t) + 0.5 * sin((TAU / 61) * qy + 2.1 - 0.05 * t));
     qy = py - (aw / 1.5) * (sin((TAU / 97) * qx + 3.3 + 0.031 * t) + 0.5 * sin((TAU / 47) * qx + 4.4 + 0.04 * t));
   }
@@ -254,6 +256,17 @@ function lump(cx, cy, sig, amp, c) {
     }
 }
 
+// a dot laid over what is under it, so it takes the place of the lines it sits on instead of adding to them
+function dot(cx, cy, sig, amp, c) {
+  const R = floor(sig * 2.6) + 1, is2 = 1 / (2 * sig * sig);
+  const x0 = max(0, floor(cx) - R), x1 = min(W - 1, floor(cx) + R), y0 = max(0, floor(cy) - R), y1 = min(H - 1, floor(cy) + R);
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const dx = x - cx, dy = y - cy, a = amp * exp(-(dx * dx + dy * dy) * is2), o = (y * W + x) * 3;
+      BUF[o] += (c[0] * 255 - BUF[o]) * a; BUF[o + 1] += (c[1] * 255 - BUF[o + 1]) * a; BUF[o + 2] += (c[2] * 255 - BUF[o + 2]) * a;
+    }
+}
+
 function ring(cx, cy, rad, sig, amp, c) {
   const R = ceil(rad + sig * 3) + 1, is2 = 1 / (sig * sig);
   const x0 = max(0, floor(cx) - R), x1 = min(W - 1, floor(cx) + R), y0 = max(0, floor(cy) - R), y1 = min(H - 1, floor(cy) + R);
@@ -272,6 +285,7 @@ export function draw(display, params) {
   hsv(RK[3][0] + 0.0 + hue, 0.7, 1, T3);
   const gain = min(1, pow(S.a / 12, 1.3));
   const fade0 = sm(5, 7, S.a);
+  const dg = 0.4 + 0.6 * sm(8, 13, S.a);
   for (let n = 0; n < NL; n++) for (let c = 0; c < 3; c++) CL[n][c] = S.cc[n][c] * 255;
   const WX = S.WX, WY = S.WY, GX = S.GX, GY = S.GY;
 
@@ -319,7 +333,7 @@ export function draw(display, params) {
           const cs = CAS[n] * (1 - sm(hw + 0.1, hw + 1.4, e));
           r *= 1 - cs; g *= 1 - cs; b *= 1 - cs;
         }
-        let a = (1 - sm(hw - 0.75, hw + 0.75, e)) * AL[n] * gain;
+        let a = (1 - sm(hw - 0.75, hw + 0.75, e)) * AL[n] * (n < 2 ? gain : 0.5 + 0.5 * gain);
         if (n === 0) a *= fade0;
         r += (CL[n][0] - r) * a; g += (CL[n][1] - g) * a; b += (CL[n][2] - b) * a;
       }
@@ -352,9 +366,12 @@ export function draw(display, params) {
         const h1 = hash(m, i, j, seed), h2 = hash(m + 9, i, j, seed);
         const pul = sin((TAU * t) / (PT[m] * (0.75 + 0.5 * h1)) + TAU * h2);
         const P = prosper(sx, sy, t);
-        const amp = vis * DA[m] * (0.88 + 0.14 * pul + 0.24 * (P - 0.5));
-        lump(sx, sy, SG[m] * (1 + 0.1 * pul), amp, c);
-        lump(sx, sy, SG[m] * 2.3, 0.1 * vis, c);
+        const amp = vis * DA[m] * dg * (0.88 + 0.14 * pul + 0.24 * (P - 0.5));
+        if (m < 2) dot(sx, sy, SG[m] * (1 + 0.1 * pul), amp, c);
+        else {
+          lump(sx, sy, SG[m] * (1 + 0.1 * pul), amp, c);
+          lump(sx, sy, SG[m] * 2.3, 0.1 * vis, c);
+        }
       }
   }
   // promotions grow a ring out of the town, demotions draw one back in
