@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Mohr Envelope
 // Family:  mohrcoulomb
-// Idea:    Four rock samples hang as Mohr circles inside the Coulomb failure funnel, each swelling as its load climbs until it touches a wall and slips in a flash with a pair of conjugate planes, while pulses of pore fluid slide every circle up the funnel so that the ones nearest the wall break one after another.
+// Idea:    Five rock samples hang as Mohr circles inside the Coulomb failure funnel, each swelling as its load climbs until it touches a wall and slips in a flash with a pair of conjugate planes, while pulses of pore fluid slide every circle up the funnel so that the ones nearest the wall break one after another.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,19 +11,19 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Friction=0..4, Fluid=-1..1, Strain=-1..1
 //
-// Knob 1: Hue. Turns the rings of the circles round the colour wheel and the slate wash inside the funnel a quarter as far. 0 is teal (hue 0.49) for a safe circle, then slate blue, violet, amber and white as it nears the wall; the wall stays rust amber and the haze outside stays dark red.
+// Knob 1: Hue. Turns the rings and the faint fill of the circles round the colour wheel and the slate wash inside the funnel a quarter as far. 0 is teal (hue 0.49) for a safe circle, then slate blue, violet, amber and white as it nears the wall; the wall stays rust amber and the red face outside stays red.
 // Knob 2: Friction. The angle of internal friction phi = 12 + 6.5 K degrees: 12 at 0, 25 at 2 where it opens, 38 at 4, with a wander of 2.6 and 1.4 degrees on 113 and 71 s. It is the half angle of the funnel and it sets the failure radius R_f = a sin(phi) / (1 - sin(phi)), a being how far below the apex the top of a circle hangs.
-// Knob 3: Fluid. How much pore fluid is pumped in, s = (K + 1) / 2. None at -1. At 0 where it opens a pulse comes about every 36 s and slides the circles up by 3.0 LEDs on average (9.5 at most), at 1 one comes every 14 s and the slide averages 7.6. A pulse builds over 2.5 to 6 s and drains away on 9 s and 35 s.
-// Knob 4: Strain. The loading rate, a factor exp(1.4 (K - 0.06)): 0.23 at -1, 1 at 0.06 where it opens, 3.7 at 1. Fast loading breaks the circles more often and each break lets go less stress (the circle falls back to 0.62 to 0.84 of its failure radius at 1, 0.38 to 0.56 at -1, 0.5 to 0.7 at the opening), so the quakes are many and small.
+// Knob 3: Fluid. How much pore fluid is pumped in, s = (K + 1) / 2. None at -1. At 0 where it opens a pulse comes about every 36 s and slides the circles up by 3.1 LEDs on average (8.4 at most), at 1 one comes every 14 s and the slide averages 7.0. A pulse builds over 2.5 to 6 s and drains away on 9 s and 35 s.
+// Knob 4: Strain. The loading rate, a factor exp(1.4 (K - 0.06)): 0.23 at -1, 1 at 0.06 where it opens, 3.7 at 1. Fast loading breaks the circles more often and each break lets go less stress (a circle falls back to 0.62 to 0.84 of its failure radius at 1, 0.38 to 0.56 at -1, 0.5 to 0.7 at the opening, for the shallowest sample; the deeper ones fall back less, by up to 0.2 more, and never past 0.92), so the quakes are many and small.
 //
 // What the picture is. The sigma'-tau plane of effective stress, sigma' down the panel (the apex of the funnel near the top, more confinement further down) and the shear stress tau across it, 0 on the middle column, with one LED to one LED so that a circle is a circle. A rock sample is the circle of centre (sigma1' + sigma3') / 2 and radius R = (sigma1' - sigma3') / 2. Its top end hangs from its own sigma3' on the axis and it swells downward as sigma1' climbs. The Coulomb criterion is the pair of walls tau = +-(c + sigma' tan(phi)), a funnel whose apex lies at sigma' = -c / tan(phi). A circle that reaches a wall has failed. There are no figures, no scale and no arrowheads.
-// The geometry. Let a be the depth of a circle's top end below the apex, a = sigma3' + c / tan(phi). The circle that just touches both walls has its centre on the axis at a + R and sin(phi) = R / (a + R), so R_f = a sin(phi) / (1 - sin(phi)), which is (sigma3' sin(phi) + c cos(phi)) / (1 - sin(phi)) written out. The two touching points lie at tau = +-R cos(phi), a height R sin(phi) above the centre, in the direction 90 degrees + phi from the sigma1' axis, the 2 theta of the two conjugate planes. All of it is evaluated every frame from phi, c, sigma3' and the pore pressure. A wall leaves the panel by its side below row 18 + 32 / tan(phi) at the opening (row 87), and does not leave at all at phi = 12 degrees.
-// The scale. The four samples have sigma3' of 3.6, 5.6, 8.2 and 11.7 times c. One unit of c is Z LEDs, Z = min(3.6, 28 / (kappa (11.7 + c / tan(phi)))) with kappa = sin(phi) / (1 - sin(phi)). Above about 20 degrees of friction the largest circle then fails at a radius of 28 LEDs, small enough that its touching points are on the panel (a hard cap of 30.5 holds it when the drifts below push it); at 12 degrees the cap of 3.6 holds the circles up the funnel and the largest fails at 15.5. That is a zoom with phi and it is the one place where the scale is chosen by eye. At the opening the four failure radii are 11.6, 15.7, 20.9 and 28.0 LEDs and the circles hang 15.9, 21.4, 28.6 and 38.2 LEDs below the apex, which stands at row 18. The apex row is 8 at phi = 12 degrees and 26 at 38 so that a wide funnel does not leave the lower half bare.
+// The geometry. Let a be the depth of a circle's top end below the apex, a = sigma3' + c / tan(phi). The circle that just touches both walls has its centre on the axis at a + R and sin(phi) = R / (a + R), so R_f = a sin(phi) / (1 - sin(phi)), which is (sigma3' sin(phi) + c cos(phi)) / (1 - sin(phi)) written out. The two touching points lie at tau = +-R cos(phi), a height R sin(phi) above the centre, in the direction 90 degrees + phi from the sigma1' axis, the 2 theta of the two conjugate planes. All of it is evaluated every frame from phi, c, sigma3' and the pore pressure. A wall leaves the panel by its side below row 24 + 32 / tan(phi) at the opening (row 93), and does not leave at all at phi = 12 degrees. The touching points of every circle lie above that row, on the panel.
+// The scale. The five samples have sigma3' of 2.8, 4.7, 7.2, 9.8 and 12.5 times c. One unit of c is Z LEDs, Z = min(3.6, 30.5 / (kappa (12.5 + c / tan(phi)))) with kappa = sin(phi) / (1 - sin(phi)). Above about 20 degrees of friction the deepest circle then fails at a radius of 30.5 LEDs, which fills the panel's width, and two caps hold it when the drifts below push it: a radius of 31, and a lowest edge at row 126. At 12 degrees the cap of 3.6 holds the circles up the funnel and the deepest fails at 16.2. That is a zoom with phi and it is the one place where the scale is chosen by eye. At the opening the five failure radii are 10.3, 14.3, 19.5, 24.9 and 30.5 LEDs and the circles hang 14.1, 19.5, 26.6, 34.0 and 41.7 LEDs below the apex, which stands at row 24, so the deepest circle ends at row 126 when it breaks. The apex row is 8 at phi = 12 degrees and 32 at 38 so that a wide funnel does not leave the lower half bare.
 // The pore pressure. p is a sum of pumped pulses and a slow ambient swell of 2 s LEDs on 83 s. A pulse of A = (3 + 9 s) x 0.7 to 1.35 LEDs of stress at the opening zoom is delivered at an even rate over 2.5 to 6 s, 80 percent into a part that drains with a time of 9 s and 20 percent into one that drains in 35 s, and pulses arrive at a rate 0.07 s^1.3 a second. The effective stress is sigma' = sigma - p, so every circle slides up the funnel by p and every failure radius shrinks by kappa p. The slide saturates through a tanh at 0.6 of the hang depth of the nearest circle so that none ends in the apex. A circle breaks when R reaches R_f, so the one with the least margin R_f - R goes first, and a pulse runs down the chain from the apex.
-// The loading and the slip. Every sample's R grows at m v g LEDs a second, v = 0.11, 0.15, 0.20 and 0.25, m the Strain factor, g = exp(0.3 n) (1 + 0.32 sin(2 pi t / (32 + 11 i)) + 0.2 sin(2 pi t / (67 - 9 i))) and n an Ornstein-Uhlenbeck noise of time 7 s. At the opening a sample breaks every 25 to 36 s (900 s run: 36, 28, 28 and 25 breaks) and R / R_f averages 0.77 to 0.82. When R reaches R_f the sample ruptures: R falls (a time of 0.18 s) to a random fraction r of R_f, both touching points flash with a short stretch of wall lighting on each side, two lines cross through the circle from the touching points to the far side for about 2 s (conjugate shear bands), and 1 to 9 aftershocks follow as small flashes on the wall within 7 LEDs of the touching points, each at 0.7 s plus an exponential of mean 2.2 s. A sample cannot break twice in 1.2 s. Nothing repeats: breaks and pulses are random.
-// The drifts. The cohesion c wanders by 40 percent on 137 s and 15 on 61 s, so the apex stands off the circles by more or less. Each sample's sigma3' wanders by 30, 25, 18 and 10 percent (70 percent of it on 89 to 149 s, the rest on 43 to 59 s), so the circles slide on the axis and change their failure radii as the confinement changes. The slate wash drifts in hue by 0.032 and 0.022 on 97 and 151 s and in level by 10 and 7 percent on 61 and 109 s, the rings by 0.03 in hue on 79 s, the haze by 9 and 6 percent on 53 and 131 s, the wall by 10 and 6 percent on 41 and 113 s. A slow cloud of twelve plane waves (24 to 72 LEDs long, periods of 37 to 140 s) lifts and lowers the haze by 24 percent and the wash by 18 (one standard deviation of the cloud). These last two were added to keep the picture from coming round again (before the cloud the closest return was 0.23 of a typical difference at the opening, after it 0.41); they are not mechanics. The first update runs 50 s of the model, about 50 ms, so the picture opens in motion.
-// The picture. Outside the funnel and above its apex a haze of dark red, about 24 of 255 on average far from the wall and 34 beside it, with a soft edge. Inside it a slate wash that darkens toward the wall by the margin to failure and with depth, lifted a little by the pore pressure, and 30 percent brighter in a narrow funnel. A circle is a 2 LED ring coloured by its hazard u = R / R_f (teal at 0, slate blue at 0.55, violet at 0.82 to 0.92, amber at 0.965, white at 1), with a soft inner fill that never goes past amber and a halo. The walls are 2 LED lines of rust amber with a glow that lights the haze beside them. The vertical axis is a faint line. Rings add where circles overlap.
-// What is exact and what is drawn. The circle, the walls, the failure radius, the touching points and their 2 theta, the slide by the pore pressure and the rule that a circle breaks when it touches are the real mechanics. The zoom with phi, the apex row, the loading noise, the stress drop fractions, the aftershocks, the pulses of pore pressure (the real thing is a diffusion equation), the drifts, the cloud, the colours, the haze, the wash and the conjugate lines are drawing choices.
+// The loading and the slip. Every sample's R grows at m v g LEDs a second, v = 0.12, 0.17, 0.23, 0.26 and 0.26, m the Strain factor, g = exp(0.3 n) (1 + 0.32 sin(2 pi t / (32 + 11 i)) + 0.2 sin(2 pi t / (67 - 9 i))) and n an Ornstein-Uhlenbeck noise of time 7 s. At the opening a sample breaks every 16 to 26 s (900 s run: 56, 35, 37, 40 and 49 breaks, the shallowest often because the pulses squeeze it against the apex) and R / R_f averages 0.80 to 0.91. When R reaches R_f the sample ruptures: R falls (a time of 0.18 s) to a random fraction r of R_f, both touching points flash with a short stretch of wall lighting on each side, two lines cross through the circle from the touching points to the far side for about 2 s (conjugate shear bands), and 1 to 9 aftershocks follow as small flashes on the wall within 7 LEDs of the touching points, each at 0.7 s plus an exponential of mean 2.2 s. A sample cannot break twice in 1.2 s. Nothing repeats: breaks and pulses are random.
+// The drifts. The cohesion c wanders by 40 percent on 137 s and 15 on 61 s, so the apex stands off the circles by more or less. Each sample's sigma3' wanders by 30, 26, 20, 14 and 7 percent (70 percent of it on 89 to 167 s, the rest on 41 to 59 s), so the circles slide on the axis and change their failure radii as the confinement changes. The slate wash drifts in hue by 0.032 and 0.022 on 97 and 151 s and in level by 10 and 7 percent on 61 and 109 s, the rings by 0.03 in hue on 79 s and each ring by another 0.05 on its own clock of 71 to 123 s, the red face by 6 and 4 percent on 53 and 131 s, the wall by 10 and 6 percent on 41 and 113 s. A slow cloud of 28 plane waves (24 to 72 LEDs long, periods of 37 to 140 s) lifts and lowers the wash by 26 percent and the fills by 30 percent of that, and a thinner one of 14 waves (30 to 90 LEDs, 45 to 150 s) the red face by 12 (one standard deviation of a cloud). The clouds and the tilts were added to keep the picture from coming round again (before them the closest return was 0.23 of a typical difference at the opening, after them 0.45); they are not mechanics. The first update runs 40 s of the model, so the picture opens in motion.
+// The picture. Outside the funnel, and above its apex, the failure region is a smooth red face, about 40 of 255 on average far from the wall and 60 beside it, with a soft edge. Inside it a slate wash that darkens toward the wall by the margin to failure and with depth, lifted a little by the pore pressure, and 50 percent brighter in a narrow funnel. A circle is a 2 LED ring coloured by its hazard u = R / R_f (teal at 0, slate blue at 0.55, violet at 0.82 to 0.92, amber at 0.965, white at 1), a halo outside it, and inside it a fill of the same colour, never past amber, at an alpha of 0.10 + 0.06 u^2 and 0.08 more along the inner edge. The fills add where circles overlap, up to 0.26. The walls are 2 LED lines of rust amber with a glow that lights the red face beside them. The vertical axis is a faint line. Rings add where circles overlap.
+// What is exact and what is drawn. The circle, the walls, the failure radius, the touching points and their 2 theta, the slide by the pore pressure and the rule that a circle breaks when it touches are the real mechanics. The zoom with phi, the apex row, the loading noise, the stress drop fractions, the aftershocks, the pulses of pore pressure (the real thing is a diffusion equation), the drifts, the clouds, the colours, the red face, the wash, the fills and the conjugate lines are drawing choices.
 
 const W = 64, H = 128;
 const { floor, sqrt, exp, sin, cos, min, max, abs, pow, hypot, tanh, log, PI } = Math;
@@ -44,21 +44,26 @@ function hsv(h, s, v, o) {
 }
 
 const AX = 31.5;                    // the sigma' axis, tau = 0
-const NS = 4;                       // samples
-const SIG = [3.6, 5.6, 8.2, 11.7];  // sigma3' of each sample, in units of c
+const NS = 5;                       // samples
+const SIG = [2.8, 4.7, 7.2, 9.8, 12.5];  // sigma3' of each sample, in units of c
 const C0 = 1;                       // the cohesion c, the unit
-const SW = [0.3, 0.25, 0.18, 0.1];  // how far each sample's confinement wanders, as a fraction of it
-const SP1 = [89, 103, 127, 149];    // and on which two clocks, in seconds
-const SP2 = [47, 53, 59, 43];
-const VLOAD = [0.11, 0.15, 0.2, 0.25];   // LEDs of radius a second at the opening, per sample
-const RT = 28;                      // where the largest circle fails, in LEDs, before the wanders
-const RMAX = 30.5;                  // no circle fails wider than this, so its touching points stay on the panel
+const SW = [0.3, 0.26, 0.2, 0.14, 0.07];  // how far each sample's confinement wanders, as a fraction of it
+const SP1 = [89, 103, 127, 149, 167];    // and on which two clocks, in seconds
+const SP2 = [47, 53, 59, 43, 41];
+const VLOAD = [0.12, 0.17, 0.23, 0.26, 0.26];   // LEDs of radius a second at the opening, per sample
+const DROP = [0, 0, 0.05, 0.12, 0.2];  // added to the fraction of R_f a sample falls back to
+const RT = 30.5;                      // where the largest circle fails, in LEDs, before the wanders
+const BOT = 126;                    // no circle fails lower than this row
+const RMAX = 31;                  // no circle fails wider than this, so its touching points stay on the panel
 const ZMAX = 3.6;                   // the zoom of a narrow funnel, LEDs to one unit of c
-const ZREF = 2.76;                  // the zoom at the opening, which pore pressure is counted in LEDs of
-const PRE = 50;                     // seconds of the model run before the first frame
-const NW = 16;                      // plane waves in the slow cloud that lifts and lowers the haze and the wash
+const ZREF = 2.85;                  // the zoom at the opening, which pore pressure is counted in LEDs of
+const PRE = 40;                     // seconds of the model run before the first frame
+const FCAP = 0.26;                  // the most that overlapping fills may add
+const NW = 28;                      // plane waves in the slow cloud that lifts and lowers the haze and the wash
 const GP = 4, GX = 17, GY = 33;     // the cloud is computed on a grid 4 LEDs apart and interpolated
 const CLOUD = new Float32Array(GX * GY);
+const NW2 = 14;                     // and a second, thinner one of its own for the red face
+const CLOUD2 = new Float32Array(GX * GY);
 
 // hazard u = R / R_f -> ring colour
 const RST = [0, 0.55, 0.82, 0.92, 0.965, 1];
@@ -74,7 +79,7 @@ function ringCol(u, h0, o) {
 
 export function setup(params) {
   const ph = [];
-  for (let i = 0; i < 28; i++) ph.push(TAU * Math.random());
+  for (let i = 0; i < 44; i++) ph.push(TAU * Math.random());
   const cs = [];
   for (let i = 0; i < NS; i++) cs.push({ R: 0, Rt: 0, drop: false, cool: 0, ou: 0.8 * gauss() });
   const pw = [];
@@ -82,16 +87,21 @@ export function setup(params) {
     const lam = rnd(24, 72), an = TAU * Math.random(), per = rnd(37, 140);
     pw.push({ kx: (TAU / lam) * cos(an), ky: (TAU / lam) * sin(an), w: TAU / per, ph: TAU * Math.random() });
   }
+  const pw2 = [];
+  for (let i = 0; i < NW2; i++) {
+    const lam = rnd(30, 90), an = TAU * Math.random(), per = rnd(45, 150);
+    pw2.push({ kx: (TAU / lam) * cos(an), ky: (TAU / lam) * sin(an), w: TAU / per, ph: TAU * Math.random() });
+  }
   params.s = {
-    t: 0, k: null, ph, pw, cs, pf: 0, ps: 0, pump: [], fl: [], fan: [], after: [], ready: false,
-    G: { sg: [0, 0, 0, 0], phi: 0, sn: 0, cs: 1, tn: 0, kap: 0, Z: 1, C: 1, ya: 5, pe: 0, a3: [0, 0, 0, 0], Rf: [0, 0, 0, 0] },
+    t: 0, k: null, ph, pw, pw2, cs, pf: 0, ps: 0, pump: [], fl: [], fan: [], after: [], ready: false,
+    G: { sg: [0, 0, 0, 0, 0], phi: 0, sn: 0, cs: 1, tn: 0, kap: 0, Z: 1, C: 1, ya: 5, pe: 0, a3: [0, 0, 0, 0, 0], Rf: [0, 0, 0, 0, 0] },
   };
 }
 
 // the funnel and the circles for the knobs and the clock as they stand
 function geom(S) {
   const G = S.G, k = S.k, t = S.t, ph = S.ph;
-  const phi = ((12 + 6.5 * cl(k[1], 0, 4) + 2.6 * sin((TAU * t) / 113 + ph[12]) + 1.4 * sin((TAU * t) / 71 + ph[13])) * PI) / 180;
+  const phi = ((12 + 6.5 * cl(k[1], 0, 4) + 2.6 * sin((TAU * t) / 113 + ph[40]) + 1.4 * sin((TAU * t) / 71 + ph[41])) * PI) / 180;
   const sn = sin(phi), cs = cos(phi), tn = sn / cs, kap = sn / (1 - sn);
   const Z = min(ZMAX, RT / (kap * (SIG[NS - 1] + C0 / tn)));
   const C = C0 * (1 + 0.4 * sin((TAU * t) / 137 + ph[0]) + 0.15 * sin((TAU * t) / 61 + ph[1]));
@@ -103,9 +113,9 @@ function geom(S) {
   const pcap = 0.6 * a1;
   const pe = pcap * tanh((((S.pf + S.ps + amb) * Z) / ZREF) / pcap);
   G.phi = phi; G.sn = sn; G.cs = cs; G.tn = tn; G.kap = kap; G.Z = Z; G.C = C; G.pe = pe;
-  G.ya = 8 + 10 * sm(0.209, 0.436, phi) + 8 * sm(0.436, 0.663, phi);
+  G.ya = 8 + 16 * sm(0.209, 0.436, phi) + 8 * sm(0.436, 0.663, phi);
   for (let i = 0; i < NS; i++) {
-    G.a3[i] = cl(Z * (sg[i] + C / tn) - pe, 2.5, RMAX / kap);
+    G.a3[i] = cl(Z * (sg[i] + C / tn) - pe, 2.5, min(RMAX / kap, (BOT - G.ya) / (1 + 2 * kap)));
     G.Rf[i] = kap * G.a3[i];
   }
   return G;
@@ -113,7 +123,8 @@ function geom(S) {
 
 function rupture(S, i, G) {
   const s = S.cs[i], Rf = G.Rf[i], K4 = cl(S.k[3], -1, 1);
-  const r = rnd(0.5 + 0.12 * K4, 0.7 + 0.14 * K4);
+  const sh = DROP[i];                      // the deeper samples fall back less
+  const r = min(0.92, rnd(0.5 + sh + 0.12 * K4, 0.7 + sh + 0.14 * K4));
   s.Rt = max(r * Rf, min(0.9 * Rf, 3.5));
   s.drop = true;
   s.cool = 1.2;
@@ -208,10 +219,10 @@ export function update(dt, input, params) {
 }
 
 const BUF = new Float32Array(W * H * 3);
-const HZ = [39 / 255, 15 / 255, 21 / 255];
+const HZ = [74 / 255, 23 / 255, 34 / 255];
 const WC = [0, 0, 0], WL = [0, 0, 0], FC = [1, 0.9, 0.72];
-const RC = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
-const FILL = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+const RC = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
+const FILL = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
 // a soft lump of light, sigma in LEDs, amplitude amp (0..1) in colour c
 function lump(cx, cy, sig, amp, c) {
@@ -273,11 +284,11 @@ export function draw(display, params) {
   const sw = (per, i) => sin((TAU * T) / per + S.ph[i]);
   const wh = 0.615 + 0.25 * k1 - 0.025 * pn + 0.032 * sw(97, 20) + 0.022 * sw(151, 21);
   const wl = 1 + 0.1 * sw(61, 22) + 0.07 * sw(109, 23);
-  hsv(wh, 0.6, (0.46 + 0.05 * pn) * wl * tube, wash);
-  hsv(wh + 0.015, 0.7, 0.14 * wl * tube, washLo);
+  hsv(wh, 0.6, (0.42 + 0.05 * pn) * wl * tube, wash);
+  hsv(wh + 0.015, 0.7, 0.22 * wl * tube, washLo);
   const msc = 14 + 16 * sm(0.21, 0.45, G.phi);
   const rh = k1 + 0.03 * sw(79, 19);
-  const hzl = 1 + 0.09 * sw(53, 0) + 0.06 * sw(131, 3);
+  const hzl = 1 + 0.06 * sw(53, 0) + 0.04 * sw(131, 3);
   const wlk = 1 + 0.1 * sw(41, 1) + 0.06 * sw(113, 2);
 
   const amp = sqrt(2 / NW);
@@ -291,14 +302,26 @@ export function draw(display, params) {
       CLOUD[gy * GX + gx] = f * amp;
     }
 
-  const Rd = [0, 0, 0, 0], cyc = [0, 0, 0, 0], uh = [0, 0, 0, 0];
+  const amp2 = sqrt(2 / NW2);
+  for (let gy = 0; gy < GY; gy++)
+    for (let gx = 0; gx < GX; gx++) {
+      let f = 0;
+      for (let j = 0; j < NW2; j++) {
+        const q = S.pw2[j];
+        f += sin(q.kx * gx * GP + q.ky * gy * GP - q.w * T + q.ph);
+      }
+      CLOUD2[gy * GX + gx] = f * amp2;
+    }
+
+  const Rd = [0, 0, 0, 0, 0], cyc = [0, 0, 0, 0, 0], uh = [0, 0, 0, 0, 0];
   for (let i = 0; i < NS; i++) {
     const R = min(S.cs[i].R, G.Rf[i]);
     Rd[i] = R;
     cyc[i] = ya + G.a3[i] + R;
     uh[i] = cl(R / G.Rf[i], 0, 1);
-    ringCol(uh[i], rh, RC[i]);
-    ringCol(min(uh[i], 0.92), rh, FILL[i]);
+    const hi = rh + 0.05 * sw(71 + 13 * i, 30 + i);   // each ring's own slow tilt of hue
+    ringCol(uh[i], hi, RC[i]);
+    ringCol(min(uh[i], 0.92), hi, FILL[i]);
   }
 
   for (let y = 0; y < H; y++) {
@@ -309,14 +332,16 @@ export function draw(display, params) {
       const mg = tt <= 0 ? -hypot(dx, dy) : -nrm;        // margin to the wall, positive inside the funnel
       const win = sm(-2.5, 2.5, mg);
       // the haze outside and the wash inside
-      const hz = 0.95 + 0.4 * exp(min(0, mg) / 7);
+      const hz = 0.92 + 0.45 * exp(min(0, mg) / 12);
       const wf = 1 - exp(-max(0, mg) / msc);
       const ax = 1 + 0.1 * exp(-dx * dx / 800);
       const gxf = x / GP, gyf = y / GP, ix = min(GX - 2, floor(gxf)), iy = min(GY - 2, floor(gyf)), fx = gxf - ix, fy = gyf - iy;
       const c00 = CLOUD[iy * GX + ix], c10 = CLOUD[iy * GX + ix + 1], c01 = CLOUD[(iy + 1) * GX + ix], c11 = CLOUD[(iy + 1) * GX + ix + 1];
       const cf = lerp(lerp(c00, c10, fx), lerp(c01, c11, fx), fy);
-      const hzc = hzl * (1 + 0.24 * cf);
-      const dk = (1 - 0.42 * sm(10, 118, dy)) * (1 + 0.18 * cf);
+      const d00 = CLOUD2[iy * GX + ix], d10 = CLOUD2[iy * GX + ix + 1], d01 = CLOUD2[(iy + 1) * GX + ix], d11 = CLOUD2[(iy + 1) * GX + ix + 1];
+      const cf2 = lerp(lerp(d00, d10, fx), lerp(d01, d11, fx), fy);
+      const hzc = hzl * (1 + 0.12 * cf2);
+      const dk = (1 - 0.28 * sm(10, 118, dy)) * (1 + 0.26 * 1.5 * tanh(cf / 1.5));
       let r = HZ[0] * hz * hzc * (1 - win) + (lerp(washLo[0], wash[0], wf) * ax * dk) * win;
       let g = HZ[1] * hz * hzc * (1 - win) + (lerp(washLo[1], wash[1], wf) * ax * dk) * win;
       let b = HZ[2] * hz * hzc * (1 - win) + (lerp(washLo[2], wash[2], wf) * ax * dk) * win;
@@ -338,18 +363,23 @@ export function draw(display, params) {
         r += 255 * a * 0.6; g += 255 * a * 0.8; b += 255 * a;
       }
 
-      // the circles
+      // the circles: a 2 LED ring, a halo outside, and a very faint fill in the colour of the hazard that adds where circles overlap
+      let fr = 0, fg = 0, fb = 0, fa = 0;
+      const fcl = 1 + 0.3 * cf;
       for (let i = 0; i < NS; i++) {
         const R = Rd[i], u = uh[i], c = RC[i];
         const ex = x - AX, ey = y - cyc[i];
         const dist = hypot(ex, ey), de = dist - R;
-        let ring = 0, add = 0;
+        let ring = 0, halo = 0, fill = 0;
         if (de < 1.5 && de > -1.5) ring = sm(1.5, 0.5, abs(de)) * (0.82 + 0.18 * u);
-        if (de > 0) add = de < 9 ? 0.15 * exp(-de / 2.6) : 0;
-        else add = (0.03 + 0.08 * u * u) + 0.12 * exp(de / 3.2);
-        const f = FILL[i], w = 255 * ring, wa = 255 * add;
-        r += c[0] * w + f[0] * wa; g += c[1] * w + f[1] * wa; b += c[2] * w + f[2] * wa;
+        if (de > 0) halo = de < 9 ? 0.15 * exp(-de / 2.6) : 0;
+        else fill = (0.1 + 0.06 * u * u) * fcl + 0.08 * exp(de / 3.2);
+        const f = FILL[i], w = 255 * ring, wh = 255 * halo;
+        r += c[0] * w + f[0] * wh; g += c[1] * w + f[1] * wh; b += c[2] * w + f[2] * wh;
+        fr += f[0] * fill; fg += f[1] * fill; fb += f[2] * fill; fa += fill;
       }
+      const fs = fa > FCAP ? 255 * FCAP / fa : 255;
+      r += fr * fs; g += fg * fs; b += fb * fs;
       const o = (y * W + x) * 3;
       BUF[o] = r; BUF[o + 1] = g; BUF[o + 2] = b;
     }
