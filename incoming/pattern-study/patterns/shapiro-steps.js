@@ -156,7 +156,9 @@ function paint(S, slot, h0) {
       hg += g * BG[q];
       hb += g * BB[q];
     }
-    hsv(h0 + 0.62, 0.45, 0.07 + 0.2 * pow(k / NR, 0.8), NEU);
+    // the ground follows the rotation number a little: it is lighter where V / Omega is a whole number, so it moves with the swing
+    const rr = 0.5 * (S.cr[o0 + 2 * k] + S.cr[o0 + 2 * k + 1]);
+    hsv(h0 + 0.62, 0.45, 0.07 + 0.2 * pow(k / NR, 0.8) + 0.05 * cos(TAU * rr), NEU);
     const r = min(1, NEU[0] + 0.92 * er + 0.5 * pow(hr, 0.72)), g = min(1, NEU[1] + 0.92 * eg + 0.5 * pow(hg, 0.72)), b = min(1, NEU[2] + 0.92 * eb + 0.5 * pow(hb, 0.72));
     const u = o + (NR + k) * 3, v = o + (NR - 1 - k) * 3;
     col[u] = col[v] = r;
