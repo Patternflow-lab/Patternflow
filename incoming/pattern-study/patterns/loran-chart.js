@@ -60,7 +60,7 @@ export function update(dt, input, params) {
   S.t += d;
 }
 
-const CA = [0, 0, 0], CB = [0, 0, 0], CM = [0, 0, 0];
+const CA = [0, 0, 0], CB = [0, 0, 0], CM = [0, 0, 0], PA = [0, 0, 0], PB = [0, 0, 0];
 const BUF = new Float32Array(W * H * 3);
 
 // a soft lump of light, sigma in LEDs, added in colour c times amp
@@ -90,7 +90,7 @@ function beads(mx, my, sx, sy, fam, L, T, p, c, lead) {
     const ca = (D * D - 2 * rho * kk - kk * kk) / (2 * rho * D);
     if (ca >= 1 || ca <= -1) continue;
     const al = Math.acos(ca);
-    const env = sm(0, 0.12, u) * (1 - sm(0.7, 1, u)) * ((n & 3) === 0 ? 1 : 0.75);
+    const env = sm(0, 0.12, u) * (1 - sm(0.7, 1, u)) * sm(0, 6, D - 4 - abs(kk)) * ((n & 3) === 0 ? 1 : 0.8);
     for (let sgn = -1; sgn <= 1; sgn += 2) {
       const an = beta + sgn * al;
       lump(mx + rho * cos(an), my + rho * sin(an), 1.15, 0.9 * env * lead, c);
@@ -105,18 +105,18 @@ export function draw(display, params) {
   const sn = (per, i) => sin((TAU * T) / per + p[i]);
 
   const hue = k[0];
-  const L = 8.5 * pow(2, cl(k[1], 0, 4) / 2.6);
+  const L = 9 * pow(2, cl(k[1], 0, 4) / 2.6);
   const span = pow(2, 0.6 * cl(k[2], -1, 1));
   const dil = pow((cl(k[3], -1, 1) + 1) / 2, 0.7);
 
   // the triangle of stations: a centre, a turn, and three corners each on its own radius and angle
-  const gx = 31.5 + 17 * sn(53, 0) + 8 * sn(30, 1);
-  const gy = 63.5 + 24 * sn(62, 2) + 8 * sn(37, 3);
-  const rot = 0.05 * T + 0.35 * sn(71, 4) + 0.15 * sn(44, 5) + p[6];
+  const gx = 31.5 + 9 * sn(53, 0) + 5 * sn(30, 1);
+  const gy = 63.5 + 15 * sn(62, 2) + 6 * sn(37, 3);
+  const rot = 0.065 * T + 0.4 * sn(71, 4) + 0.2 * sn(44, 5) + p[6];
   const sc = span * (1 + 0.2 * sn(48, 7) + 0.08 * sn(83, 8));
-  const rM = 32 * sc * (1 + 0.28 * sn(29, 9) + 0.1 * sn(61, 10));
-  const rX = 38 * sc * (1 + 0.26 * sn(41, 11) + 0.1 * sn(97, 12));
-  const rY = 35 * sc * (1 + 0.27 * sn(34, 13) + 0.1 * sn(79, 14));
+  const rM = 27 * sc * (1 + 0.28 * sn(29, 9) + 0.1 * sn(61, 10));
+  const rX = 31 * sc * (1 + 0.26 * sn(41, 11) + 0.1 * sn(97, 12));
+  const rY = 29 * sc * (1 + 0.27 * sn(34, 13) + 0.1 * sn(79, 14));
   const aX = rot + TAU / 3 + 0.45 * sn(57, 15);
   const aY = rot + (2 * TAU) / 3 + 0.45 * sn(67, 16);
   const mx = gx + rM * cos(rot), my = gy + rM * sin(rot);
@@ -125,7 +125,11 @@ export function draw(display, params) {
 
   hsv(0.015 + hue, 0.62, 1, CA);
   hsv(0.49 + hue, 0.74, 0.92, CB);
-  for (let i = 0; i < 3; i++) CM[i] = 0.5 * (CA[i] + CB[i]) * 0.5 + 0.5;
+  for (let i = 0; i < 3; i++) {
+    CM[i] = 0.25 * (CA[i] + CB[i]) + 0.5;
+    PA[i] = 0.55 * CA[i] + 0.45;
+    PB[i] = 0.55 * CB[i] + 0.45;
+  }
   const iL = 1 / L;
 
   for (let y = 0; y < H; y++) {
@@ -143,7 +147,11 @@ export function draw(display, params) {
 
       // squareness of the cell
       const q = (2 * abs(gxx * gyy - gxy * gyx)) / (gX2 + gY2 + 1e-4);
-      const bad = 1 - sm(0.1, 0.75, q);
+      const bad = 1 - sm(0.08, 0.65, q);
+
+      // the dilution: where the fix is poor the lines blur, lose colour, dim, and a veil lifts the ground
+      const fade = dil * bad;
+      const blur = 1 + 0.6 * fade;
 
       // family X
       const tX = (dX - dM) * iL;
@@ -151,11 +159,11 @@ export function draw(display, params) {
       const gmX = sqrt(gX2 + GMIN * GMIN);
       let dd = abs(tX - nX) * L / gmX;
       let sp = L / gmX;
-      let bw = (nX & 3) === 0 ? BW * 1.2 : BW;
+      let bw = ((nX & 3) === 0 ? BW * 1.2 : BW) * blur;
       let v = 1 - (dd * dd) / (bw * bw);
       let lineX = v > 0 ? v * v : 0;
-      const meanX = min(0.25, (1.067 * bw) / sp);
-      lineX = (meanX + sm(4.5, 9, sp) * (lineX - meanX)) * ((nX & 3) === 0 ? 1 : 0.74);
+      const meanX = min(0.2, (0.9 * 1.067 * BW) / sp);
+      lineX = meanX + sm(5, 10, sp) * (lineX * ((nX & 3) === 0 ? 1 : 0.7) - meanX);
 
       // family Y
       const tY = (dY - dM) * iL;
@@ -163,16 +171,14 @@ export function draw(display, params) {
       const gmY = sqrt(gY2 + GMIN * GMIN);
       dd = abs(tY - nY) * L / gmY;
       sp = L / gmY;
-      bw = (nY & 3) === 0 ? BW * 1.2 : BW;
+      bw = ((nY & 3) === 0 ? BW * 1.2 : BW) * blur;
       v = 1 - (dd * dd) / (bw * bw);
       let lineY = v > 0 ? v * v : 0;
-      const meanY = min(0.25, (1.067 * bw) / sp);
-      lineY = (meanY + sm(4.5, 9, sp) * (lineY - meanY)) * ((nY & 3) === 0 ? 1 : 0.74);
+      const meanY = min(0.2, (0.9 * 1.067 * BW) / sp);
+      lineY = meanY + sm(5, 10, sp) * (lineY * ((nY & 3) === 0 ? 1 : 0.7) - meanY);
 
-      // dilution: colour fades to a pale slate, brightness falls, a veil lifts the ground
-      const fade = dil * bad;
       const keep = 1 - fade;
-      const dim = 1 - 0.35 * fade;
+      const dim = 1 - 0.45 * fade;
       const lum = 0.55 * dim;
       const wa = lineX * dim, wb = lineY * dim;
       const veil = 0.6 * fade * bad;
@@ -191,8 +197,8 @@ export function draw(display, params) {
   lump(yx, yy, 2.1, 0.7, CB);
   lump(yx, yy, 5.5, 0.15, CB);
 
-  beads(mx, my, xx, xy, 0, L, T, p, CA, 1);
-  beads(mx, my, yx, yy, 1, L, T, p, CB, 1);
+  beads(mx, my, xx, xy, 0, L, T, p, PA, 1);
+  beads(mx, my, yx, yy, 1, L, T, p, PB, 1);
 
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
