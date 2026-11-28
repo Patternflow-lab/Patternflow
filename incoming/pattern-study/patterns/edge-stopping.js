@@ -23,8 +23,8 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pw = Math.pow;
 
 const RHO = 40;              // how many times longer the last row's stretch of diffusion is than the first's
-const D0 = 50;               // diffusion time over the whole panel at Scale 0
-const K0 = 0.6;            // the edge threshold at Edge 0
+const D0 = 35;               // diffusion time over the whole panel at Scale 0
+const K0 = 0.5;            // the edge threshold at Edge 0
 const SMIN = 0.14, SMAX = 0.65;   // the shortest and the longest step between neighbouring strips
 const WT = 0.05;             // how far a strip wanders along it on its own
            // half the spread of the strips along the ribbon
@@ -33,7 +33,8 @@ const PA = 0.3;              // most white a strip takes in
 const HW = 0.12;             // turns the hue of the whole ribbon wanders each way, slowly
 const HS = 0.07;             // how far the light that crosses the glass shifts the colour along the ribbon
 const LG = 0.0;              // most white the light that crosses the glass adds
-const LD = 0.0;              // how far the light that crosses the glass dims it
+const LD = 0.0; 
+const SEAM = 0.22;           // most white a seam adds on an edge that stands well above K             // how far the light that crosses the glass dims it
 const SP0 = 1.2;             // strip time a second at Drift -1
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const HUE0 = 0.0;            // turns added to the ribbon's hue at Hue = 0
@@ -315,13 +316,14 @@ export function update(dt, input, params) {
   if (d > 0) {
     S.t += d;
     evolve(S, d, speed);
-    const a = exp(-d / 0.9), sg = 0.008 * sqrt(1 - a * a);
+    const a = exp(-d / 0.9), sg = sqrt(1 - a * a);
     for (let i = 0; i < 2 * N; i++) S.nz[i] = S.nz[i] * a + sg * gauss(S);
   }
-  topRow(S, 1);
+  if (S.cmed === undefined) topRow(S, 0);
   S.cm = S.cm === undefined ? S.cmed : S.cm + (S.cmed - S.cm) * (1 - exp(-d / 6));
   const K = max(0.02, S.cm) * K0 * pw(3, cl(S.k[1], 0, 4) - 2);
   S.K = K;
+  topRow(S, min(0.014, 0.25 * K));
   const D = D0 * pw(6, cl(S.k[2], -1, 1));
   S.hue = HUE0 + S.k[0];
   stack(S, K, D, S.tau);
@@ -341,14 +343,18 @@ export function draw(display, params) {
     RG[k] = y - 0.272 * ii - 0.647 * qq;
     RB[k] = y - 1.106 * ii + 1.703 * qq;
   }
-  const L = S.lt, t = S.t;
+  const L = S.lt, t = S.t, ik = 1 / S.K;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
       let lg = 0;
       for (let i = 0; i < 3; i++) lg += sin(L[i][0] * x + L[i][1] * y + L[i][2] * t + L[i][3]);
       const f = cl(T[p] + HS * lg / 3, 0, 1) * NL, k = min(NL - 1, floor(f)), u = f - k;
-      const pa = PA * (1 - cl(V[p], 0, 1)) + LG * (0.5 + lg / 6), br = 0.95 - LD * (0.5 - lg / 6);
+      // the seam: a surviving edge, one that stands well above K, lightens the LED on each side of it
+      let e = 0;
+      if (x > 0) e = max(e, (T[p] - T[p - 1]) * (T[p] - T[p - 1]) + WV * WV * (V[p] - V[p - 1]) * (V[p] - V[p - 1]));
+      if (x < W - 1) e = max(e, (T[p + 1] - T[p]) * (T[p + 1] - T[p]) + WV * WV * (V[p + 1] - V[p]) * (V[p + 1] - V[p]));
+      const sm = cl((sqrt(e) * ik - 1.3) / 2, 0, 1), pa = PA * (1 - cl(V[p], 0, 1)) + LG * (0.5 + lg / 6) + SEAM * sm, br = 0.95 - LD * (0.5 - lg / 6);
       const r = ((RR[k] + (RR[k + 1] - RR[k]) * u) * (1 - pa) + pa) * br, g = ((RG[k] + (RG[k + 1] - RG[k]) * u) * (1 - pa) + pa) * br, b = ((RB[k] + (RB[k + 1] - RB[k]) * u) * (1 - pa) + pa) * br;
       display.setPixel(x, y, (cl(r, 0, 1) * 255) | 0, (cl(g, 0, 1) * 255) | 0, (cl(b, 0, 1) * 255) | 0);
     }
