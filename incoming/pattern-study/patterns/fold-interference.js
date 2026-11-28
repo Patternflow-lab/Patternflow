@@ -190,6 +190,8 @@ export function draw(display, params) {
   const gam = 1.05 + 0.7 * sn(127, 16) + 0.25 * sn(49, 17);
   const psi1 = 0.09 * T + 1.2 * sn(71, 18) + p[19];
   const psi2 = 0.07 * T + 1.0 * sn(59, 20) + p[21];
+  // a very open third warp of the F1 trend, 85 LEDs from crest to crest and 3.5 LEDs deep, in a direction of its own
+  const a3 = 1.1 + 0.5 * sn(113, 23), c3 = cos(a3), s3 = sin(a3), k3w = TAU / 85, psi3 = 0.05 * T + p[24];
 
   for (let j = 0; j <= H; j++) {
     const yy = j - 63.5;
@@ -199,7 +201,7 @@ export function draw(display, params) {
       const gd = 1 - 0.72 * tanh((zs + 17) / 22);
       const gd1 = 0.7 + 0.3 * gd;
       const u = xx * c2 + yy * s2;
-      const q = xx * c1 + yy * s1;
+      const q = xx * c1 + yy * s1 + 3.5 * sin(k3w * (xx * c3 + yy * s3) + psi3);
       const z1 = zs - A2m * gd * look(FOLD2, k2 * u + psi2);
       const sg = z1 - B1m * gd1 * look(FOLD1, k1 * (q - gam * z1) + psi1);
       SG[j * (W + 1) + i] = sg;
