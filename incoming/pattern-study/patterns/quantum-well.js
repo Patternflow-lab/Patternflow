@@ -1,24 +1,24 @@
 // ===== Patternflow pattern =====
 // Title:   Quantum Well
 // Family:  ledjunction
-// Idea:    The energy band diagram of the light-emitting diode that lights this panel, drawn edge-on with position down the panel and electron energy across it, the conduction and valence band edges two glowing lines that kink at three quantum wells, electrons and holes glowing on a log scale along their own edges, while a drive that wanders between random pulses, bundles, slow sweeps and quiet stretches straightens the tilted bands, fills the wells from the p side first and bursts light across the gap, with amber flames where carriers die as heat or spill over the blocking layer and heat that builds up in the junction.
+// Idea:    The energy band diagram of the light-emitting diode that lights this panel, position down and electron energy across, the conduction and valence band edges two glowing lines that kink at three quantum wells, while a drive that wanders between random pulses, bundles, slow sweeps and quiet stretches straightens the tilted bands, fills the wells from the p side and bursts light across the gap, with amber embers where carriers die as heat or spill over the blocking layer.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the p-n junction and the injection of minority carriers across it (William Shockley, 1949, from memory), the exponentially fitted flux between mesh points that stays stable across steep band steps (Donald Scharfetter and Hermann Gummel, 1969, from memory), InGaN quantum wells with an AlGaN electron blocking layer, the blue LED (Shuji Nakamura, 1990s, from memory), the ABC model of recombination and its efficiency droop (from memory), original code, pattern round 277
+// Lineage: the p-n junction and minority carrier injection (William Shockley, 1949, from memory), the exponentially fitted flux that stays stable across steep band steps (Donald Scharfetter and Hermann Gummel, 1969, from memory), InGaN quantum wells with an AlGaN blocking layer, the blue LED (Shuji Nakamura, 1990s, from memory), the ABC model and its efficiency droop (from memory), original code, pattern round 277
 // Round:   277
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Current=0..4, Barrier=-1..1, Defects=-1..1
 //
-// Knob 1: Hue. The emission colour: hue 0.40 + K, spring green at 0, with the electrons a fifth of a turn on (azure) and the holes 0.53 on (rose); the heat stays amber (0.075). Each well's colour follows its own alloy fluctuation, and the wells are drawn deeper for redder light by a third of the true change in photon energy (not in the transport).
-// Knob 2: Current. The height of the drive, A per cm2: 30 x e^(K - 2), 4.1 at 0, 30 at 2 where it opens, 222 at 4, times a random 0.3 to 1.6 for each pulse or sweep. Over 15 minutes light was 30.5 percent of recombination at 0, 30.8 at 2 and 16.5 at 4, and the junction ran 1, 6 and 24 K warm on average (13 and 47 K at most at 2 and 4). Low, faint bursts; high, all three wells burn, flames rise in the p-GaN and the lines glow warm.
-// Knob 3: Barrier. The electron blocking layer, its conduction band step 0.13 x (1 + K) eV below 0 and 0.13 + 0.32 K above: 0, 0.13 and 0.45 eV (its valence step, which holds the holes, is 0.42 of that). At Current 2 the share of recombination in the p-GaN, electrons that cleared the layer, was 46.5 percent at -1, 9.6 at 0 where it opens and 0 at 1; light was 18.9, 30.8, 34.4. Low, a tall flame stands on the p side and the wells dim.
-// Knob 4: Defects. The SRH rate A = 0.03 x 40^K per ns: 7.5e-4 at -1, 0.037 at 0.06 where it opens, 1.2 at 1. Light was 36.4, 30.8, 24.7, 17.1 and 2.0 percent of recombination at -1, 0.06, 0.3, 0.5 and 1, heat in the wells 46, 53, 62, 72 and 95. High, the bursts shorten and go out, amber stands in the wells and between them.
+// Knob 1: Hue. The emission colour, hue 0.40 + K (spring green at 0), the electrons 0.2 on (azure), the holes 0.53 on (rose); the heat stays amber. Each well's colour follows its own alloy fluctuation; wells are drawn deeper for redder light, by a third of the true change in photon energy.
+// Knob 2: Current. The drive, A per cm2: 30 x e^(K - 2), 4.1, 30 (opens) and 222, times a random 0.3 to 1.6 per pulse or sweep. Light was 30.5, 30.8 and 16.5 percent of recombination at 0, 2 and 4 (15 minutes), the junction 1, 6 and 24 K warm. High, all three wells burn.
+// Knob 3: Barrier. The blocking layer's conduction step, 0.13 (1 + K) eV below 0, 0.13 + 0.32 K above: 0, 0.13 (opens), 0.45 eV; its valence step is 0.42 of that. At Current 2, 46.5, 9.6 and 0 percent of recombination was in the p-GaN at -1, 0 and 1. Low, an ember column stands on the p side and the wells dim.
+// Knob 4: Defects. SRH A = 0.03 x 40^K per ns, 7.5e-4, 0.037 (opens at 0.06) and 1.2. Light was 36, 31, 25, 17 and 2 percent of recombination at -1, 0.06, 0.3, 0.5 and 1. High, bursts shorten and go out, embers stand in the wells.
 //
-// The picture. Energy across (0.133 eV a column), position down: 24 rows of p-GaN, 8 of AlGaN, three InGaN wells of 7 rows between four GaN barriers of 9, 39 of n-GaN (5, 2, 0.45, 1, 5 nm a row). Electrons glow right of the conduction edge, holes left of the valence edge, log scale; amber flames lean up from rows that recombine without light. Steps drawn twice their size, the tilt at half.
-// The model. n(x) and p(x) on those 128 cells (nm, ns, eV, 1e18 per cm3), one backward Euler step each, Scharfetter-Gummel flux (D / h)(B(d) n_i - B(-d) n_i+1), d the band step over kT; wells run out of states and hold electrons up to their holes plus 1e18 (quasi-neutrality, no Poisson). Band edges are given: E_c = 1.7 + step + U, E_v = -1.7 + step + U, U = (V_bi - V)(S - 1/2), V found so that the drive current flows. SRH, B n p (the light, in the wells), Auger C (n + p) n p; A, B, C and kT follow the junction temperature, heated by power that does not leave as light, cooling over 10 s.
-// Slow and random, 5 to 11 s each: each well's depth, the idle bias (0 to 2 V), two sets of 30 leakage paths whose heat widens the carrier glows and tints the wash, and the drive: pulses (0.8 to 3 s, rests 0.5 to 2.4 s, bundles of 3 to 5), sweeps of 10 to 18 s through 2.5 decades, quiet stretches.
+// The picture. Energy across (0.133 eV a column), position down: 24 rows of p-GaN, 8 of AlGaN, three InGaN wells of 7 rows between GaN barriers of 9, 39 of n-GaN. Electrons glow right of the conduction edge, holes left of the valence edge; amber embers rise from rows that recombine without light. Steps drawn twice their size, the tilt at half.
+// The model. n(x), p(x) on 128 cells (nm, ns, eV, 1e18 per cm3), backward Euler, Scharfetter-Gummel flux (D / h)(B(d) n_i - B(-d) n_i+1), d the band step over kT; wells run out of states and hold electrons up to their holes plus 1e18 (no Poisson). E_c = 1.7 + step + U, E_v = -1.7 + step + U, U = (V_bi - V)(S - 1/2), V found so the drive current flows. SRH, B n p (the light), Auger C (n + p) n p, with A, B, C, kT following the junction temperature.
+// Slow and random, 5 to 11 s: each well's depth, the idle bias (0 to 2 V), 60 leakage paths whose heat widens the carrier glows, soft clouds of tint and brightness in the washes, and the drive (pulses, bundles, sweeps, quiet stretches).
 
 const W = 64, H = 128, N = 128;
 const { floor, sqrt, exp, log, sin, cos, min, max, abs, pow, PI } = Math;
@@ -70,7 +70,7 @@ let RAMP0 = 0, RAMP1 = 1;
 const S_RAMP = new Float64Array(N);
 for (let i = 0; i < N; i++) S_RAMP[i] = cl(1 - (POS[i] - RAMP0) / (RAMP1 - RAMP0), 0, 1);
 
-// photon energy a hue stands for, eV: red (650 nm) at 0 to violet (420 nm) at 0.75, back to red through the purples
+// photon energy of a hue, eV: red (650 nm) at 0 to violet (420 nm) at 0.75, back to red
 function photonEnergy(h) {
   h -= floor(h);
   if (h <= 0.75) return 1240 / (650 - 306.7 * h);
@@ -93,7 +93,7 @@ const FWn = mk(), GWn = mk(), FWp = mk(), GWp = mk();
 const TA = mk(), TB = mk(), TC = mk(), TR = mk(), TD = mk();
 
 // One backward Euler step of h du/dt = -(F[i] - F[i-1]) - h loss u, F = (D / hc)(B(d) u_i (1 - th_i+1) - B(-d) u_i+1 (1 - th_i)),
-// d = (E_i+1 - E_i) / kT, th = u / umax; th from the last of 4 passes, so the matrix stays an M-matrix and u stays positive.
+// d the band step over kT, th = u / umax from the last of 4 passes (the matrix stays an M-matrix).
 const UO = mk(), UI = mk();
 let KTC = KT;
 function advance(u, E, D, loss, umax, pinTop, pinBot, dt, FW, GW) {
@@ -127,8 +127,7 @@ function advance(u, E, D, loss, umax, pinTop, pinBot, dt, FW, GW) {
   for (let i = 0; i < N; i++) u[i] = UI[i];
 }
 
-// the structure: electrons take 55 percent of WEG less 0.12 eV for the lowest level of a 3 nm well, holes 45 percent less 0.02;
-// ebl is the blocking layer's conduction step, 0 to 0.45 eV, its valence step 0.42 of that
+// structure: electrons take 55 percent of WEG less 0.12 eV (lowest level of a 3 nm well), holes 45 percent less 0.02; ebl is the blocking layer's conduction step
 function structure(S) {
   const kb = cl(S.k[2], -1, 1), ebl = kb < 0 ? 0.13 * (1 + kb) : 0.13 + 0.32 * kb;
   const wc = -max(0.06, 0.55 * WEG - 0.12), wv = 0.45 * WEG - 0.02;
@@ -177,13 +176,13 @@ function substep(S, dt, jt) {
   advance(n, EC, DN, KN, UMAXN, [0, 0], [39, ND], dt, FWn, GWn);
   rates(S);
   advance(p, EH, DP, KP, UMAXP, [24, NA], [0, 0], dt, FWp, GWp);
-  // the current: holes below the p-GaN and electrons in it, from pile-up plus recombination (exact, unlike a flux difference)
+  // the current: holes below the p-GaN and electrons in it, from pile-up plus recombination
   let ih = 0, io = 0;
   for (let i = 24; i < N; i++) ih += HH[i] * ((p[i] - P0[i]) / dt + KP[i] * p[i]);
   for (let i = 0; i < 24; i++) io += HH[i] * ((n[i] - N0[i]) / dt + KN[i] * n[i]);
   ih = max(0, ih); io = max(0, io);
   S.ih = ih; S.io = io;
-  // V ramps while almost nothing flows (the junction charging), then follows the log of asked over carried
+  // V ramps while almost nothing flows, then follows the log of asked over carried
   S.jm += (ih + io - S.jm) * (1 - exp(-dt / 1.5));
   let dV;
   if (jt > 0) {
@@ -201,8 +200,9 @@ export function setup(params) {
   const S = {
     t: 0, k: null, V: VLO, on: false, left: 0.4, amp: 1, n: mk(), p: mk(), ih: 0, io: 0, jm: 0, dt: 0.033,
     rvp: mk(), avp: mk(), vr: VLO, T: 0, mode: 0, mleft: rnd(14, 30), mlen: 20, pk: 1, bun: 0,
-    m: [1, 1, 1], z: [gs(), gs(), gs()], zv: gs(), lc: 0,
-    hs: Array.from({ length: 2 * NHS }, (_, i) => { const z = gs(); return { y: (((i % NHS) + rnd(0.2, 0.8)) * N) / NHS, z, u: gs(), th: min(1.3, exp(0.9 * z - 0.15)) * rnd(0.3, 0.9), side: i < NHS ? 0 : 1 }; }),
+    m: [1, 1, 1], z: [gs(), gs(), gs()], zv: gs(),
+    hs: Array.from({ length: 2 * NHS }, (_, i) => { const z = gs(); return { y: (((i % NHS) + rnd(0.2, 0.8)) * N) / NHS, z, th: min(1.3, exp(0.9 * z - 0.15)) * rnd(0.3, 0.9), side: i < NHS ? 0 : 1 }; }),
+    g0: Float64Array.from({ length: GXN * GYN }, gs), g1: Float64Array.from({ length: GXN * GYN }, gs),
     ph: Array.from({ length: 128 }, () => TAU * Math.random()),
   };
   for (let i = 0; i < N; i++) {
@@ -214,8 +214,7 @@ export function setup(params) {
   params.s = S;
 }
 
-// the drive: random pulses (now and then a bundle of 3 to 5 short ones), a sweep through 2.5 decades like a curve tracer,
-// a quiet stretch; heights 0.3 to 1.6 times the knob
+// the drive: random pulses (and bundles of 3 to 5), sweeps through 2.5 decades, quiet stretches; heights 0.3 to 1.6 times the knob
 const PULSE = [0.8, 3.0], REST = [0.5, 2.4];
 const ZTAU = [7, 9, 11];    // well depth wander, s
 function drive(S, d) {
@@ -268,9 +267,12 @@ export function update(dt, input, params) {
   S.vr = 0.05 + 1.95 * sm(-1.7, 1.7, S.zv);
   // each leakage path heats over about 5 s
   const vt = 0.8;
+  for (let i = 0; i < GXN * GYN; i++) {
+    S.g0[i] += -S.g0[i] * (d / 6) + sqrt((2 * d) / 6) * gs();
+    S.g1[i] += -S.g1[i] * (d / 7) + sqrt((2 * d) / 7) * gs();
+  }
   for (const h of S.hs) {
     h.z += -h.z * (d / 7) + sqrt((2 * d) / 7) * gs();
-    h.u += -h.u * (d / 6) + sqrt((2 * d) / 6) * gs();
     h.th += (min(1.3, exp(0.9 * h.z - 0.15)) * vt - h.th) * (1 - exp(-d / 5));
   }
   const J = drive(S, d);
@@ -285,15 +287,46 @@ export function update(dt, input, params) {
 }
 
 // ---- drawing
+const BND = [24, 32, 40.5, 47.5, 56.5, 63.5, 72.5, 79.5, 89];   // rows where the layers change
 const SCL = 7.5, EXA = 2.0, CX = 32;   // columns per eV, steps drawn this many times their size, middle column
 const BUF = new Float32Array(W * H * 3);
-const HUR = mk(), HUL = mk(), WTR = mk(), WTL = mk(), HOT = mk(), HOH = mk(), TRP = mk(), ECC = mk(), EVC = mk(), LE = mk(), LH = mk(), RV = mk(), AV = mk(), T1 = mk(), LQ = mk();
-const GRf = [0, 0, 0], GRn = [0, 0, 0], GLf = [0, 0, 0], GLn = [0, 0, 0], CEW = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], CEL = [0, 0, 0], CHO = [0, 0, 0], CAM = [0, 0, 0], CEC = [0, 0, 0], CHC = [0, 0, 0];
+const HOT = mk(), HOH = mk(), TRP = mk(), ECC = mk(), EVC = mk(), LE = mk(), LH = mk(), RV = mk(), AV = mk(), T1 = mk(), LQ = mk();
+const CEW = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], CEL = [0, 0, 0], CHO = [0, 0, 0], CAM = [0, 0, 0], CEC = [0, 0, 0], CHC = [0, 0, 0];
 
 const blur3 = (a, b) => {
   for (let i = 0; i < N; i++) b[i] = 0.25 * a[i > 0 ? i - 1 : i] + 0.5 * a[i] + 0.25 * a[i < N - 1 ? i + 1 : i];
   for (let i = 0; i < N; i++) a[i] = b[i];
 };
+
+// clouds: a 7 by 10 grid of slow random numbers joined smoothly
+const GXN = 7, GYN = 10;
+function cloud(g, x, y, k) {
+  const u = x / 10.5, v = y / 14.2, i = min(GXN - 2, floor(u)), j = min(GYN - 2, floor(v));
+  let fx = u - i, fy = v - j;
+  fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
+  const a = g[j * GXN + i], b = g[j * GXN + i + 1], c = g[(j + 1) * GXN + i], d = g[(j + 1) * GXN + i + 1];
+  return Math.tanh(k * ((a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy));
+}
+// wash colours, far and near: blue, cyan, violet (right); rose, red, magenta (left)
+function pal(hs, sf, sn, vf, vn) {
+  const o = [], t = [0, 0, 0];
+  for (const h of hs) { hsv(h, sf, vf, t); o.push(t[0], t[1], t[2]); hsv(h, sn, vn, t); o.push(t[0], t[1], t[2]); }
+  return o;
+}
+const PALR = pal([0.628, 0.52, 0.74], 0.85, 0.82, 0.157, 0.39), PALL = pal([0.87, 0.97, 0.79], 0.75, 0.73, 0.157, 0.26);
+function palc(P, k, q, pp, nn) {
+  const f0 = P[k] + (P[3 + k] - P[k]) * q, f1 = P[6 + k] + (P[9 + k] - P[6 + k]) * q, f2 = P[12 + k] + (P[15 + k] - P[12 + k]) * q;
+  return f0 + pp * (f1 - f0) + nn * (f2 - f0);
+}
+
+// a Gaussian blur down the panel, sigma 4 rows, for the heat fields
+const GK = new Float64Array(19);
+for (let k = 0, t = 0; k < 19; k++) { GK[k] = exp(-((k - 9) * (k - 9)) / 32); t += GK[k]; if (k === 18) for (let j = 0; j < 19; j++) GK[j] /= t; }
+const GT = mk();
+function gblur(a) {
+  for (let i = 0; i < N; i++) { let v = 0; for (let k = 0; k < 19; k++) v += GK[k] * a[min(N - 1, max(0, i + k - 9))]; GT[i] = v; }
+  for (let i = 0; i < N; i++) a[i] = GT[i];
+}
 
 // distance from (x, y) to the polyline through (c[j], j)
 function lineDist(c, x, y) {
@@ -332,7 +365,7 @@ export function draw(display, params) {
   const bw = 1 + 0.35 * sin(TAU * T / 61 + S.ph[6]), bh = 1 + 0.35 * sin(TAU * T / 97 + S.ph[7]);
   for (let y = 0; y < N; y++) {
     const u = dU * (S_RAMP[y] - 0.5);
-    const fw = TYP[y] === 3 ? fh : TYP[y] === 1 ? 1.5 : 1;
+    const fw = TYP[y] === 3 ? fh : TYP[y] === 1 ? 2 : 1;
     ECC[y] = CX + SCL * (1.7 + EXA * fw * SC[y] + u);
     EVC[y] = CX + SCL * (-1.7 + EXA * fw * SV[y] + u);
     LE[y] = cl((log(S.n[y]) / 2.302585 + 18 - 12) / 7.2, 0, 1);
@@ -348,15 +381,16 @@ export function draw(display, params) {
   blur3(TRP, T1); blur3(TRP, T1); blur3(TRP, T1);
   for (let y = 0; y < N; y++) TRP[y] = min(1, TRP[y] * 3) * 0.8;
   // how hot each row is, round the leakage paths
-  for (let y = 0; y < N; y++) HOT[y] = HOH[y] = HUR[y] = HUL[y] = WTR[y] = WTL[y] = 0;
+  for (let y = 0; y < N; y++) HOT[y] = HOH[y] = 0;
   for (const h of S.hs) {
-    const a0 = min(1, h.th) * (0.9 * 24) / NHS, F = h.side ? HOH : HOT, U = h.side ? HUL : HUR, Wt = h.side ? WTL : WTR;
-    for (let y = max(0, floor(h.y) - 12); y <= min(N - 1, floor(h.y) + 12); y++) { const dy = (y - h.y) / 3.5, w = a0 * exp(-dy * dy); F[y] += w; U[y] += w * h.u; Wt[y] += w; }
+    const a0 = min(1, h.th) * (0.9 * 24) / NHS, F = h.side ? HOH : HOT;
+    for (let y = max(0, floor(h.y) - 12); y <= min(N - 1, floor(h.y) + 12); y++) { const dy = (y - h.y) / 3.5; F[y] += a0 * exp(-dy * dy); }
   }
+  gblur(HOT); gblur(HOH);
   blur3(LE, T1); blur3(LH, T1);
   blur3(RV, T1); blur3(RV, T1); blur3(RV, T1); blur3(LQ, T1); blur3(LQ, T1);
   // heat leans up the panel
-  for (let y = 0; y < N; y++) T1[y] = max(AV[y], 0.88 * AV[min(N - 1, y + 1)], 0.74 * AV[min(N - 1, y + 2)], 0.6 * AV[min(N - 1, y + 3)], 0.46 * AV[min(N - 1, y + 4)], 0.32 * AV[min(N - 1, y + 5)], 0.18 * AV[min(N - 1, y + 6)]);
+  for (let y = 0; y < N; y++) T1[y] = max(AV[y], 0.8 * AV[min(N - 1, y + 1)], 0.55 * AV[min(N - 1, y + 2)], 0.3 * AV[min(N - 1, y + 3)]);
   for (let y = 0; y < N; y++) AV[y] = T1[y];
   // light and heat linger
   const dl = exp(-S.dt / 0.3), dh = exp(-S.dt / 0.2);
@@ -368,15 +402,15 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) {
     const cE = ECC[y], vE = EVC[y], mid = 0.5 * (cE + vE), gw = cE - vE;
     const CEk = CEW[y < 52 ? 0 : y < 68 ? 1 : 2];
-    // the washes take a tint from the leakage paths
-    const dR = 0.15 * Math.tanh(HUR[y] / (WTR[y] + 0.25)), dL = 0.15 * Math.tanh(HUL[y] / (WTL[y] + 0.25));
-    hsv(0.628 + dR, 0.85, 0.157, GRf); hsv(0.628 + dR, 0.82, 0.39, GRn); hsv(0.87 + dL, 0.75, 0.157, GLf); hsv(0.87 + dL, 0.73, 0.26, GLn);
     const hot = 0.5 * (HOT[y] + HOH[y]), gwe = 7 * (1 + 1.2 * HOT[y]), gae = 0.62 * (1 + 0.6 * HOT[y]), gwh = 7 * (1 + 1.2 * HOH[y]), gah = 0.62 * (1 + 0.6 * HOH[y]);
     const le = LE[y], lh = LH[y], rv = RV[y], half = (0.35 + 0.65 * sm(0.04, 0.5, LQ[y])) * 0.5 * gw;
     // flicker
     const fl = 0.78 + 0.22 * sin(2.3 * T + S.ph[y % 64]) * sin(1.7 * T + S.ph[(y * 3) % 64 + 64]);
-    const av = AV[y] > 0.1 ? sm(0.1, 0.3, AV[y]) * (0.6 + 0.4 * AV[y]) * fl : 0;
-    const hw = 0.26 * gw + 1.5, ph1 = S.ph[y % 64] * 1.3;
+    // embers gather at the boundaries of the layers
+    let wb = 0;
+    for (const yb of BND) wb = max(wb, exp(-((y - yb) * (y - yb)) / 6));
+    const av = AV[y] > 0.1 ? sm(0.1, 0.3, AV[y]) * (0.6 + 0.4 * AV[y]) * fl * (y >= 24 && y < 89 ? 0.4 + 0.6 * wb : 1) : 0;
+    const hw = 0.13 * gw + 1.0, ph1 = S.ph[y % 64] * 1.3;
     // broad at the base, narrow and swaying as it rises
     const hwa = hw * (0.3 + 0.7 * AV[y]), wob = 2.2 * sin(0.45 * y - 2.2 * T + ph1) * (1 - AV[y]);
     const trap = TRP[y] * sd;
@@ -385,9 +419,13 @@ export function draw(display, params) {
       const dE = x - cE, dH = vE - x;
       let r, g, b;
       // ground: blue right, rose left, teal between
-      if (dE > 0) { const q = exp(-dE / 9), f = 255 * bw * (0.1 + 1.55 * HOT[y]); r = (GRf[0] + (GRn[0] - GRf[0]) * q) * f; g = (GRf[1] + (GRn[1] - GRf[1]) * q) * f; b = (GRf[2] + (GRn[2] - GRf[2]) * q) * f; }
-      else if (dH > 0) { const q = exp(-dH / 9), f = 255 * bh * (0.1 + 1.55 * HOH[y]); r = (GLf[0] + (GLn[0] - GLf[0]) * q) * f; g = (GLf[1] + (GLn[1] - GLf[1]) * q) * f; b = (GLf[2] + (GLn[2] - GLf[2]) * q) * f; }
-      else { const f = 0.5 + 0.5 * hot; r = 8 * f; g = 28 * f; b = 28 * f; if (y >= 24 && y < 89) { r += 14 * sd; g += 5 * sd; } }
+      if (dE > 0 || dH > 0) {
+        // the washes drift in clouds of tint and brightness
+        const R = dE > 0, q = exp(-(R ? dE : dH) / 9), tt = cloud(S.g0, x, y, 1.9), pp = tt > 0 ? tt : 0, nn = tt < 0 ? -tt : 0;
+        const f = 255 * (R ? bw * (0.1 + 1.55 * HOT[y]) : bh * (0.1 + 1.55 * HOH[y])) * (1 + 0.4 * cloud(S.g1, x, y, 1.9)), P = R ? PALR : PALL;
+        r = palc(P, 0, q, pp, nn) * f; g = palc(P, 1, q, pp, nn) * f; b = palc(P, 2, q, pp, nn) * f;
+      }
+      else { const f = 0.5 + 0.5 * hot; r = 8 * f; g = 28 * f; b = 28 * f; if (y >= 24 && y < 89) { r += 26 * sd; g += 10 * sd; } }
       // carriers, log scale
       const ge = le * (dE >= 0 ? exp(-dE / gwe) : exp(dE / 1.2)) * gae;
       const gh = lh * (dH >= 0 ? exp(-dH / gwh) : exp(dH / 1.2)) * gah;
