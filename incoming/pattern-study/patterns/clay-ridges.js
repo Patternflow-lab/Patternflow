@@ -81,6 +81,7 @@ function mulberry(seedv) {
 const HG = new Float32Array(GW * GH);   // the height field, in LEDs
 const FWX = new Float32Array(NW * NH), FWY = new Float32Array(NW * NH);
 const FSW = new Float32Array(NW * NH), FAM = new Float32Array(NW * NH), FMK = new Float32Array(NW * NH), FMB = new Float32Array(NW * NH);
+const FV0 = new Float32Array(NW * NH), FV1 = new Float32Array(NW * NH), FV2 = new Float32Array(NW * NH), FV3 = new Float32Array(NW * NH); // how far each family is squeezed
 const N4W = GW / 4 + 1, N4H = GH / 4 + 1;          // the slow fields are solved on every fourth cell
 const G4S = new Float32Array(N4W * N4H), G4A = new Float32Array(N4W * N4H), G4K = new Float32Array(N4W * N4H), G4B = new Float32Array(N4W * N4H);
 const CGW = GW / 4, CGH = GH / 4;             // the height field averaged to 4 x 4 LEDs, for the wide occlusion
@@ -154,7 +155,7 @@ const CLAYS = [[0.082, 0.28, 0.76], [0.03, 0.42, 0.66], [-0.04, 0.3, 0.64], [-0.
 let AW = 32, A1m = 2.5, A1 = 5, A2 = 1.7, AS = 20, KC0 = 0.1, CA0 = 1, SA0 = 0, PSI0 = 0, KC = 0.2, KB = 0.2, KF = 0.5, CA = 1, SA = 0, CB = 1, SB = 0, CA2 = 1, SA2 = 0, PSI1 = 0, PSI2 = 0, PSI3 = 0;
 const EPS = 0.34, E2 = EPS * EPS, NRM = 1 / (sqrt(1 + E2) - EPS);
 
-function hgt(x, y, wx, wy, sw, am, mb, mk) {
+function hgt(x, y, wx, wy, sw, am, mb, mk, v0, v1, v2, v3) {
   const qx = x + AW * wx, qy = y + AW * wy;
   const th0 = KC0 * (qx * CA0 + qy * SA0) + PSI0, s0 = sin(th0);
   const th1 = KC * (qx * CA + qy * SA) + PSI1, s1 = sin(th1);
@@ -164,7 +165,7 @@ function hgt(x, y, wx, wy, sw, am, mb, mk) {
   const d2 = FH2[floor(th2 / PI) & 255] * (sqrt(s2 * s2 + E2) - EPS);
   const g3 = sqrt(s3 * s3 + E2) - EPS;
   const d0 = FH0[floor(th0 / PI) & 255] * (sqrt(s0 * s0 + E2) - EPS);
-  return AS * sw + NRM * (A1 * d0 + A1m * am * ((1 - mb) * d1 + mb * d2) + A2 * mk * g3);
+  return AS * sw + NRM * (A1 * v0 * d0 + A1m * am * ((1 - mb) * v1 * d1 + mb * v2 * d2) + A2 * mk * v3 * g3);
 }
 
 function up(src, dst) {
@@ -194,7 +195,7 @@ export function draw(display, params) {
   PSI0 = 0.07 * T + 1.3 * sin(0.0237 * T + ph[10]);
   PSI2 = -0.09 * T;
   PSI3 = 0.1 * T + 1.7 * sin(0.0431 * T + ph[8]);
-  AW = 32; A1 = 3.4 * relief; A1m = 0.5 * A1; A2 = 0.2 * A1; AS = 10 * relief;
+  AW = 28; A1 = 3.4 * relief; A1m = 0.5 * A1; A2 = 0.2 * A1; AS = 10 * relief;
   KC0 = PI / (Pc * 1.8); KC = PI / Pc; KB = PI / (Pc * 0.85); KF = PI / P2;
 
   // ---- the smooth fields: the warp on every second cell, the slow ones on every fourth
@@ -207,6 +208,23 @@ export function draw(display, params) {
       const a2 = x / 26 - dx1 * 1.6 + of[2], b2 = y / 26 + dy1 * 1.3 + of[3];
       FWX[n] = noise3(a, b, tz) + 0.38 * noise3(a2, b2, tz * 1.9 + 7.1);
       FWY[n] = noise3(a + 31.7, b + 11.3, tz + 3.7) + 0.38 * noise3(a2 + 17.2, b2 + 5.9, tz * 1.9 + 1.3);
+    }
+  }
+  // where the warp squeezes a family of creases closer than the panel can draw, its folds fade out
+  for (let j = 0; j < NH; j++) {
+    const jm = j > 0 ? j - 1 : 0, jp = j < NH - 1 ? j + 1 : j, dj = 1 / ((jp - jm) * 2);
+    for (let i = 0; i < NW; i++) {
+      const im = i > 0 ? i - 1 : 0, ip = i < NW - 1 ? i + 1 : i, di = 1 / ((ip - im) * 2), n = j * NW + i;
+      const xx = AW * (FWX[j * NW + ip] - FWX[j * NW + im]) * di, xy = AW * (FWX[jp * NW + i] - FWX[jm * NW + i]) * dj;
+      const yx = AW * (FWY[j * NW + ip] - FWY[j * NW + im]) * di, yy = AW * (FWY[jp * NW + i] - FWY[jm * NW + i]) * dj;
+      let gx = CA0 + xx * CA0 + yx * SA0, gy = SA0 + xy * CA0 + yy * SA0;
+      FV0[n] = sm(5, 9, PI / (KC0 * sqrt(gx * gx + gy * gy) + 1e-6));
+      gx = CA + xx * CA + yx * SA; gy = SA + xy * CA + yy * SA;
+      FV1[n] = sm(4.8, 8.5, PI / (KC * sqrt(gx * gx + gy * gy) + 1e-6));
+      gx = CB + xx * CB + yx * SB; gy = SB + xy * CB + yy * SB;
+      FV2[n] = sm(4.8, 8.5, PI / (KB * sqrt(gx * gx + gy * gy) + 1e-6));
+      gx = CA2 + xx * CA2 + yx * SA2; gy = SA2 + xy * CA2 + yy * SA2;
+      FV3[n] = sm(4.4, 7.4, PI / (KF * sqrt(gx * gx + gy * gy) + 1e-6));
     }
   }
   for (let j = 0; j < N4H; j++) {
@@ -240,10 +258,18 @@ export function draw(display, params) {
       const mb1 = 0.5 * (a + b), mb2 = 0.5 * (a + c), mb3 = 0.25 * (a + b + c + d), mb0 = a;
       a = FMK[n00]; b = FMK[n01]; c = FMK[n10]; d = FMK[n11];
       const mk1 = 0.5 * (a + b), mk2 = 0.5 * (a + c), mk3 = 0.25 * (a + b + c + d), mk0 = a;
-      HG[o] = hgt(x0, y0, wx0, wy0, sw0, am0, mb0, mk0);
-      HG[o + 1] = hgt(x0 + 1, y0, wx1, wy1, sw1, am1, mb1, mk1);
-      HG[o + GW] = hgt(x0, y0 + 1, wx2, wy2, sw2, am2, mb2, mk2);
-      HG[o + GW + 1] = hgt(x0 + 1, y0 + 1, wx3, wy3, sw3, am3, mb3, mk3);
+      a = FV0[n00]; b = FV0[n01]; c = FV0[n10]; d = FV0[n11];
+      const a01 = 0.5 * (a + b), a02 = 0.5 * (a + c), a03 = 0.25 * (a + b + c + d), a00 = a;
+      a = FV1[n00]; b = FV1[n01]; c = FV1[n10]; d = FV1[n11];
+      const a11 = 0.5 * (a + b), a12 = 0.5 * (a + c), a13 = 0.25 * (a + b + c + d), a10 = a;
+      a = FV2[n00]; b = FV2[n01]; c = FV2[n10]; d = FV2[n11];
+      const a21 = 0.5 * (a + b), a22 = 0.5 * (a + c), a23 = 0.25 * (a + b + c + d), a20 = a;
+      a = FV3[n00]; b = FV3[n01]; c = FV3[n10]; d = FV3[n11];
+      const a31 = 0.5 * (a + b), a32 = 0.5 * (a + c), a33 = 0.25 * (a + b + c + d), a30 = a;
+      HG[o] = hgt(x0, y0, wx0, wy0, sw0, am0, mb0, mk0, a00, a10, a20, a30);
+      HG[o + 1] = hgt(x0 + 1, y0, wx1, wy1, sw1, am1, mb1, mk1, a01, a11, a21, a31);
+      HG[o + GW] = hgt(x0, y0 + 1, wx2, wy2, sw2, am2, mb2, mk2, a02, a12, a22, a32);
+      HG[o + GW + 1] = hgt(x0 + 1, y0 + 1, wx3, wy3, sw3, am3, mb3, mk3, a03, a13, a23, a33);
     }
   }
 
