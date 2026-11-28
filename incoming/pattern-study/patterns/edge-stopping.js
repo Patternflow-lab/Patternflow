@@ -1,20 +1,26 @@
 // ===== Patternflow pattern =====
 // Title:   Edge Stopping
 // Family:  scalespace
-// Idea:    Every row of the panel is the same 64-sample colour strip of stained-glass plateaus after a little more Perona-Malik diffusion than the row above, so the top is the fine strip and the bottom the coarsest, and weak edges melt in a cascade down the panel while the strong ones stand still and crisp until a neighbour squeezes them out.
+// Idea:    Every row of the panel is the same 64-sample strip of stained-glass colour after a little more Perona-Malik diffusion than the row above it, so the top is the fine strip and the bottom the coarsest, and weak edges melt in a cascade down the panel while the strong ones stand still and sharp until a neighbour squeezes them out.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: nonlinear diffusion with a conductance that falls where the gradient is large (Pietro Perona and Jitendra Malik, "Scale-space and edge detection using anisotropic diffusion", 1990, from memory), the linear scale space it changes (Andrew Witkin, 1983, from memory); pattern round 273
+// Lineage: nonlinear diffusion with a conductance that falls where the gradient is large (Pietro Perona and Jitendra Malik, "Scale-space and edge detection using anisotropic diffusion", 1990, from memory), the linear scale space it changes (Andrew Witkin, "Scale-space filtering", 1983, from memory); pattern round 273
 // Round:   273
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Edge=0..4, Scale=-1..1, Drift=-1..1
 //
-// Knob 1: Hue. placeholder
-// Knob 2: Edge. placeholder
-// Knob 3: Scale. placeholder
-// Knob 4: Drift. placeholder
+// Knob 1: Hue. Turns every colour of the ribbon round the hue circle at fixed luma, one turn over the range. At 0 the ribbon runs from teal-blue (hue 205 degrees) through violet (250), ruby (339) and amber (36) to lime (93) and emerald (149); at 0.25 it runs from lime through jade (160), blue-violet (250) and orchid (284) to coral (25) and olive-yellow (64); at 0.5 from orange (25) through green (159), sky blue (216) and violet (273) to rose (329); at 0.75 from violet (273) through rose (340), olive-lime (70), green (104) and azure (205) to blue (244). A wander of up to 0.12 of a turn each way rides on it, on two sines 52 and 33 s long at the opening Drift.
+// Knob 2: Edge. The threshold K of the conductance g(s) = 1 / (1 + (s / K)^3). K is counted in the typical step between neighbouring strips of the top row (the median, followed over 6 s, 0.34 of the ribbon on average): 0.16 of it at 0, 0.40 at the opening 2 and 1.02 at 4, a factor 1.6 for each unit, so 0.054, 0.136 and 0.35 in the ribbon's own units. Visible edges, meaning a colour step of 40 levels or more between two LEDs, at rows 0, 64 and 127 (mean of four 90 s runs): 15.6, 13.4 and 11.0 at 0; 14.0, 6.5 and 1.4 at the opening; 12.7, 1.4 and 0.0 at 4. At 0 almost nothing melts and the panel is stripes, at 4 it is ordinary blurring and edges go as they do under the heat equation.
+// Knob 3: Scale. The diffusion time D over the 127 steps from row to row, 35 x 12^Scale: 2.9 at -1, 35 at 0 and 420 at 1. The stretch of time between two rows grows from the top to the bottom by a factor of 40, so the rows are spaced in the log of the scale, and that factor breathes by up to a third on two sines 154 and 89 s long at the opening Drift, so the cascade slides up and down very slowly. Half of the top row's visible edges are gone by row 119 at -1, row 90 at -0.5, row 55 at the opening 0, row 28 at 0.5 and row 12 at 1.
+// Knob 4: Drift. How fast the top strip lives, in strip time a second: 1.7 at -1, 2.7 at the opening 0.06 and 4.3 at 1. It sets the pace of the strips' widths, colours, births and losses. A strip is born every 7.3 s at -1, every 3.7 s at the opening and every 2.4 s at 1 (8.2, 16.3 and 24.7 a minute, mean of four 90 s runs), and about as many go.
+//
+// What the picture is. Each row is a colour signal of 64 samples, one for each LED across. The top row is a strip of 11 to 15 stained-glass plateaus, the narrowest settled one never under 3 LED wide, with a little fine grain. Row r is row r - 1 after a few explicit steps of Perona-Malik diffusion, u_t = d/dx (g(|u_x|) u_x), with one conductance shared by every channel, so a colour edge stays one edge. Where the step between two samples is well under K the conductance is near 1 and the edge melts as it would in the heat equation; where it is well over K the conductance is near 0 and the edge does not move. So the panel is a tree of edges read from the top: the weakest end first, a narrow strip between two weak edges goes as a pair, and the strongest run to the bottom. Nothing blurs an edge that is higher than K; it goes only when its neighbours have pulled their colours close enough to it.
+// The scheme. The sides reflect. A step is dt of at most 0.45 and the conductance never exceeds 1, so each sample after a step is a weighted mean of itself and its two neighbours: nothing overshoots and nothing rings (six minutes at six settings, the corners among them, kept every sample between -0.04 and 1.06, the range of the colours put in at the top and their grain). The number of steps from one row to the next follows the stretch of time asked for, 2 at the shortest and 28 at the longest. The whole stack is recomputed every frame from the top row, so the only state is the strip and the knobs.
+// The colour. A sample is two numbers: a position t on a ribbon of ten colours, teal-blue to emerald with ruby and amber between, and a brightness v. The step s that the conductance sees is sqrt(dt^2 + (0.5 dv)^2). Diffusing t means that two plateaus that merge become the colour between them on the ribbon, a plain mix and not a mud, and nothing in the picture is darker than 0.4 of full light. The brightness v takes up to 0.3 of white into a strip. The ribbon is turned round the hue circle in the I-Q plane of YIQ by the Hue knob and a hue the LEDs cannot reach at that luma is taken toward grey until it can.
+// The strips. A new strip goes a signed step of 0.14 to 0.65 of the ribbon (log-uniform, so most are small) from the one on its left, and of four tries keeps the one farthest from every strip already there, counting the one on its right, which it tries to stand 0.14 from, so the palette fills the ribbon instead of piling up. It starts at the colour of its left neighbour and gains its own over about 5 strip seconds while its width grows, so it appears as an edge rising out of nothing. A strip is lost by the reverse, and the one lost is chosen among those whose colour is nearest another strip's, if the two it leaves side by side differ by 0.14 or more. Widths follow a mean-reverting walk about 64 / n, with a mild jitter of 5 to 15 percent. Each strip wanders up to 0.05 of the ribbon on two sines, and its brightness on a third.
+// What is drawn. Where a surviving edge stands more than 1.3 K high, both LEDs beside it take up to 0.22 of white, a seam that grows over 1.3 K to 3.3 K and so follows the edges that last. Three slow waves, mostly down the panel, shift the colour of the whole glass along the ribbon by up to 0.12 of its length, so a plateau changes colour down its length like light through glass. The grain is a slow noise of 0.9 s kept to 0.25 K or 0.014, whichever is less, so it melts in the first rows at every Edge and is not left as dirt when K is low. The strips, the ribbon, the seams, the waves and the pacing are drawing choices; the diffusion and the stack are the model.
 
 const W = 64, H = 128, N = 64;
 const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, PI } = Math;
@@ -25,6 +31,7 @@ const pw = Math.pow;
 const RHO = 40;              // how many times longer the last row's stretch of diffusion is than the first's
 const D0 = 35;               // diffusion time over the whole panel at Scale 0
 const K0 = 0.4;              // the edge threshold at Edge 2, in units of the typical step between strips
+const EB = 1.6;              // the factor the edge threshold K grows by for each unit of the Edge knob
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const SMIN = 0.14, SMAX = 0.65;  // the shortest and the longest step along the ribbon between neighbouring strips
 const WT = 0.05;             // how far a strip wanders along the ribbon on its own
@@ -320,7 +327,7 @@ export function update(dt, input, params) {
   }
   if (S.cmed === undefined) topRow(S, 0);
   S.cm = S.cm === undefined ? S.cmed : S.cm + (S.cmed - S.cm) * (1 - exp(-d / 6));
-  const K = max(0.02, S.cm) * K0 * pw(1.6, cl(S.k[1], 0, 4) - 2);
+  const K = max(0.02, S.cm) * K0 * pw(EB, cl(S.k[1], 0, 4) - 2);
   S.K = K;
   topRow(S, min(0.014, 0.25 * K));
   const D = D0 * pw(12, cl(S.k[2], -1, 1));
