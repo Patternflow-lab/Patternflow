@@ -17,32 +17,37 @@
 // Knob 4: Drift. placeholder
 
 const W = 64, H = 128, N = 64;
-const { floor, sqrt, exp, log, sin, cos, min, max, abs, PI } = Math;
+const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const pw = Math.pow;
 
-const M = 4;                 // explicit steps from one row to the next
-const D0 = 30;               // diffusion time over the whole panel at Scale 0
-const K0 = 0.058;            // the edge threshold at Edge 0
-const SMIN = 0.1, SMAX = 0.7;   // the shortest and the longest step between neighbouring strips
-const GW = 0.3;              // how far the whole palette slides along the ribbon
-const WT = 0.07;             // how far a strip wanders along it on its own
+const RHO = 40;              // how many times longer the last row's stretch of diffusion is than the first's
+const D0 = 50;               // diffusion time over the whole panel at Scale 0
+const K0 = 0.6;            // the edge threshold at Edge 0
+const SMIN = 0.14, SMAX = 0.65;   // the shortest and the longest step between neighbouring strips
+const WT = 0.05;             // how far a strip wanders along it on its own
            // half the spread of the strips along the ribbon
+const NT0 = 14;              // the number of strips the top row aims at
+const PA = 0.3;              // most white a strip takes in
+const HW = 0.2;              // turns the hue of the whole ribbon wanders each way, slowly
+const HS = 0.07;             // how far the light that crosses the glass shifts the colour along the ribbon
+const LG = 0.0;              // most white the light that crosses the glass adds
+const LD = 0.0;              // how far the light that crosses the glass dims it
+const SP0 = 1.2;             // strip time a second at Drift -1
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const HUE0 = 0.0;            // turns added to the ribbon's hue at Hue = 0
 
-// the ribbon: a position t from 0 to 1 is a colour, and a plateau is a position and a brightness
+// the ribbon: a position t from 0 to 1 is a colour, cobalt through violet, rose and amber to lime, and a plateau is a position and a brightness
 const RIB = [
-  [0.00, 90, 125, 240],
-  [0.12, 150, 105, 235],
-  [0.25, 225, 110, 215],
-  [0.38, 245, 105, 135],
-  [0.50, 250, 165, 80],
-  [0.62, 235, 205, 75],
-  [0.75, 170, 225, 95],
-  [0.88, 70, 205, 150],
-  [1.00, 65, 180, 215],
+  [0.00, 60, 105, 225],
+  [0.14, 105, 95, 215],
+  [0.28, 165, 95, 200],
+  [0.42, 215, 85, 130],
+  [0.56, 230, 120, 85],
+  [0.70, 235, 165, 60],
+  [0.84, 205, 195, 75],
+  [1.00, 70, 175, 120],
 ];
 const NL = 256;
 const LY = new Float32Array(NL + 1), LI = new Float32Array(NL + 1), LQ = new Float32Array(NL + 1);
@@ -74,28 +79,38 @@ function gauss(S) {
 }
 
 // ---------------------------------------------------------------- the strip
-// a triangle wave: a position that runs off one end of the ribbon comes back along it
-function refl(x) {
-  const r = x - 2 * floor(x / 2);
-  return r > 1 ? 2 - r : r;
-}
-
 // A strip takes the colour of the one to its left and goes a step along the ribbon, signed,
 // most steps small and a few large (a log-uniform length from 0.03 to 0.55), so the edges
 // between strips run from very weak to very strong and the weak ones are the first to melt.
 function newStrip(S, born, left) {
   const r = S.r;
-  let b = r();
+  // A new strip goes a signed step along the ribbon from the one to its left, most steps small
+  // and a few large, and of four tries it keeps the one that lands farthest from every strip
+  // already there, so the palette fills the ribbon and does not pile up.
+  let b = r(), sg = 1;
   if (left !== null) {
-    // the sign leans toward the middle of the ribbon, so the palette does not pile up at one end
-    const up = cl(0.5 + 1.1 * (0.5 - left.b), 0.08, 0.92);
-    b = refl(left.b + (r() < up ? 1 : -1) * SMIN * pw(SMAX / SMIN, r()));
+    let bd = -1;
+    for (let c = 0; c < 4; c++) {
+      let sc = r() < 0.5 ? -1 : 1, st = SMIN * pw(SMAX / SMIN, r()), z = left.b + sc * st;
+      if (z < 0 || z > 1) {
+        sc = -sc;
+        z = left.b + sc * st;
+      }
+      z = cl(z, 0, 1);
+      let d = 9;
+      for (let j = 0; j < S.strips.length; j++) d = min(d, abs(S.strips[j].b - z));
+      if (d > bd) {
+        bd = d;
+        b = z;
+        sg = sc;
+      }
+    }
   }
   return {
-    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, life: 40 + 90 * r(), mu: 0, amp: born ? 0 : 1, age: 0,
-    b, ta: 0.35 + 0.65 * r(),
-    w1: 0.03 + 0.08 * r(), p1: TAU * r(), w2: 0.05 + 0.1 * r(), p2: TAU * r(),
-    va: 0.3 + 0.5 * r(), w3: 0.04 + 0.1 * r(), p3: TAU * r(), v0: r(),
+    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, life: 20 + 60 * r(), mu: 0, amp: born ? 0 : 1, age: 0,
+    b, sg, ta: 0.35 + 0.65 * r(),
+    w1: 0.12 + 0.2 * r(), p1: TAU * r(), w2: 0.2 + 0.25 * r(), p2: TAU * r(),
+    va: 0.3 + 0.5 * r(), w3: 0.15 + 0.25 * r(), p3: TAU * r(), v0: r(),
     wj: 0.7 + 1.4 * r(), pj: TAU * r(), aj: 0.05 + 0.1 * r(), w: 4,
   };
 }
@@ -105,10 +120,15 @@ export function setup(params) {
     r: mulberry((Math.random() * 4294967296) >>> 0), tau: 0, k: null, strips: [],
     T: new Float32Array(W * H), V: new Float32Array(W * H),
     nz: new Float32Array(2 * N), top: new Float32Array(2 * N),
-    ph: [], gh: 0, hue: 0, wr: new Float32Array(H),
+    ph: [], gh: 0, hue: 0, wr: new Float32Array(H), lt: [], t: 0,
   };
   for (let i = 0; i < 6; i++) S.ph.push(TAU * S.r());
-  for (let i = 0; i < 13; i++) S.strips.push(newStrip(S, false, i ? S.strips[i - 1] : null));
+  // three slow swells of light that cross the glass, each with its own direction, wavelength and pace
+  for (let i = 0; i < 3; i++) {
+    const an = PI / 2 + (S.r() - 0.5) * 0.7, wl = 70 + 70 * S.r();
+    S.lt.push([cos(an) * TAU / wl, sin(an) * TAU / wl, (0.2 + 0.25 * S.r()) * (S.r() < 0.5 ? -1 : 1), TAU * S.r()]);
+  }
+  for (let i = 0; i < NT0; i++) S.strips.push(newStrip(S, false, i ? S.strips[i - 1] : null));
   params.s = S;
 }
 
@@ -135,7 +155,7 @@ function evolve(S, d, speed) {
   for (let j = st.length - 1; j >= 0; j--) {
     const s = st[j];
     if (s.life > 0) s.life -= dt;
-    if (s.life <= 0 && !s.fade && n > 10) { s.fade = 1; n--; }
+    if (s.life <= 0 && !s.fade && n > NT0 - 3) { s.fade = 1; n--; }
     if (s.fade) {
       // a strip fades by taking the colour of its left neighbour, and goes when it has
       s.amp += (0 - s.amp) * (1 - exp(-dt / 3.5));
@@ -150,7 +170,7 @@ function evolve(S, d, speed) {
     }
   }
   // a strip is born between two others, narrow, and widens
-  const rate = n < 11 ? 0.15 : n < 13 ? 0.05 : n < 15 ? 0.012 : 0;
+  const rate = n < NT0 - 2 ? 0.15 : n < NT0 ? 0.05 : n < NT0 + 2 ? 0.012 : 0;
   if (S.r() < 1 - exp(-rate * dt)) {
     const at = floor(S.r() * (st.length + 1));
     st.splice(at, 0, newStrip(S, true, at ? st[at - 1] : null));
@@ -162,15 +182,23 @@ function topRow(S, noise) {
   stripWidths(S, S.tau);
   const st = S.strips, n = st.length, T = S.top, tau = S.tau;
   const ct = new Float32Array(n), cv = new Float32Array(n);
-  const gl = GW * (0.6 * sin(0.0113 * tau + S.ph[0]) + 0.4 * sin(0.0179 * tau + S.ph[1]));
   for (let j = 0; j < n; j++) {
     const s = st[j];
-    const a = refl(s.b + gl + WT * s.ta * (0.62 * sin(s.w1 * tau + s.p1) + 0.38 * sin(s.w2 * tau + s.p2)));
+    const a = cl(s.b + WT * s.ta * (0.62 * sin(s.w1 * tau + s.p1) + 0.38 * sin(s.w2 * tau + s.p2)), 0, 1);
     const c = 0.5 + 0.5 * s.va * sin(s.w3 * tau + s.p3 + 6 * s.v0);
     const am = s.amp * s.amp * (3 - 2 * s.amp);
     ct[j] = j ? ct[j - 1] + (a - ct[j - 1]) * am : a;
     cv[j] = j ? cv[j - 1] + (c - cv[j - 1]) * am : c;
   }
+  // the typical step between neighbouring strips, which the Edge knob is measured in
+  const cs = S.cs || (S.cs = []);
+  cs.length = 0;
+  for (let q = 1; q < n; q++) {
+    const dt = ct[q] - ct[q - 1], dv = WV * (cv[q] - cv[q - 1]);
+    cs.push(sqrt(dt * dt + dv * dv));
+  }
+  cs.sort((p, q) => p - q);
+  S.cmed = cs.length ? cs[cs.length >> 1] : 0.3;
   let j = 0, edge = st[0].w;
   for (let i = 0; i < N; i++) {
     let t = 0, v = 0, left = 1, x0 = i;
@@ -195,7 +223,7 @@ const FT = new Float32Array(N), FV = new Float32Array(N);
 function pmStep(T, V, o, dt, ik2) {
   for (let i = 0; i < N - 1; i++) {
     const a = o + i, dT = T[a + 1] - T[a], dV = WV * (V[a + 1] - V[a]);
-    const x = (dT * dT + dV * dV) * ik2, g = dt / (1 + x * x);
+    const x = (dT * dT + dV * dV) * ik2, g = dt / (1 + x * sqrt(x));
     FT[i] = g * dT;
     FV[i] = g * (V[a + 1] - V[a]);
   }
@@ -216,14 +244,19 @@ function stack(S, K, D, t) {
     V[i] = TP[N + i];
   }
   const ik2 = 1 / (K * K), wr = S.wr;
+  // The scale axis. Each row is the one above it after a stretch of diffusion time that grows
+  // from row to row by a fixed factor, RHO over the panel, so the rows are spaced in the log of
+  // the scale as scale-space pictures usually are. The factor breathes by about a fifth on two
+  // slow sines, so the cascade slides up and down very slowly.
+  const rho = RHO * exp(0.2 * sin(0.0151 * t + S.ph[3]) + 0.12 * sin(0.0263 * t + S.ph[4]));
+  const lr = log(rho) / (H - 2);
   let wsum = 0;
-  // the scale axis: row r is a little further along than row r - 1; the weight of the
-  // rows breathes so the cascade slides up and down very slowly
-  const br = 0.2 * sin(0.0151 * t + S.ph[3]) + 0.12 * sin(0.0263 * t + S.ph[4]);
   for (let r = 1; r < H; r++) {
-    wr[r] = pw(1 + r / 24, 0.55 + br);
+    wr[r] = exp(lr * (r - 1));
     wsum += wr[r];
   }
+  // the biggest stretch in one row decides how many explicit steps keep the scheme stable
+  const mx = (D * wr[H - 1]) / wsum, M = cl(ceil(mx / 0.45), 2, 24);
   for (let r = 1; r < H; r++) {
     const o = r * W, p = (r - 1) * W;
     for (let i = 0; i < N; i++) {
@@ -240,21 +273,24 @@ export function update(dt, input, params) {
   const S = params.s, kv = (input && input.knobValues) || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   if (!S.k) {
     S.k = [kv[0], kv[1], kv[2], kv[3]];
-    const sp = 0.3 * pw(7, (S.k[3] + 1) / 2);
+    const sp = SP0 * pw(2.5, (S.k[3] + 1) / 2);
     for (let i = 0; i < 600; i++) evolve(S, 0.1, sp);
   }
   const al = 1 - exp(-d / 0.2);
   for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
-  const speed = 0.3 * pw(7, (cl(S.k[3], -1, 1) + 1) / 2);
+  const speed = SP0 * pw(2.5, (cl(S.k[3], -1, 1) + 1) / 2);
   if (d > 0) {
+    S.t += d;
     evolve(S, d, speed);
     const a = exp(-d / 0.9), sg = 0.008 * sqrt(1 - a * a);
     for (let i = 0; i < 2 * N; i++) S.nz[i] = S.nz[i] * a + sg * gauss(S);
   }
-  const K = K0 * pw(12, cl(S.k[1], 0, 4) / 4);
-  const D = D0 * pw(3, cl(S.k[2], -1, 1));
-  S.hue = HUE0 + S.k[0];
   topRow(S, 1);
+  S.cm = S.cm === undefined ? S.cmed : S.cm + (S.cmed - S.cm) * (1 - exp(-d / 6));
+  const K = max(0.02, S.cm) * K0 * pw(3, cl(S.k[1], 0, 4) - 2);
+  S.K = K;
+  const D = D0 * pw(6, cl(S.k[2], -1, 1));
+  S.hue = HUE0 + S.k[0];
   stack(S, K, D, S.tau);
 }
 
@@ -264,17 +300,22 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const T = S.T, V = S.V;
-  const a = TAU * S.hue, ca = cos(a), sa = sin(a);
+  const hr = HW * (0.6 * sin(0.045 * S.tau + S.ph[0]) + 0.4 * sin(0.071 * S.tau + S.ph[1]));
+  const a = TAU * (S.hue + hr), ca = cos(a), sa = sin(a);
   for (let k = 0; k <= NL; k++) {
     const i0 = LI[k], q0 = LQ[k], ii = i0 * ca - q0 * sa, qq = i0 * sa + q0 * ca, y = LY[k];
     RR[k] = y + 0.956 * ii + 0.621 * qq;
     RG[k] = y - 0.272 * ii - 0.647 * qq;
     RB[k] = y - 1.106 * ii + 1.703 * qq;
   }
+  const L = S.lt, t = S.t;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const p = y * W + x, f = cl(T[p], 0, 1) * NL, k = min(NL - 1, floor(f)), u = f - k;
-      const pa = 0.3 * (1 - cl(V[p], 0, 1)), br = 0.92;
+      const p = y * W + x;
+      let lg = 0;
+      for (let i = 0; i < 3; i++) lg += sin(L[i][0] * x + L[i][1] * y + L[i][2] * t + L[i][3]);
+      const f = cl(T[p] + HS * lg / 3, 0, 1) * NL, k = min(NL - 1, floor(f)), u = f - k;
+      const pa = PA * (1 - cl(V[p], 0, 1)) + LG * (0.5 + lg / 6), br = 0.95 - LD * (0.5 - lg / 6);
       const r = ((RR[k] + (RR[k + 1] - RR[k]) * u) * (1 - pa) + pa) * br, g = ((RG[k] + (RG[k + 1] - RG[k]) * u) * (1 - pa) + pa) * br, b = ((RB[k] + (RB[k + 1] - RB[k]) * u) * (1 - pa) + pa) * br;
       display.setPixel(x, y, (cl(r, 0, 1) * 255) | 0, (cl(g, 0, 1) * 255) | 0, (cl(b, 0, 1) * 255) | 0);
     }
