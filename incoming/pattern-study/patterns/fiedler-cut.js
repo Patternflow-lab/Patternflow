@@ -26,7 +26,7 @@ const CX = 32, CYD = 32, CYE = 96;  // centres of the two views
 const RD = 28;      // LEDs to a data unit
 const RE = 26;      // LEDs from the centre of the embedding to a cluster's corner
 const RR = 30.5;    // radius of the two rings that frame the views
-const GAMMA = 2.6;  // how much wider the scatter round a cluster is drawn than it is
+const GAMMA = 1.8;  // how much wider the scatter round a cluster is drawn than it is
 const GAPF = 1e-5;  // floor under 1 - lambda, so a gap between two nearly exact eigenvalues does not count
 
 function pal(h, s, o) {
@@ -76,8 +76,6 @@ const ARCH = [
   (J, o, r) => { const a = TAU * r(), s2 = J(1.6 * PI, 0.1), r1 = J(0.92, 0.04), c = [0, 1, 2].map((i) => [sp(0, 0, 0.28, r1, a + (i * TAU) / 3, s2, 0.02)]); return [...c, c[floor(r() * 3)]]; }, // three spiral arms
   (J, o, r) => { const d = J(0.5, 0.15), t = J(0.17, 0.15), a = TAU * r(), c = [blob(-d * cos(a), -d * sin(a), t), blob(d * cos(a), d * sin(a), t)]; return [c[0], c[1], c[0], c[1]]; }, // two blobs
   (J, o) => { const t = J(0.3, 0.2); return [0, 1, 2, 3].map(() => blob(o(0.08), o(0.08), t)); }, // one blob: everything merged
-  (J, o) => { const b = blob(o(0.1), o(0.1), J(0.18, 0.2)); return [ring(0, 0, J(0.9, 0.04), 0.02), b, b]; }, // ring round a blob
-  (J, o, r) => { const R = J(0.42, 0.08), dx = J(0.56, 0.06), a = TAU * r(); return [ring(-dx * cos(a), -dx * sin(a), R, 0.02), ring(dx * cos(a), dx * sin(a), R, 0.02)]; }, // two rings
 ];
 const AW = ARCH.map((_, i) => (i === 10 ? 0.45 : 1));
 
@@ -202,7 +200,7 @@ export function setup(params) {
     ph: [], grp: new Uint8Array(N), sv: f(N), gx: f(N), gy: f(N), jw: f(N), jp: f(N), jr: f(N), px: f(N), py: f(N),
     M: new Float32Array(N * N), dis: f(N), Q: f(N * QM), Z: f(N * QM), T: f(N * QM), Q2: f(N * QM), lam: f(QM),
     kc: 3, ka: 3, kt: 0, Y: f(N * KMAX), C: f(KMAX * KMAX), lb: new Uint8Array(N).fill(255),
-    dx: f(N), dy: f(N), cr: f(N), cg: f(N), cb: f(N), vx: f(KMAX), vy: f(KMAX),
+    dx: f(N), dy: f(N), ux: f(N), uy: f(N), cr: f(N), cg: f(N), cb: f(N), vx: f(KMAX), vy: f(KMAX),
   };
   for (let i = 0; i < 40; i++) S.ph.push(TAU * r());
   for (let i = 0; i < N; i++) {
@@ -211,6 +209,8 @@ export function setup(params) {
     S.sv[i] = (j + 0.15 + 0.7 * r()) / PER;
     S.gx[i] = m * cos(a);
     S.gy[i] = m * sin(a);
+    S.ux[i] = cos(TAU * r());
+    S.uy[i] = sin(TAU * r());
     S.jr[i] = 0.01 + 0.022 * r();
     S.jw[i] = 0.35 + 1.1 * r();
     S.jp[i] = TAU * r();
@@ -346,88 +346,45 @@ function kmeans(S, iters) {
 
 const CK = [[], [], [], [], []];
 const slotHue = (S, j, k) => 0.5 + S.k[0] + (k === 2 ? 0.42 * j : j / k);
-// each point takes the colours of the centroids by how near they are, and glides to that colour
-function recolor(S, d) {
-  const n = N, k = S.kc, Y = S.Y, C = S.C, inv = 1 / (2 * 0.36 * 0.36), a = 1 - exp(-d / 0.22);
-  for (let j = 0; j < k; j++) pal(slotHue(S, j, k), 0.86, CK[j]);
-  for (let i = 0; i < n; i++) {
-    let ws = 1e-9, r = 0, g = 0, b = 0;
-    for (let j = 0; j < k; j++) {
-      const w = exp(-d2(Y, i, C, j, k) * inv);
-      ws += w;
-      r += w * CK[j][0];
-      g += w * CK[j][1];
-      b += w * CK[j][2];
-    }
-    S.cr[i] += (r / ws - S.cr[i]) * a;
-    S.cg[i] += (g / ws - S.cg[i]) * a;
-    S.cb[i] += (b / ws - S.cb[i]) * a;
-  }
-}
-
-const GM = new Float64Array(KMAX * KMAX), GV = new Float64Array(KMAX * KMAX), GR = new Float64Array(KMAX * KMAX);
-// where each point stands in the embedding view. The k cluster corners are a regular polygon. A turn of
-// the k axes puts every centroid on its own axis (R = A^T (A A^T)^-1/2, A the unit centroids as rows), so
-// the picture does not depend on how the eigenvectors happen to be turned, and a cluster keeps its corner
-function layout(S, d, first) {
-  const n = N, k = S.kc, Y = S.Y, C = S.C, vx = S.vx, vy = S.vy;
-  const nr = [];
-  for (let j = 0; j < k; j++) {
-    let s = 0;
-    for (let c = 0; c < k; c++) s += C[j * k + c] * C[j * k + c];
-    nr.push(1 / (sqrt(s) + 1e-12));
-  }
-  for (let j = 0; j < k; j++) for (let l = 0; l < k; l++) { let s = 0; for (let c = 0; c < k; c++) s += C[j * k + c] * C[l * k + c]; GM[j * k + l] = s * nr[j] * nr[l]; }
-  jacobi(GM, k, GV);
-  GR.fill(0);
-  for (let m = 0; m < k; m++) {
-    const f = 1 / sqrt(max(GM[m * k + m], 1e-3));
-    for (let j = 0; j < k; j++) for (let l = 0; l < k; l++) GR[j * k + l] += GV[j * k + m] * GV[l * k + m] * f;
-  }
+// The k cluster corners are a regular polygon, one corner to a centroid. A point takes the colour of the
+// centroids by how near they are, and stands at the same mix of the corners, off its corner by the real
+// scatter of its cluster, GAMMA times as wide, in a direction of its own. Both glide.
+function show(S, d, first) {
+  const n = N, k = S.kc, Y = S.Y, C = S.C, vx = S.vx, vy = S.vy, inv = 1 / (2 * 0.36 * 0.36);
+  const a = first ? 1 : 1 - exp(-d / 0.2), e = first ? 1 : 1 - exp(-d / 0.14);
   let mx = 0, my = 0, mr = 0;
   for (let c = 0; c < k; c++) {
-    const a = k === 2 ? -PI / 2 + (c ? 1 : -1) * (PI / 4) : -PI / 2 + (c * TAU) / k;
-    vx[c] = cos(a);
-    vy[c] = sin(a);
+    const t = PI / 2 + (k === 2 ? (c ? 1 : -1) * (PI / 4) : (c * TAU) / k);
+    vx[c] = cos(t);
+    vy[c] = sin(t);
     mx += vx[c] / k;
     my += vy[c] / k;
+    pal(slotHue(S, c, k), 0.86, CK[c]);
   }
   for (let c = 0; c < k; c++) {
     vx[c] -= mx;
     vy[c] -= my;
     mr = max(mr, sqrt(vx[c] * vx[c] + vy[c] * vy[c]));
   }
-  const px = [], py = [];
-  for (let b = 0; b < k; b++) {
-    // (R v)_b with R[b][c] = sum_j A[j][b] G^-1/2[j][c]
-    let x = 0, y = 0;
-    for (let c = 0; c < k; c++) {
-      let rbc = 0;
-      for (let j = 0; j < k; j++) rbc += C[j * k + b] * nr[j] * GR[j * k + c];
-      x += rbc * vx[c];
-      y += rbc * vy[c];
-    }
-    px.push(x / mr);
-    py.push(y / mr);
-  }
   for (let c = 0; c < k; c++) ((vx[c] /= mr), (vy[c] /= mr));
-  const cx = [], cy = [], a = first ? 1 : 1 - exp(-d / 0.14);
-  for (let j = 0; j < k; j++) {
-    let x = 0, y = 0;
-    for (let b = 0; b < k; b++) ((x += C[j * k + b] * px[b]), (y += C[j * k + b] * py[b]));
-    cx.push(x);
-    cy.push(y);
-  }
   for (let i = 0; i < n; i++) {
-    let x = 0, y = 0;
-    for (let b = 0; b < k; b++) ((x += Y[i * k + b] * px[b]), (y += Y[i * k + b] * py[b]));
-    const l = S.lb[i];
-    x = cx[l] + GAMMA * (x - cx[l]);
-    y = cy[l] + GAMMA * (y - cy[l]);
-    const m = sqrt(x * x + y * y);
-    if (m > 1.04) ((x *= 1.04 / m), (y *= 1.04 / m));
-    S.dx[i] += (x - S.dx[i]) * a;
-    S.dy[i] += (y - S.dy[i]) * a;
+    let ws = 1e-9, r = 0, g = 0, b = 0, x = 0, y = 0, own = 0;
+    for (let j = 0; j < k; j++) {
+      const dd = d2(Y, i, C, j, k), w = exp(-dd * inv);
+      if (j === S.lb[i]) own = sqrt(dd);
+      ws += w;
+      r += w * CK[j][0];
+      g += w * CK[j][1];
+      b += w * CK[j][2];
+      x += w * vx[j];
+      y += w * vy[j];
+    }
+    const sc = GAMMA * min(own, 0.1);
+    S.cr[i] += (r / ws - S.cr[i]) * a;
+    S.cg[i] += (g / ws - S.cg[i]) * a;
+    S.cb[i] += (b / ws - S.cb[i]) * a;
+    S.dx[i] += (x / ws + sc * S.ux[i] - S.dx[i]) * e;
+    S.dy[i] += (y / ws + sc * S.uy[i] - S.dy[i]) * e;
   }
 }
 
@@ -436,7 +393,7 @@ function tick(S, d, kv, first, adv) {
   for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
   if (adv) {
     const speed = exp(1.1 * S.k[2]);
-    S.t += d;
+    S.t += d * speed;
     S.sc += d * speed;
     S.rot += d * speed * 0.04;
     // the script of shapes: hold, morph, and a new scene made at random each time
@@ -463,8 +420,7 @@ function tick(S, d, kv, first, adv) {
   S.kc = cl(S.ka + Math.round(3 * S.k[3]), 2, KMAX);
   embed(S);
   kmeans(S, first ? 12 : 2);
-  recolor(S, first ? 100 : d);
-  layout(S, d, first);
+  show(S, d, first);
 }
 
 export function update(dt, input, params) {
@@ -487,7 +443,6 @@ export function update(dt, input, params) {
 // ---------------------------------------------------------------- drawing
 const AA = new Float32Array(W * H), AR = new Float32Array(W * H), AG = new Float32Array(W * H), AB = new Float32Array(W * H);
 const DR = new Float32Array(W * H), DG = new Float32Array(W * H), DB = new Float32Array(W * H);
-const HR = new Float32Array(W * H), HG = new Float32Array(W * H), HB = new Float32Array(W * H);
 
 // a soft round dot, sigma sg LEDs, into the point layer
 function disc(x, y, r, g, b, a, sg) {
@@ -516,9 +471,9 @@ function halo(x, y, r, g, b, k) {
     for (let i = 0; i < 11; i++) {
       const xx = xc + i - 5, w = k * HK[j * 11 + i], p = yy * W + xx;
       if (xx < 0 || xx >= W) continue;
-      HR[p] += r * w;
-      HG[p] += g * w;
-      HB[p] += b * w;
+      DR[p] += r * w;
+      DG[p] += g * w;
+      DB[p] += b * w;
     }
   }
 }
@@ -542,12 +497,11 @@ for (let y = 0; y < H; y++) {
     GROUND[y * W + x] = 1 + 0.35 * (1 - sm(q * 1.05 - 0.1)) + (q < 1 ? 0.12 * q * q : 0);
   }
 }
-const TRC = [41, PER + 20, 2 * PER + 31, 3 * PER + 8, PER + 44]; // the points that wear a ring in both views
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  for (const A of [AA, AR, AG, AB, DR, DG, DB, HR, HG, HB]) A.fill(0);
+  for (const A of [AA, AR, AG, AB, DR, DG, DB]) A.fill(0);
   ring2(CX, CYD, RR, 0.5, 0.6, 0.9, 0.2);
   ring2(CX, CYE, RR, 0.5, 0.6, 0.9, 0.2);
   const k = S.kc;
@@ -556,20 +510,16 @@ export function draw(display, params) {
     const x1 = CX + S.px[i] * RD, y1 = CYD + S.py[i] * RD, ja = S.jw[i] * 1.7 * S.t + S.jp[i];
     const x2 = CX + S.dx[i] * RE + 0.7 * cos(ja), y2 = CYE + S.dy[i] * RE + 0.7 * sin(ja), r = S.cr[i], g = S.cg[i], b = S.cb[i];
     disc(x1, y1, r, g, b, 0.9, 0.85);
-    disc(x2, y2, r, g, b, 0.55, 0.9);
+    disc(x2, y2, r, g, b, 0.3, 0.95);
     halo(x1, y1, r, g, b, 0.04);
     halo(x2, y2, r, g, b, 0.07);
-  }
-  for (const i of TRC) {
-    ring2(CX + S.px[i] * RD, CYD + S.py[i] * RD, 3.3, 0.8, 0.8, 0.85, 0.6);
-    ring2(CX + S.dx[i] * RE, CYE + S.dy[i] * RE, 3.3, 0.8, 0.8, 0.85, 0.6);
   }
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x, a = AA[p], gd = GROUND[p];
-      let r = 0.034 * gd + DR[p] + HR[p], g = 0.052 * gd + DG[p] + HG[p], b = 0.1 * gd + DB[p] + HB[p];
+      let r = 0.034 * gd + DR[p], g = 0.052 * gd + DG[p], b = 0.1 * gd + DB[p];
       if (a > 1e-4) {
-        const f = (1 - exp(-1.4 * a)) / a;
+        const f = (1 - exp(-(y < 64 ? 1.4 : 1.1) * a)) / a;
         r += AR[p] * f;
         g += AG[p] * f;
         b += AB[p] * f;
