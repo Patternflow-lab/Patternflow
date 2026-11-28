@@ -1,20 +1,25 @@
 // ===== Patternflow pattern =====
 // Title:   Fiedler Cut
 // Family:  spectralcut
-// Idea:    Draft.
+// Idea:    Beads drift as rings, crescents, spiral arms and blobs that morph into one another in the top disc, and in the disc below the same beads stand where the leading eigenvectors of their Gaussian-affinity graph put them, so a tangle of shapes falls apart into separate blobs of the same colours when the bandwidth is right, and smears or merges when it is not.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: the second eigenvector of a graph Laplacian, which tells where to cut a graph (Miroslav Fiedler, 1973, from memory), the normalised cut (Jianbo Shi and Jitendra Malik, 2000, from memory), spectral clustering with the top k eigenvectors, rows scaled to length 1, then k-means (Andrew Ng, Michael Jordan and Yair Weiss, 2001, from memory), the eigengap rule for k (Ulrike von Luxburg's tutorial, 2007, from memory), orthogonal iteration with a Rayleigh-Ritz step; the script of shapes, the polygon and the light are original, pattern round 273
 // Round:   273
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Reach=0..4, Morph=-1..1, Cuts=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Reach. draft
-// Knob 3: Morph. draft
-// Knob 4: Cuts. draft
+// Knob 1: Hue. Adds the knob to the hue of every cluster, one turn over the range. The k hues are 1/k of a turn apart (0.42 for two) and the first is cyan at 0, so the opening three are cyan, magenta and yellow; at 0.25 they are violet-blue, orange and green, at 0.5 red, green and blue. A drift rides on it, 0.20 of a turn on a 295 s sine plus 0.12 on a 122 s one, both starting at 0, so a colour does not come back to the same place.
+// Knob 2: Reach. The bandwidth sigma of the affinity, in data units where 1 is the radius of the top disc (28 LEDs): 0.075 exp(0.62 (K - 2)), which is 0.022 at 0, 0.040 at 1, 0.075 at the opening 2, 0.139 at 3 and 0.259 at 4, or 0.6, 1.1, 2.1, 3.9 and 7.3 LEDs. Over 5 min the cut found the drawn curves (every cluster and every curve 95 percent pure) in 32 percent of the held frames at 0, 72 at 1, 86 at 2, 61 at 3 and 25 at 4. Small sigma tears a ring into arcs and the embedding fills with four or five scattered clusters; large sigma lets two shapes into one cluster and the embedding shrinks to a line.
+// Knob 3: Morph. The speed of the script and of everything that moves, exp(1.1 K): 0.33 at -1, 1 at the opening 0, 3 at 1. In 5 min 5 scenes came at -1, 14 at 0 and 40 at 1. The turn of the cloud (0.04 rad/s at speed 1), the orbits of the beads, the drift of the hues and the turn of the polygon below follow it.
+// Knob 4: Cuts. How many clusters the cut makes, as an offset to the eigengap's choice: k = clamp(k_gap + round(3 K), 2, 5). At 0 the gap decides (2 clusters in 51 percent of the frames at the opening reach, 3 in 48, 4 in 2); at -1 it is always 2, at 0.5 it is 4 or 5, at 1 it is 5. Too few cuts put two shapes in one colour, too many split a ring into arcs.
+//
+// What the picture is. A graph has a node for each bead and a weight exp(-d^2 / 2 sigma^2) on each pair, d being their distance in the top disc. With the weights W and the degrees D, M = D^-1/2 W D^-1/2 has its largest eigenvalue 1, and a graph of k pieces that hardly touch has k eigenvalues near 1 whose eigenvectors are, up to a turn of the axes, indicators of the pieces. That is why one eigenvector tells where to cut (Fiedler), and why a ring round a ring, which k-means in the plane cannot part, becomes two points. The top disc is the data. In the bottom disc each bead stands by its row of the leading k eigenvectors, scaled to length 1, in the colour the cut gives it. Where the shapes are far enough apart for sigma, a shape's beads sit on one corner of a regular polygon; where not, they lie between.
+// The numbers. 220 beads, 55 to each of four slots. Every frame weighs the 24 090 pairs (W_ii = 1, so the kernel stays positive definite) and follows the 8 leading eigenvectors of M by orthogonal iteration, 3 sweeps a frame warm-started from the last (90 at the opening), with a Rayleigh-Ritz step on the 8 by 8 matrix to put them in order. k_gap is where 1 - lambda leaves 0 by the biggest ratio among k = 2 to 5 (floored at 1e-5), changed only when the new ratio is 1.5 times the old one and 0.4 s have passed. At the opening the three clusters stand at 1 - lambda from 1e-7 to 1e-5 and the ring's first harmonic at 2.5e-3, a ratio of 100 to 200. k-means starts each frame from the means of the last frame's clusters, so a cluster keeps its colour, with 2 Lloyd steps. Node measures 2.2 ms for the update and 0.5 for the drawing.
+// The shapes. Seven scenes: a ring round two facing arcs (the opening), nested rings, two crescents, three blobs, a pair of spirals, a ring round two blobs, two parallel arcs. Each is four pieces that hold 55 beads for good, so a bead lies on a ring in one scene and in a blob in the next. A scene is mirrored, turned and its slots shuffled at random; its gaps are 0.35 to 0.5 data units, so the cut can work at the opening sigma. A scene is held for 6 to 14 s and then morphs for 9 to 17 s (at speed 1), blending the pieces' parameters and never the beads, so a ring closes to a blob or opens to an arc on the way; the first hold is 16 s, the next scene is none of the last three. Curves wander in centre, radius and scatter, scenes breathe in spread, and each bead orbits 0.01 to 0.032 units. At the opening the cut found the curves in 86 percent of the held frames and 37 of the morphing ones, where the shapes are between two scenes.
+// What is exact and what is drawn. The affinity, the matrix, its leading eigenvectors, the unit rows, k-means and the eigengap rule are the method (Ng, Jordan and Weiss zero the diagonal of W; this keeps it at 1). The polygon, the mix of corners by the distance to each centroid, the scatter about a corner drawn 1.8 times as wide as it is, the orbit of 0.7 LED, the turn of the polygon, the hue drift, the soft discs, the two framing rings and the deep blue ground are drawing choices. It opens after a pre-run of 90 sweeps and 36 frames, so the first picture already shows the cut.
 
 const W = 64, H = 128, N = 220, NG = 4, PER = N / NG, KMAX = 5, QM = KMAX + 3;
 const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, pow, PI } = Math;
@@ -52,9 +57,8 @@ function mulberry(seedv) {
 }
 
 // ---------------------------------------------------------------- the shapes
-// A piece is [cx, cy, r0, r1, a0, span, th, curve]: a spiral arc round (cx, cy) whose radius goes
-// from r0 to r1 as the angle goes from a0 through span, th the scatter across it. A blob has no
-// radius. A scene is NG pieces; each point lives in one slot of it for good.
+// A piece is [cx, cy, r0, r1, a0, span, th, curve]: a spiral arc round (cx, cy), radius r0 to r1 as the angle
+// runs from a0 through span, th the scatter across it; a blob has no radius. A scene has NG pieces, one for each slot.
 const sp = (cx, cy, r0, r1, a0, span, th) => [cx, cy, r0, r1, a0, span, th, 0];
 const blob = (cx, cy, th) => [sp(cx, cy, 0, 0, 0, 0, th)];
 function halves(p) {
@@ -63,17 +67,16 @@ function halves(p) {
 }
 const ring = (cx, cy, r, th, a0, span) => halves(sp(cx, cy, r, r, a0 || 0, span || TAU, th));
 const arc = (cx, cy, r, a0, span, th) => [sp(cx, cy, r, r, a0, span, th)];
-// a scene is a list of curves, each a list of one or two pieces; a curve that comes twice is heavier
+// A scene is a list of curves, each of one or two pieces, a curve listed twice being heavier: a ring round two facing arcs, nested
+// rings, two moons, three blobs, a spiral pair, a ring round two blobs, two parallel arcs
 const ARCH = [
-  (J, o) => { const rc = J(0.42, 0.1), sa = J(1, 0.1), d = J(0.03, 0.5), y = o(0.12); return [ring(0, 0, J(0.92, 0.03), 0.02), arc(d, y, rc, PI - sa, 2 * sa, 0.025), arc(-d, -y, rc, -sa, 2 * sa, 0.025)]; }, // ring round two facing arcs
-  (J, o) => [ring(o(0.1), o(0.1), J(0.9, 0.04), 0.02), ring(o(0.1), o(0.1), J(0.42, 0.1), 0.02)], // nested rings
-  (J, o) => { const R = J(0.6, 0.04), dx = J(0.3, 0.06), dy = J(0.07, 0.25), t = J(0.03, 0.2); return [ring(-dx, dy, R, t, PI, PI), ring(dx, -dy, R, t, 0, PI)]; }, // two moons
-  (J, o, r) => { const a = TAU * r(), R = J(0.55, 0.1), t = J(0.13, 0.15), c = [0, 1, 2].map((i) => blob(R * cos(a + (i * TAU) / 3), R * sin(a + (i * TAU) / 3), t)); return [...c, c[floor(r() * 3)]]; }, // three blobs
-  (J, o, r) => { const a = TAU * r(), s2 = J(1.5 * PI, 0.08), r1 = J(0.94, 0.03); return [halves(sp(0, 0, 0.18, r1, a, s2, 0.02)), halves(sp(0, 0, 0.18, r1, a + PI, s2, 0.02))]; }, // spiral pair
-  (J, o) => { const d = J(0.32, 0.15), t = J(0.1, 0.2); return [ring(0, 0, J(0.9, 0.04), 0.02), blob(-d, o(0.1), t), blob(d, o(0.1), t)]; }, // ring round two blobs
-  (J, o) => { const R = J(1.2, 0.1), sg = J(0.5, 0.12), g = J(0.5, 0.12), t = J(0.025, 0.2); return [ring(0, -g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg), ring(0, g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg)]; }, // two parallel arcs
-  (J, o, r) => { const a = TAU * r(), s2 = J(1.1 * PI, 0.08), r1 = J(0.94, 0.03), c = [0, 1, 2].map((i) => [sp(0, 0, 0.2, r1, a + (i * TAU) / 3, s2, 0.02)]); return [...c, c[floor(r() * 3)]]; }, // three spiral arms
-  (J, o, r) => { const d = J(0.5, 0.15), t = J(0.17, 0.15), a = TAU * r(), c = [blob(-d * cos(a), -d * sin(a), t), blob(d * cos(a), d * sin(a), t)]; return [c[0], c[1], c[0], c[1]]; }, // two blobs
+  (J, o) => { const rc = J(0.42, 0.1), sa = J(1, 0.1), d = J(0.03, 0.5), y = o(0.12); return [ring(0, 0, J(0.92, 0.03), 0.02), arc(d, y, rc, PI - sa, 2 * sa, 0.025), arc(-d, -y, rc, -sa, 2 * sa, 0.025)]; },
+  (J, o) => [ring(o(0.1), o(0.1), J(0.9, 0.04), 0.02), ring(o(0.1), o(0.1), J(0.42, 0.1), 0.02)],
+  (J, o) => { const R = J(0.6, 0.04), dx = J(0.3, 0.06), dy = J(0.07, 0.25), t = J(0.03, 0.2); return [ring(-dx, dy, R, t, PI, PI), ring(dx, -dy, R, t, 0, PI)]; },
+  (J, o, r) => { const a = TAU * r(), R = J(0.55, 0.1), t = J(0.13, 0.15), c = [0, 1, 2].map((i) => blob(R * cos(a + (i * TAU) / 3), R * sin(a + (i * TAU) / 3), t)); return [...c, c[floor(r() * 3)]]; },
+  (J, o, r) => { const a = TAU * r(), s2 = J(1.5 * PI, 0.08), r1 = J(0.94, 0.03); return [halves(sp(0, 0, 0.18, r1, a, s2, 0.02)), halves(sp(0, 0, 0.18, r1, a + PI, s2, 0.02))]; },
+  (J, o) => { const d = J(0.32, 0.15), t = J(0.1, 0.2); return [ring(0, 0, J(0.9, 0.04), 0.02), blob(-d, o(0.1), t), blob(d, o(0.1), t)]; },
+  (J, o) => { const R = J(1.2, 0.1), sg = J(0.5, 0.12), g = J(0.5, 0.12), t = J(0.025, 0.2); return [ring(0, -g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg), ring(0, g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg)]; },
 ];
 
 function build(S, id) {
@@ -83,7 +86,7 @@ function build(S, id) {
     if (k < 0) k = seen.push(c) - 1;
     for (const p of c) P.push(p.slice(0, 7).concat(k));
   }
-  // a mirror, a turn and a shuffle of the slots, so no scene is another one's twin
+  // a mirror, a turn and a shuffle of the slots
   const mir = r() < 0.5 ? -1 : 1, rot = TAU * r();
   for (const p of P) {
     const x = p[0] * mir, y = p[1];
@@ -302,8 +305,8 @@ function embed(S) {
 }
 
 const d2 = (Y, i, C, j, k) => { let d = 0; for (let c = 0; c < k; c++) d += (Y[i * k + c] - C[j * k + c]) * (Y[i * k + c] - C[j * k + c]); return d; };
-// k-means in the embedding. The centroids are the means of the clusters the last frame found, so a cluster keeps its
-// label and its colour; one that has lost every point is taken to the point farthest from the others
+// k-means from the means of the last frame's clusters, so a cluster keeps its label and colour; an emptied one
+// is taken to the point farthest from the rest
 function kmeans(S, iters) {
   const n = N, k = S.kc, Y = S.Y, C = S.C, lb = S.lb, cnt = new Float64Array(k);
   const mean = () => {
@@ -337,9 +340,8 @@ function kmeans(S, iters) {
 const CK = [[], [], [], [], []];
 // the hues drift a little, slowly and never back (a sum of two sines that do not divide)
 const slotHue = (S, j, k) => 0.5 + S.k[0] + 0.2 * sin(0.0213 * S.t) + 0.12 * (1 - cos(0.0517 * S.t)) + (k === 2 ? 0.42 * j : j / k);
-// The k cluster corners are a regular polygon, one corner to a centroid. A point takes the colour of the
-// centroids by how near they are, and stands at the same mix of the corners, off its corner by the real
-// scatter of its cluster, GAMMA times as wide, in a direction of its own. Both glide.
+// The k corners of a regular polygon, one to a centroid. A point takes the colour of the centroids by how near they are,
+// stands at the same mix of the corners, and is off it by its cluster's scatter, GAMMA times as wide. Both glide.
 function show(S, d, first) {
   const n = N, k = S.kc, Y = S.Y, C = S.C, vx = S.vx, vy = S.vy, inv = 1 / (2 * 0.36 * 0.36);
   const a = first ? 1 : 1 - exp(-d / 0.2), e = first ? 1 : 1 - exp(-d / 0.14);
@@ -387,7 +389,6 @@ function tick(S, d, kv, first, adv) {
     S.t += d * speed;
     S.sc += d * speed;
     S.rot += d * speed * 0.04;
-    // the script of shapes: hold, morph, and a new scene made at random each time
     if (S.sc > S.tm + S.md) {
       newScene(S);
       S.tm = S.sc + 6 + 8 * S.r();
@@ -398,7 +399,7 @@ function tick(S, d, kv, first, adv) {
   place(S);
   affinity(S, 0.075 * exp(0.62 * (S.k[1] - 2)));
   eigen(S, first ? 90 : 3);
-  // the number of clusters: where the eigenvalues leave 1 by the biggest step (the eigengap); the knob adds or takes away cuts
+  // k: where the eigenvalues leave 1 by the biggest step, the knob adding or taking away cuts
   S.kt += d;
   let bk = 2, br = 0, rk = 0;
   for (let j = 2; j <= KMAX; j++) {
@@ -424,7 +425,6 @@ export function update(dt, input, params) {
     newScene(S);
     newScene(S);
     S.ready = true;
-    // the opening is already settled: eigenvectors, clusters and colours have run for a second
     tick(S, 1 / 30, kv, true, false);
     for (let i = 0; i < 36; i++) tick(S, 1 / 30, kv, false, false);
   }
