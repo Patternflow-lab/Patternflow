@@ -1,30 +1,30 @@
 // ===== Patternflow pattern =====
 // Title:   Rayleigh Criterion
 // Family:  airydisk
-// Idea:    Seven pairs of point sources circle each other on Kepler orbits and are photographed through one round aperture, so each point is an Airy disc with its dark and bright rings, and each pair is a peanut or a clean double or a single lump that opens and closes as its separation crosses the limit where the dip between the two peaks appears.
+// Idea:    Seven pairs of point sources circle each other on Kepler orbits and are seen through one round aperture, so every point is an Airy disc with dark and bright rings and every pair is a single lump, a peanut with a waist or a clean double, as its separation crosses the limit where the dip between the two peaks appears.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the diffraction pattern of a round aperture, intensity (2 J1(x) / x)^2 (George Airy, 1835, from memory), the resolution criterion that two such patterns are separated when the peak of one lies on the first dark ring of the other (Lord Rayleigh, 1879, from memory), the criterion that asks only that the dip between them vanish, at 0.77 of that separation (C. M. Sparrow, 1916, from memory), Bessel's integral for J1 summed by the trapezoid rule, original code, pattern round 275
+// Lineage: the diffraction pattern of a round aperture, intensity (2 J1(x) / x)^2 (George Airy, 1835, from memory), the rule that two such patterns are resolved when the peak of one lies on the first dark ring of the other (Lord Rayleigh, 1879, from memory), the rule that asks only that the dip between them vanish, at 0.77 of that separation (C. M. Sparrow, 1916, from memory), J1 from Bessel's integral summed by the trapezoid rule (Friedrich Bessel, 1824, from memory), the Kepler equation M = E - e sin E solved by Newton's method (Johannes Kepler, 1609, from memory), the Strehl ratio as the share of light left in the diffraction core (Karl Strehl, 1895, from memory), the wavelength to RGB map of a spectrum in straight segments (Dan Bruton, from memory), original code, pattern round 275
 // Round:   275
 // ===============================
 // @matrix 64x128
-// @knobs Wavelength=490..680, Aperture=1.6..3.6, Seeing=0..1, Companion=-1..1
+// @knobs Wavelength=490..680, Aperture=1.8..3.6, Seeing=0..1, Companion=-1..1
 //
-// Knob 1: Wavelength. The colour of the light in nanometres, which is also its size. 490 is cyan, 530 green, 580 yellow, 610 orange, 650 and up red, and the colour is the one a spectrum shows at that wavelength. The first dark ring of every disc has a radius of 1.22 lambda f / D, so it grows with the wavelength: x1.00 at 550 nm, x0.89 at 490, x1.24 at 680. At the opening 490 the first dark ring has a radius of 4.45 LED, at 680 it is 6.2, and a pair that is two at cyan is one lump at red. The discs are white where the light is strongest and take the colour where it is not.
-// Knob 2: Aperture. The diameter D of the opening, in arbitrary units, with the scene fixed. The first dark ring has a radius of 10 / D x (lambda / 550) LED, so at 550 nm it is 6.9 LED at 1.45, 5 LED at 2 (the opening) and 2.5 LED at 4. A wider opening makes every disc smaller and every pair easier to split, and since the pairs do not move, this is the knob that moves them across the limit all together.
-// Knob 3: Seeing. How much the air stirs the light, 0 to 1. At 0 the aperture is alone and the picture is the diffraction pattern of the lens, crisp rings and still discs. A share 0.75 K of every disc's light goes into a soft halo 2.4 first-ring radii across (the Strehl ratio falls from 1 to 0.25), the rings sink into it, and every source is shaken on its own by up to 0.3 of a first-ring radius, with sines of 0.3 to 1.1 Hz that no pair shares. At 0.5 the rings are still there but hazy and the pairs shiver across the limit, at 1 the discs are wide soft lumps.
-// Knob 4: Companion. The brightness of the second source of each pair against its first, scaled with exp(1.2 (K + 0.04)) on a ratio each pair has of its own (0.5 to 0.95). At -1 the companions are 0.3 of that ratio, small faint discs next to bright ones, sometimes lost in a ring. At the opening 0.06 the ratios are as listed. At 1 the companions are 2.9 times that, which makes every pair but one a pair of equals, where the dip at the limit is deepest.
+// Knob 1: Wavelength. The colour of the light in nanometres, and with it the size of every disc. 490 is cyan and the knob opens there, 510 green, 545 lime, 580 yellow, 612 orange, 645 and up red, each channel pulled a tenth of the way to white. The first dark ring has a radius R = 1.22 lambda f / D, so it grows with the wavelength: x0.89 at 490 against 550 nm, x1.24 at 680. At the opening Aperture of 2, R is 4.9 LED at 490, 5.5 at 550 and 6.8 at 680. The scene does not move, so a pair that is two at cyan has closed to a peanut at red.
+// Knob 2: Aperture. The diameter D of the opening, the scene held fixed. R = 11 / D x (lambda / 550) LED, so at 550 nm it is 6.1 LED at 1.8, 5.5 at the opening 2, 4.1 at 2.7 and 3.1 at 3.6, and at 490 it is 5.4, 4.9, 3.6 and 2.7. Over the whole range R doubles from one end to the other. A wide opening makes every disc smaller and every pair easier to split, and since the orbits are fixed in LED this is the knob that carries all seven pairs across the limit together.
+// Knob 3: Seeing. How much the air stirs the light, 0 to 1, opening at 0. At 0 the lens is alone: still discs, crisp rings. The share of each disc's light that stays in the diffraction core (the Strehl ratio) is 1 - 0.85 K, and 0.6 of the rest goes into a soft halo 1.97 R across at half height, which sinks the rings (gone by about 0.4) and leaves a blur at 1 with a hot centre. Every source is also shaken on its own by up to 0.45 K R (2.2 LED at the opening and K = 1) in x and y with two sines each of 0.3 to 1.5 Hz that no two sources share, so a pair shivers across the limit. The display floor goes from 1e-3 to 5e-3 and the knee from 0.5 to 0.35 as the knob goes up, and the brightness is lifted by peak^-0.5, x2.0 at 1, so a blur falls off smoothly and does not turn into a flat plate.
+// Knob 4: Companion. The brightness of the second source of each pair against the first. Each pair has a ratio q of its own at the opening, 0.85, 0.6, 0.85, 0.65, 0.5, 0.9 and 0.7, and the knob raises it to the power exp(-2 (K - 0.06)). At the opening 0.06 the ratios are as listed. At -1 the power is 8.3: the companions are 0.26, 0.014, 0.26, 0.028, 0.003, 0.42 and 0.05, so most are gone and the few that stay are small faint discs beside a bright one, sometimes lost in the first ring. At 1 the power is 0.15 and every companion is 0.90 to 0.98 of its primary, seven pairs of near equals, which is where the dip at the limit is deepest.
 //
-// What the picture is. A view of a telescope's image plane. Each of seven pairs is two point sources a long way off that the aperture cannot show as points: it shows each as an Airy disc, I = (2 J1(x) / x)^2 with x = 3.8317 r / R, R the radius of the first dark ring. The discs of one pair add as intensities, because two sources do not interfere, and the sum goes through a display curve. Equal discs a distance R apart (Rayleigh's limit) have 0.735 of their peak at the middle: the pair is two with a waist. At 0.77 R (Sparrow's limit) the waist is gone and the pair is a flat-topped peanut, and closer than that it is one round lump. The picture is the pair walking through that sequence in both directions.
-// The orbits. Every pair is a Kepler orbit: mean anomaly M = 2 pi t / P, the eccentric anomaly E from M = E - e sin E by Newton's method (four steps from M + e sin M), position (a (cos E - e), a sqrt(1 - e^2) sin E), the second axis shortened by the cosine of an inclination, the whole turned on the screen by an angle that itself precesses once in 160 to 290 s, and the semi-major axis breathing by 12 percent on a clock of its own. The seven periods are 23, 31, 37, 43, 47, 53 and 61 s, prime, so no two come round together. The separation in units of R at the opening runs 0.5 to 1.3, 0.9 to 2.1, 0.3 to 1.05, 1.3 to 2.5, 0.5 to 1.7, 0.7 to 1.0 and 0.5 to 2.1, one pair for each way of meeting the limit: one that stays a lump, one that stays two, one that hovers on the limit, and four that cross it. Eccentric orbits are fast near periapsis, so the crossing of 1 R and 0.77 R takes 1 to 4 s there and half a minute at a pair that sits near apoapsis. The two sources take the barycentre by their brightness, which puts the brighter one nearer the middle of the pair.
-// The places. The pairs are seven homes on a staggered lattice, four in the left column and three in the right, 32 to 36 LED apart, and each home drifts on two sines per axis (5 to 7 LED, periods 49 to 149 s) so a pair walks across a quarter of the panel and its neighbours do not meet. All seven are on screen at once, one for each fourth and a bit of the 4 x 8 grid of 16 LED squares.
-// The table. J1 is computed once, from Bessel's integral J1(x) = (1/pi) integral of sin t sin(x sin t) over 0 to pi, summed by the trapezoid rule at 32 steps (the integrand is smooth and periodic, so the error is at machine level; the first zero came out at 3.8317 and the first ring at 0.0175 of the peak). The intensity goes into a table of 2048 steps in x^2, and each frame blends it with a soft halo table by the Seeing knob. Each source adds its table to a 64 x 128 buffer inside 5.1 first-ring radii (the sixth zero), the last 7.6 x of it fading out smoothly so there is no edge. The cost per frame is about 20 to 70 thousand lookups.
-// The display. The sum I goes through a curve that is I^0.36 below 0.1, so the rings (0.0175, 0.0042, 0.0016 of the peak: 0.24, 0.13, 0.09 after the curve) are still bright enough to read and the tails fill the space, and goes straight above, so that the 26 percent dip at Rayleigh's limit is still 22 percent on the screen. Whiteness follows the linear I, 0 below 0.62 and 1 above 1: the centre of each disc is white and the colour of the light starts where it has fallen to 0.62. At the limit the middle of the pair is only 0.735 and shows as a coloured waist between two white cores. The sky is a dark navy (8, 20, 56), because a black one leaves the quarter of the panel beyond every ring dead and a dark navy that is added to every colour is the plate the light falls on.
-// What is exact and what is drawn. The Airy pattern, the first zero 1.22 lambda f / D, the incoherent sum, Rayleigh's 0.735 and Sparrow's 0.77, the Kepler equation and the way R scales with lambda and 1 / D are physics. The halo and the shaking that stand for seeing, the display curve, the colour map of the spectrum and its white core, the sky, the orbits' sizes and eccentricities and the places are drawing choices. R is 2.5 to 7 LED at 550 nm so that a disc is a lump with rings and never a one LED point.
+// What the picture is. The image plane of a telescope. Each of seven pairs is two point sources too far away to be anything but points. The aperture shows each as an Airy disc, I = (2 J1(x) / x)^2 with x = 3.8317 r / R, R the radius of the first dark ring, and the two discs of a pair add as intensities, since two separate sources do not interfere. The sum goes through a display curve. Two equal discs a distance R apart (Rayleigh) have 0.735 of the peak at the middle, so the pair is two with a waist. At 0.77 R (Sparrow) the middle is 1.13 against a peak of 1.06 and the dip is gone: a flat peanut. Closer than that it is one round lump that is brighter than either disc. The picture is each pair walking through that sequence in both directions at its own pace.
+// The orbits. Each pair is a Kepler orbit. The mean anomaly M = 2 pi t / P runs at the pair's period, the eccentric anomaly E comes from M = E - e sin E by four Newton steps from M + e sin M, the position is (a (cos E - e), a sqrt(1 - e^2) sin E), the second axis is shortened by the cosine of the inclination, and the whole is turned on the screen by an angle that precesses once in 160 to 290 s, the sense alternating from pair to pair. The semi-major axis breathes by 12 percent on a clock of its own (97 to 199 s), which is what keeps the orbits from closing on themselves. The periods are 31, 47, 23, 61, 37, 53 and 43 s, all prime. The sizes a are 0.7 to 1.9 R (3.4 to 9.3 LED at the opening), e is 0.2 to 0.6 and the cosine of the inclination 0.5 to 0.95. At the opening wavelength and aperture the separation in units of R runs, over 15 minutes: 0.43 to 1.44, 0.78 to 2.35, 0.22 to 1.18, 1.17 to 2.76, 0.42 to 1.91, 0.60 to 1.14 and 0.42 to 2.33. One pair never merges, one is always two, one hovers on the limit, and the other four cross it. Pooled over the seven, a pair is one lump or a peanut (0.77 R or less) 27 percent of the time, has a waist (between 0.77 R and R) 18 percent and is two 55 percent. The passage from 1 R to 0.77 R takes 1.6 to 2.6 s at the median on the four pairs with e of 0.35, 0.5, 0.55 and 0.6, and about 11 s on the two with e of 0.4 and 0.2. The brighter source of a pair sits nearer the middle, with the barycentre taken by brightness.
+// The places. The homes are staggered in two columns, four on the left near x 14 to 19 and three on the right near x 46 to 50, 32 to 35 LED from their nearest neighbours. Each home wanders on two sines per axis, up to 5 to 6 LED either side across the panel and 6 to 7 along it, with periods of 49 to 149 s, so a pair crosses into the next 16 x 16 square of the 4 x 8 grid and its neighbours do not meet.
+// The table. J1 is computed once, from Bessel's integral J1(x) = (1/pi) integral over 0 to pi of sin t sin(x sin t) dt, by the trapezoid rule with 32 steps (the integrand is smooth and periodic, so the sum is exact to rounding for x up to 20; the first zero comes out at 3.8317 and the first ring at 0.0175 of the peak). The intensity goes into a table of 2048 steps in x^2, so a lookup needs no square root, and the seeing halo into another. Each frame blends the two by the Seeing knob and every source adds its table into a 64 x 128 buffer within the sixth zero of J1, x = 19.6, which is 5.1 R. The last 7.6 of x fade out smoothly so there is no edge. A frame takes 0.1 to 0.3 ms for the sums, 0.5 ms in the Lab.
+// The display. The sum I is drawn with a curve that is logarithmic from 1e-3 (black) to 0.04 (half of full), and from there a power 1.6 to 1. A linear display would show no rings at all. On this curve the three first rings (0.0175, 0.0042 and 0.0016 of the peak) come out at 0.39, 0.19 and 0.06, so two rings read clearly and a third is a trace, and the dip at Rayleigh's limit (0.735) comes out at 0.80, 20 percent where the light is down 26. Whiteness follows the intensity: smoothstep(0.45, 1, I) plus 0.45 T^2 of the rest, so the centre of a disc is white and fades into the colour of the light. At Rayleigh's limit the middle of an equal pair has a whiteness of 0.66 against 1 at its peaks, a coloured waist between two white cores. The ground is a navy (8, 20, 54): a black one leaves the space between the pairs dead, and the navy is the plate that all the light is added to, which keeps the darkest 16 x 16 square at more than half the brightness of an average one.
+// What is exact and what is drawn. The Airy intensity, the first zero at 1.22 lambda f / D, the incoherent sum, Rayleigh's 0.735 and Sparrow's 0.77 with their equal discs, the Kepler equation and the way R grows with lambda and with 1 / D are physics. The seeing, a halo and a shake in place of a phase screen, the display curve and its whiteness, the colour map of the spectrum and its paling, the ground, the sizes and eccentricities of the orbits and the places are drawing choices. R is 2.7 to 7.6 LED over the knobs, so a disc is a lump with rings and never a point of one LED. Where Rayleigh's and Sparrow's separations are stated they hold for two equal discs: a faint companion shows no dip and is lost at a larger separation, which the Companion knob shows.
 
 const W = 64, H = 128;
-const { floor, ceil, sqrt, exp, sin, cos, min, max, abs, pow, PI } = Math;
+const { floor, ceil, sqrt, exp, log, sin, cos, min, max, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -74,7 +74,7 @@ const PAIRS = [
   [19, 113, 5.5, 6.5, 1.30, 0.60, 0.65, 43, 0.65, 0.85, 175, 0.90, 0.70],
 ];
 const NP = PAIRS.length;
-// drift periods: x1, x2, y1, y2 (s), and phases
+// drift periods of each home: two sines along x and two along y (s)
 const DRIFT = [
   [71, 127, 89, 53], [83, 109, 97, 61], [59, 131, 103, 67], [97, 73, 79, 139],
   [67, 113, 131, 49], [89, 53, 107, 149], [79, 101, 61, 121],
@@ -83,10 +83,10 @@ const R1REF = 4.9;           // R at the opening, in LED, which the orbits are s
 
 // Kepler: the separation vector of one pair, in LED, at time t, into OUT[0], OUT[1]
 const OUT = [0, 0];
-function sepAt(i, t, rscale) {
+function sepAt(i, t) {
   const P = PAIRS[i];
   const e = P[5];
-  const aa = P[4] * R1REF * rscale * (1 + 0.12 * sin((TAU * t) / (97 + 17 * i) + 1.3 * i));
+  const aa = P[4] * R1REF * (1 + 0.12 * sin((TAU * t) / (97 + 17 * i) + 1.3 * i));
   let M = TAU * (t / P[7] + P[8]);
   M -= floor(M / TAU) * TAU;
   let E = M + e * sin(M);
@@ -112,10 +112,10 @@ function spectrum(nm, o) {
   o[0] = r; o[1] = g; o[2] = b;
 }
 
-const SKY = [8, 20, 54];
-// the display curve: logarithmic from I0 (T = 0) up to the knee IK (T = TK), then straight to 1 (T = 1)
-const I0 = 1e-3, IK = 0.04, TK = 0.5;
-const LK = TK / Math.log(IK / I0), SK = 1 / (1 - IK);
+const PLATE = [8, 20, 54];  // the navy ground that all the light is added to
+// the display curve: logarithmic from I0 (T = 0) up to the knee IK (T = TK), then a power curve to 1 (T = 1).
+// Seeing lifts the floor and lowers the knee, so a blurred lump falls off smoothly and is not a flat plate.
+const IK = 0.04, SK = 1 / (1 - IK);
 
 const ACC = new Float32Array(W * H);
 const DX2 = new Float32Array(W);
@@ -184,7 +184,6 @@ export function draw(display, params) {
   const kk = J1Z / R;
   const ci = (kk * kk * NT) / UMAX;
   const rc = (XMAX / J1Z) * R;
-  const rscale = 1;               // the orbits are in LED and do not follow the optics
 
   // the Strehl share of the Airy table against the halo
   const str = 1 - 0.85 * see;
@@ -199,7 +198,7 @@ export function draw(display, params) {
     const P = PAIRS[i], D = DRIFT[i];
     const cx = P[0] + P[2] * (0.7 * sin((TAU * t) / D[0] + i) + 0.3 * sin((TAU * t) / D[1] + 2 * i));
     const cy = P[1] + P[3] * (0.7 * sin((TAU * t) / D[2] + 1.7 * i) + 0.3 * sin((TAU * t) / D[3] + 3 * i));
-    sepAt(i, t, rscale);
+    sepAt(i, t);
     const b = pow(P[12], cexp);
     const w = b / (1 + b);          // the brighter source sits nearer the barycentre
     const sx = OUT[0], sy = OUT[1];
@@ -213,19 +212,20 @@ export function draw(display, params) {
     }
   }
 
-  const sr = SPEC[0], sg = SPEC[1], sb = SPEC[2];
+  const sr = 0.1 + 0.9 * SPEC[0], sg = 0.1 + 0.9 * SPEC[1], sb = 0.1 + 0.9 * SPEC[2];
+  const I0 = 1e-3 * (1 + 4 * see), TK = 0.5 - 0.15 * see, LK = TK / log(IK / I0);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
       const I = ACC[p];
-      const T = I < I0 ? 0 : I < IK ? Math.log(I / I0) * LK : I < 1 ? TK + (1 - TK) * pow((I - IK) * SK, 1.6) : 1;
-      const wh = sm(0.5, 1, I);
+      const T = I < I0 ? 0 : I < IK ? log(I / I0) * LK : I < 1 ? TK + (1 - TK) * pow((I - IK) * SK, 1.6) : 1;
+      const w0 = sm(0.45, 1, I), wh = w0 + (1 - w0) * 0.45 * T * T;
       const v = 255 * T;
       display.setPixel(
         x, y,
-        min(255, SKY[0] + v * (sr + (1 - sr) * wh)) | 0,
-        min(255, SKY[1] + v * (sg + (1 - sg) * wh)) | 0,
-        min(255, SKY[2] + v * (sb + (1 - sb) * wh)) | 0
+        min(255, PLATE[0] + v * (sr + (1 - sr) * wh)) | 0,
+        min(255, PLATE[1] + v * (sg + (1 - sg) * wh)) | 0,
+        min(255, PLATE[2] + v * (sb + (1 - sb) * wh)) | 0
       );
     }
   }
