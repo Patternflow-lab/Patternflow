@@ -439,5 +439,10 @@
   "spectralcut": { "label": "스펙트럼 군집", "color": "#6b26ff" },
   "occlusion": { "label": "차폐 광", "color": "#995d45" },
   "scalespace": { "label": "스케일 공간", "color": "#c8ff21" },
-  "negindex": { "label": "음의 굴절률", "color": "#19ff6a" }
+  "negindex": { "label": "음의 굴절률", "color": "#19ff6a" },
+  "insolation": { "label": "일사량 지도", "color": "#de6600" },
+  "darkroom": { "label": "암실 인화", "color": "#ae00cf" },
+  "soundchannel": { "label": "음파 채널", "color": "#00e1e7" },
+  "foldmap": { "label": "습곡 간섭", "color": "#e11b06" },
+  "protonbeam": { "label": "양성자 선량", "color": "#d8278d" }
 }
