@@ -454,5 +454,10 @@
   "centralplace": { "label": "중심지 위계", "color": "#d4a017" },
   "sverdrup": { "label": "임계 깊이", "color": "#1f9d8a" },
   "raftconsensus": { "label": "분산 합의", "color": "#e63e8c" },
-  "sagnac": { "label": "사냐크 간섭계", "color": "#6a5bff" }
+  "sagnac": { "label": "사냐크 간섭계", "color": "#6a5bff" },
+  "ledjunction": { "label": "발광 접합", "color": "#a64de0" },
+  "congestion": { "label": "혼잡 제어", "color": "#8ccf2e" },
+  "mohrcoulomb": { "label": "모어-쿨롱 파괴", "color": "#c43c5c" },
+  "nichepacking": { "label": "지위 겹침", "color": "#3d6fd1" },
+  "floodrouting": { "label": "홍수 추적", "color": "#12b5cb" }
 }
