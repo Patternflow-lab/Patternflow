@@ -444,5 +444,10 @@
   "darkroom": { "label": "암실 인화", "color": "#ae00cf" },
   "soundchannel": { "label": "음파 채널", "color": "#00e1e7" },
   "foldmap": { "label": "습곡 간섭", "color": "#e11b06" },
-  "protonbeam": { "label": "양성자 선량", "color": "#d8278d" }
+  "protonbeam": { "label": "양성자 선량", "color": "#d8278d" },
+  "ambiguity": { "label": "모호 함수", "color": "#55ff00" },
+  "fatigue": { "label": "피로 파면", "color": "#b29b00" },
+  "airydisk": { "label": "회절 분해능", "color": "#5000b2" },
+  "loran": { "label": "쌍곡선 항법", "color": "#0077b2" },
+  "tephra": { "label": "화산재 낙하", "color": "#b20300" }
 }
