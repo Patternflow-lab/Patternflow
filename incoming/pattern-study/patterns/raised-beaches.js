@@ -110,7 +110,7 @@ function iceProfile(S, ice) {
 export function setup(params) {
   const dashes = [];
   for (let i = 0; i < NDS; i++)
-    dashes.push({ x: -16 + 96 * Math.random(), d: 3 + 46 * Math.pow(Math.random(), 1.2), len: 10 + 16 * Math.random(), a: 0.4 + 0.5 * Math.random() });
+    dashes.push({ v: (Math.random() < 0.5 ? -1 : 1) * (0.05 + 0.13 * Math.random()), x: -16 + 96 * Math.random(), d: 3 + 46 * Math.pow(Math.random(), 1.2), len: 10 + 16 * Math.random(), a: 0.4 + 0.5 * Math.random() });
   // the biggest sheet, for the scale of the eustatic level
   let vref = 0;
   {
@@ -122,7 +122,7 @@ export function setup(params) {
   }
   params.s = {
     tm: 0, rt: 0, k: null, A: new Float64Array(NM + 1), Rt: new Float64Array(NM + 1), ready: false,
-    wl: wander(6, 36, 400), wc: wander(5, 60, 420), wf: wander(5, 40, 380),
+    wl: wander(6, 36, 400), ww: wander(4, 18, 70), ph: [0, 1, 2, 3, 4, 5].map(() => TAU * Math.random()), wc: wander(5, 60, 420), wf: wander(5, 40, 380),
     u: 0.5, ice: { xd: -4, R: 40, L: 40, V: 0 }, e: 0, vref,
     sh: { x: NaN, front: false, quiet: 0, cur: null, lo: NaN, hi: NaN },
     rid: [], zc: new Float64Array(NJ), dash: dashes, hue: -9, n: 0, wmin: 0, wmax: 0, nform: 0,
@@ -150,7 +150,8 @@ function stepModel(S, dt) {
   const lmax = 22 + 28 * (cl(kk[3], -1, 1) + 1);
   const tar = target(S, t);
   S.u += cl(tar - S.u, -dt / 40, dt / 90);
-  const L = 11 + (lmax - 11) * S.u;
+  S.u = max(S.u, 0.04);
+  const L = max(9, 11 + (lmax - 11) * S.u + 2.4 * wv(S.ww, t));
   const xd = -5 + 11 * tanh(0.9 * wv(S.wc, t));
   const ice = S.ice;
   ice.L = L; ice.xd = xd; ice.R = max(L - xd, 14);
@@ -266,7 +267,7 @@ function lutSet(arr, i, c) { arr[i * 3] = c[0]; arr[i * 3 + 1] = c[1]; arr[i * 3
 function buildColors(h) {
   const he = 0.14 * sin(TAU * h);
   for (let y = 0; y < H; y++) {
-    const t = cl(y / 74, 0, 1), q = t * t;
+    const t = cl(y / (YS + 6), 0, 1), q = t * t;
     const q2 = q * q;
     hsv(lerp(0.615, 0.54, q2) + h, lerp(0.64, 0.22, q2), lerp(0.5, 0.92, q2), T);
     lutSet(SKY, y, T);
@@ -301,6 +302,10 @@ export function draw(display, params) {
   // the plate is drawn as thick as the elastic plate is stiff: 8 rows for the thinnest, 22 for the thickest
   CRUST = 8 + 14 * cl(log(alphaOf(S.k[2]) / 1.6) / log(16.25), 0, 1);
   const vq = (cl(S.k[1], 0, 4) - 2) * 0.5;
+  // the light of the day drifts: a colour balance and a brightness on periods that share no factor
+  const ph = S.ph, tr = 1 + 0.07 * sin((TAU * rt) / 83 + ph[0]) + 0.03 * sin((TAU * rt) / 37 + ph[3]), tg = 1 + 0.05 * sin((TAU * rt) / 107 + ph[1]), tb = 1 + 0.08 * sin((TAU * rt) / 131 + ph[2]) - 0.03 * sin((TAU * rt) / 47 + ph[4]);
+  const tl = 1 + 0.1 * sin((TAU * rt) / 61 + ph[5]);
+  const sr0 = tr * tl, sg0 = tg * tl, sb0 = tb * tl, sr1 = sqrt(sr0), sg1 = sqrt(sg0), sb1 = sqrt(sb0);
 
   // per column: the land, the ice, the crust base, the beach weight
   for (let x = 0; x < W; x++) {
@@ -329,8 +334,8 @@ export function draw(display, params) {
       const ys = CS[x], yb = CB[x], yi = CI[x], hi = CH[x];
       let r = SKY[sk], g = SKY[sk + 1], b = SKY[sk + 2];
       // thin high cloud drifting, a few percent of the sky's light
-      const cd = 1 + 0.09 * (vn(x * 0.05 + rt * 0.09 + 11, yc * 0.2 + 3) - 0.5) * (1 - yc / 80);
-      r *= cd; g *= cd; b *= cd;
+      const cd = 1 + 0.2 * (vn(x * 0.04 + rt * 0.1 + 11, yc * 0.16 + 3 - rt * 0.02) - 0.5) * (1 - yc / 90);
+      r *= cd * sr0; g *= cd * sg0; b *= cd * sb0;
       // sea: between the sea surface and the land
       const cw = S0(yc - ysea) * (1 - S0(yc - ys));
       if (cw > 0.002) {
@@ -339,7 +344,7 @@ export function draw(display, params) {
         const shallow = exp(-(ys - ysea) / 5) * exp(-(ys - yc) / 3);
         sr += 55 * shallow; sg += 70 * shallow; sb += 40 * shallow;
         const rp = 1 + 0.17 * exp(-(yc - ysea) / 6) * sin(x * 0.62 - rt * 1.9 + (yc - ysea) * 1.1);
-        sr *= rp; sg *= rp; sb *= rp;
+        sr *= rp * sr1; sg *= rp * sg1; sb *= rp * sb1;
         r += (sr - r) * cw; g += (sg - g) * cw; b += (sb - b) * cw;
       }
       // ice: white on top and glacier blue at the base, with flow-line streaks that creep toward the margin and a bright rim
@@ -353,6 +358,7 @@ export function draw(display, params) {
         ir *= 1 - 0.5 * dk; ig *= 1 - 0.36 * dk; ib *= 1 - 0.14 * dk;
         const rim = 0.2 * (1 - sm(0.5, 2.6, dy));
         ir += (255 - ir) * rim; ig += (255 - ig) * rim; ib += (255 - ib) * rim;
+        ir *= sr1; ig *= sg1; ib *= sb1;
         if (yc > ysea) { ir *= 0.8; ig *= 0.95; }
         r += (ir - r) * ci; g += (ig - g) * ci; b += (ib - b) * ci;
       }
@@ -376,8 +382,8 @@ export function draw(display, params) {
       const cm = S0(yc - yb);
       if (cm > 0.002) {
         const dm = cl(yc - yb, 0, 108), i0 = floor(dm) * 3;
-        const nb = vn(x * 0.07 + rt * 0.03, yc * 0.09 - rt * 0.045 + 4.3);
-        const lum = (0.82 + 0.36 * nb + 0.22 * sm(88, 128, yc)) * (1 - 0.3 * vq);
+        const nb = 0.6 * vn(x * 0.05 + rt * 0.11, yc * 0.07 - rt * 0.15 + 4.3) + 0.4 * vn(x * 0.13 - rt * 0.17, yc * 0.15 + rt * 0.1 + 9.1);
+        const lum = (0.58 + 0.84 * nb + 0.22 * sm(88, 128, yc)) * (1 - 0.3 * vq);
         let mr = MAN[i0] * lum, mg = MAN[i0 + 1] * lum * (0.92 + 0.16 * nb) * (1 - 0.14 * vq), mb = MAN[i0 + 2] * lum * (1 - 0.3 * vq);
         const dsh = DSH[y * W + x];
         mr += 255 * 0.55 * dsh; mg += 190 * 0.55 * dsh; mb += 80 * 0.55 * dsh;
@@ -406,11 +412,13 @@ function dispAt(S, x, d, out) {
   }
   out[0] = dx; out[1] = dy;
 }
+// a slow circulation of the mantle of its own, beyond the flow the load drives, carries the streaks sideways
+const wrapx = (x) => ((((x + 24) % 112) + 112) % 112) - 24;
 function drawDashes(S) {
   for (const q of S.dash) {
     const NP = ceil(q.len / 1.0);
     for (let i = 0; i < NP; i++) {
-      const xb = q.x + (i / (NP - 1) - 0.5) * q.len;
+      const xb = wrapx(q.x + q.v * S.rt) + (i / (NP - 1) - 0.5) * q.len;
       const yb = YS - zbf(xb) + CRUST + q.d;
       dispAt(S, xb, q.d, DP);
       const px = xb + DP[0], py = yb - DP[1];
