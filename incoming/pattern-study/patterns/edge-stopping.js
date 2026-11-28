@@ -28,14 +28,17 @@ const K0 = 0.5;            // the edge threshold at Edge 0
 const SMIN = 0.14, SMAX = 0.65;   // the shortest and the longest step between neighbouring strips
 const WT = 0.05;             // how far a strip wanders along it on its own
            // half the spread of the strips along the ribbon
+const TF = 5;                // strip time a strip takes to fade in or out, or to find its width
+const RD = 0.2;              // strips lost a second of strip time, and about as many born
 const NT0 = 14;              // the number of strips the top row aims at
 const PA = 0.3;              // most white a strip takes in
+const HF = 1;                // how fast it does so
 const HW = 0.12;             // turns the hue of the whole ribbon wanders each way, slowly
-const HS = 0.07;             // how far the light that crosses the glass shifts the colour along the ribbon
+const HS = 0.12;             // how far the light that crosses the glass shifts the colour along the ribbon
 const LG = 0.0;              // most white the light that crosses the glass adds
 const LD = 0.0; 
 const SEAM = 0.22;           // most white a seam adds on an edge that stands well above K             // how far the light that crosses the glass dims it
-const SP0 = 1.2;             // strip time a second at Drift -1
+const SP0 = 1.7;             // strip time a second at Drift -1
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const HUE0 = 0.0;            // turns added to the ribbon's hue at Hue = 0
 
@@ -161,21 +164,21 @@ function evolve(S, d, speed) {
     const s = st[j];
     if (s.fade) {
       // a strip fades by taking the colour of its left neighbour, and goes when it has
-      s.amp += (0 - s.amp) * (1 - exp(-dt / 3.5));
+      s.amp += (0 - s.amp) * (1 - exp(-dt / TF));
       if (s.amp < 0.04) {
         s.x += (-3.2 - s.x) * (1 - exp(-dt / 1.2));
         if (s.w < 0.4) st.splice(j, 1);
       }
     } else {
-      s.amp += (1 - s.amp) * (1 - exp(-dt / 4));
-      s.mu += (gauss(S) * 0.3 - s.mu) * (1 - exp(-dt / 7));
-      s.x += (mu + s.mu - s.x) * (1 - exp(-dt / 4));
+      s.amp += (1 - s.amp) * (1 - exp(-dt / TF));
+      s.mu += (gauss(S) * 0.3 - s.mu) * (1 - exp(-dt / (2 * TF)));
+      s.x += (mu + s.mu - s.x) * (1 - exp(-dt / TF));
     }
   }
   // Strips go now and then, and the one that goes is the one whose colour is most like another
   // strip's, so the palette stays spread over the ribbon. It goes only if the two it leaves side
   // by side are different enough.
-  if (n > NT0 - 3 && S.r() < 1 - exp(-0.2 * dt)) {
+  if (n > NT0 - 3 && S.r() < 1 - exp(-RD * dt)) {
     let tot = 0;
     const wv = [];
     for (let j = 0; j < st.length; j++) {
@@ -204,7 +207,7 @@ function evolve(S, d, speed) {
     }
   }
   // a strip is born between two others, narrow, and widens
-  const rate = n < NT0 - 2 ? 0.15 : n < NT0 ? 0.05 : n < NT0 + 2 ? 0.012 : 0;
+  const rate = (n < NT0 - 2 ? 0.75 : n < NT0 ? 0.25 : n < NT0 + 2 ? 0.06 : 0) * RD;
   if (S.r() < 1 - exp(-rate * dt)) {
     const at = floor(S.r() * (st.length + 1));
     st.splice(at, 0, newStrip(S, true, at ? st[at - 1] : null, st[at]));
@@ -324,7 +327,7 @@ export function update(dt, input, params) {
   const K = max(0.02, S.cm) * K0 * pw(3, cl(S.k[1], 0, 4) - 2);
   S.K = K;
   topRow(S, min(0.014, 0.25 * K));
-  const D = D0 * pw(6, cl(S.k[2], -1, 1));
+  const D = D0 * pw(9, cl(S.k[2], -1, 1));
   S.hue = HUE0 + S.k[0];
   stack(S, K, D, S.tau);
 }
@@ -335,7 +338,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const T = S.T, V = S.V;
-  const hr = HW * (0.6 * sin(0.045 * S.tau + S.ph[0]) + 0.4 * sin(0.071 * S.tau + S.ph[1]));
+  const hr = HW * (0.6 * sin(HF * 0.045 * S.tau + S.ph[0]) + 0.4 * sin(HF * 0.071 * S.tau + S.ph[1]));
   const a = TAU * (S.hue + hr), ca = cos(a), sa = sin(a);
   for (let k = 0; k <= NL; k++) {
     const i0 = LI[k], q0 = LQ[k], ii = i0 * ca - q0 * sa, qq = i0 * sa + q0 * ca, y = LY[k];
