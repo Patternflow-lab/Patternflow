@@ -434,5 +434,10 @@
   "riemannsurface": { "label": "리만 곡면", "color": "#820087" },
   "gabor": { "label": "가보르 원자", "color": "#870a00" },
   "driftdiffusion": { "label": "결정 누적", "color": "#3ccd00" },
-  "tuningtimbre": { "label": "음정과 음색 지도", "color": "#556e19" }
+  "tuningtimbre": { "label": "음정과 음색 지도", "color": "#556e19" },
+  "snowflake": { "label": "눈 결정", "color": "#d9f9ff" },
+  "josephson": { "label": "조지프슨 접합", "color": "#e8176b" },
+  "spectralcut": { "label": "스펙트럼 군집", "color": "#6b26ff" },
+  "occlusion": { "label": "차폐 광", "color": "#995d45" },
+  "scalespace": { "label": "스케일 공간", "color": "#c8ff21" }
 }
