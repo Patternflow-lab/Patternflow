@@ -24,7 +24,7 @@ const pw = Math.pow;
 
 const RHO = 40;              // how many times longer the last row's stretch of diffusion is than the first's
 const D0 = 35;               // diffusion time over the whole panel at Scale 0
-const K0 = 0.5;              // the edge threshold at Edge 2, in units of the typical step between strips
+const K0 = 0.4;              // the edge threshold at Edge 2, in units of the typical step between strips
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const SMIN = 0.14, SMAX = 0.65;  // the shortest and the longest step along the ribbon between neighbouring strips
 const WT = 0.05;             // how far a strip wanders along the ribbon on its own
@@ -286,7 +286,7 @@ function stack(S, K, D, t) {
     wsum += wr[r];
   }
   // the biggest stretch in one row decides how many explicit steps keep the scheme stable
-  const mx = (D * wr[H - 1]) / wsum, M = cl(ceil(mx / 0.45), 2, 24);
+  const mx = (D * wr[H - 1]) / wsum, M = cl(ceil(mx / 0.45), 2, 28);
   for (let r = 1; r < H; r++) {
     const o = r * W, p = (r - 1) * W;
     for (let i = 0; i < N; i++) {
@@ -320,10 +320,10 @@ export function update(dt, input, params) {
   }
   if (S.cmed === undefined) topRow(S, 0);
   S.cm = S.cm === undefined ? S.cmed : S.cm + (S.cmed - S.cm) * (1 - exp(-d / 6));
-  const K = max(0.02, S.cm) * K0 * pw(3, cl(S.k[1], 0, 4) - 2);
+  const K = max(0.02, S.cm) * K0 * pw(1.6, cl(S.k[1], 0, 4) - 2);
   S.K = K;
   topRow(S, min(0.014, 0.25 * K));
-  const D = D0 * pw(9, cl(S.k[2], -1, 1));
+  const D = D0 * pw(12, cl(S.k[2], -1, 1));
   S.hue = HUE0 + S.k[0];
   stack(S, K, D, S.tau);
 }
@@ -338,9 +338,13 @@ export function draw(display, params) {
   const a = TAU * (S.hue + hr), ca = cos(a), sa = sin(a);
   for (let k = 0; k <= NL; k++) {
     const i0 = LI[k], q0 = LQ[k], ii = i0 * ca - q0 * sa, qq = i0 * sa + q0 * ca, y = LY[k];
-    RR[k] = y + 0.956 * ii + 0.621 * qq;
-    RG[k] = y - 0.272 * ii - 0.647 * qq;
-    RB[k] = y - 1.106 * ii + 1.703 * qq;
+    let r = y + 0.956 * ii + 0.621 * qq, g = y - 0.272 * ii - 0.647 * qq, b = y - 1.106 * ii + 1.703 * qq;
+    // a hue the display cannot reach at this light is taken toward grey until it can, so it keeps its luma
+    const lo = min(r, g, b), hi = max(r, g, b);
+    const c = min(lo < 0 ? y / (y - lo) : 1, hi > 1 ? (1 - y) / (hi - y) : 1);
+    RR[k] = y + (r - y) * c;
+    RG[k] = y + (g - y) * c;
+    RB[k] = y + (b - y) * c;
   }
   const L = S.lt, t = S.t, ik = 1 / S.K;
   for (let y = 0; y < H; y++) {
