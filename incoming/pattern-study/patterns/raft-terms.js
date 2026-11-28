@@ -5,18 +5,20 @@
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Raft leader election and log replication (Diego Ongaro and John Ousterhout, "In Search of an Understandable Consensus Algorithm", 2014, from memory), the golden-ratio hue step that keeps neighbouring terms apart (Vogel-style, from memory), original code, pattern round 276
+// Lineage: Raft leader election and log replication (Diego Ongaro and John Ousterhout, "In Search of an Understandable Consensus Algorithm", 2014, from memory), the vote rule, the prevLogIndex check, the truncation of a conflicting suffix and the commit rule for entries of the leader's own term as that paper gives them, original code, pattern round 276
 // Round:   276
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Timeout=1.2..4, Loss=-1..1, Crashes=-1..1
 //
-// Knob 1: Hue. ...
-// Knob 2: Timeout. ...
-// Knob 3: Loss. ...
-// Knob 4: Crashes. ...
+// Knob 1: Hue. The hue of term t is 0.58 + 0.137 t + K1 turns, so at 0 the terms run blue, violet, magenta, red, orange and K1 turns the whole sequence once round over the range. The lightness of a term follows a triangle wave on 0.235 a term, between 0.65 and 1.
+// Knob 2: Timeout. The base election timeout T in seconds, 1.2 to 4, opening at 2. Every election timer is drawn from [T, 2T], and the leader beats every 0.3 T clamped to 0.4 to 1 s. In 600 s runs at the other knobs' opening, T = 1.2 gave 126 terms with 11 percent of the time leaderless, 2 gave 85 and 18 percent, 4 gave 64 and 26 percent: jittery to stately.
+// Knob 3: Loss. s = (K3 + 1) / 2 sets the mean delay of a message, 0.1 + 0.5 s^2.5 seconds (each one takes 0.6 to 1.4 of that), and the chance that a message is dropped on its way, 0.38 s^2: 0.1 s and 0 at -1, 0.19 s and 9.5 percent at the opening, 0.6 s and 38 percent at 1. 600 s runs: 79 terms and 11 percent leaderless at -1, 209 terms and 59 percent at 1, where votes split, leaders flap and the logs fall behind.
+// Knob 4: Crashes. The mean wait between crashes is 30 x 2^(-2.2 K4) seconds plus 1.5: 138 at -1, 27 at the opening, 6.5 at 1. A crash takes down the leader (a follower in three cases of ten) for 3.5 to 9 s, never more than two at once. 600 s runs: 75 terms and 8 percent leaderless at -1 (the partitions alone), 135 terms and 40 percent at 1.
 //
-// What the picture is. ...
+// What the picture is. Five servers of a Raft cluster, simulated for real in steps of 1/60 s. Each has a term, a vote, a role, an election timer that every valid AppendEntries and every granted vote resets, a log of entries tagged with the term they were written in, and a commit index. Exact: RequestVote with the up-to-date check and a majority of three, AppendEntries with the prevLogIndex and prevLogTerm check, truncation of a conflicting suffix, four entries a message, nextIndex backing up on the follower's hint, a no-op from every new leader, commit once a majority holds an entry of the leader's own term, step down on any higher term. Added: links with delay and loss, crashes (the log and the commit index survive, and the prefix every server holds as committed is dropped from the arrays), and a partition every 10 to 15 s that cuts one server off (three times in five the leader), splits two from three or cuts one link, for 3.5 to 10 s.
+// The network. Servers on a pentagon of radius 22 round (32, 42), a disc 9 LEDs, its ring 2. The ring is the election timer, an arc from the top that fills as the timeout nears (a heartbeat resets it, so a quiet cluster only ticks). A candidate and its ring flash at 2.3 Hz, the leader has a steady full ring, a halo and a ring that leaves it at every heartbeat, a crashed server is a dark disc. The ten links are faint 2 LED lines that open in the middle when cut. Comets run along them: RequestVote warm white, AppendEntries in the leader's term colour (bigger with entries), replies fainter, and a dropped message fades out partway.
+// The logs. Five columns in the order the servers stand across the panel, one bar 3 LEDs tall per entry with a gap, rows lined up by log index, scrolling up with the median log length. Committed entries are bright, the rest 0.4, an overwritten entry flashes white for 1.1 s, a tab above each column shows its role. A bar's width and shade are the entry's payload, drawn when the leader takes the request. That is not Raft, but it makes one entry look the same in every column and keeps a long quiet term from standing still.
 
 const W = 64, H = 128, N = 5, NL = 10;
 const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, pow, atan2, PI } = Math;
@@ -28,10 +30,10 @@ const expo = (m) => -log(1 - Math.random()) * m;
 
 function hsv(h, s, v, o) {
   h = (h - floor(h)) * 6;
-  const i = floor(h) % 6, f = h - floor(h), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-  o[0] = i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p;
-  o[1] = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
-  o[2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
+  for (let c = 0; c < 3; c++) {
+    const k = (5 - 2 * c + h) % 6;
+    o[c] = v * (1 - s * max(0, min(k, 4 - k, 1)));
+  }
 }
 
 // ---------------------------------------------------------------- layout
@@ -53,23 +55,19 @@ const ORD = [4, 3, 0, 2, 1];           // log columns, left to right, in the ord
 const COLX = 2, COLW = 11, COLP = 12;  // log columns
 const PITCH = 4, LBOT = 126, LTOP = 77; // one entry is 3 LEDs and a gap
 const BATCH = 4;                       // entries in one AppendEntries
-const HIST = 48;
 
 const HUE0 = 0.58, HSTEP = 0.137;
 const frac = (v) => v - floor(v);
-// the colour of a term: the hue steps 0.137 a term and the lightness runs a triangle wave on 0.235 a term, so terms a whole lap of hues apart (7 of them) still differ
+// the colour of a term: hue steps 0.137 a term, lightness runs a triangle wave on 0.235 a term
 function tcol(t, k1, s, v, o) {
   hsv(t * HSTEP + k1 + HUE0, s, v * (0.65 + 0.35 * abs(2 * frac(t * 0.235 + 0.3) - 1)), o);
 }
 
 // ---------------------------------------------------------------- raft
-function newSrv() {
-  return {
-    alive: true, role: 0, term: 0, voted: -1, tm: 0, tmFull: 1, lg: [], bn: [], commit: 0,
-    nx: [1, 1, 1, 1, 1], mt: [0, 0, 0, 0, 0], hb: 0, vmask: 0, down: 0, gh: new Map(), pl: [],
-    rc: 0, up: 1, born: 0,
-  };
-}
+const newSrv = () => ({
+  alive: true, role: 0, term: 0, voted: -1, tm: 0, tmFull: 1, lg: [], bn: [], commit: 0,
+  nx: [1, 1, 1, 1, 1], mt: [0, 0, 0, 0, 0], hb: 0, vmask: 0, down: 0, gh: new Map(), pl: [], rc: 0, up: 1,
+});
 
 function par(k) {
   const T = cl(k[1], 0.6, 6);
@@ -107,8 +105,6 @@ function send(S, P, from, to, m) {
   else m.die = 2;
   S.msgs.push(m);
   S.lgl[l] = min(0.6, S.lgl[l] + 0.2);
-  S.lgt[l] = m.t;
-  S.lgm[l] = m.term;
 }
 
 function sendAE(S, P, i, f) {
@@ -260,38 +256,23 @@ function deliver(S, P, m) {
   else onAER(S, P, m.to, m);
 }
 
-function leaders(S) {
-  const o = [];
-  for (let i = 0; i < N; i++) if (S.srv[i].alive && S.srv[i].role === 2) o.push(i);
-  return o;
-}
+const leaders = (S) => [0, 1, 2, 3, 4].filter((i) => S.srv[i].alive && S.srv[i].role === 2);
 
 function startPartition(S) {
   S.pLeft = rnd(3.5, 10);
-  const ld = leaders(S);
-  const r = Math.random();
-  const cut = (a, b) => { S.cutOn[LID[a][b]] = 1; };
-  if (r < 0.3 || r < 0.5) {
-    let v = floor(Math.random() * N);
-    if (r < 0.3 && ld.length) v = ld[floor(Math.random() * ld.length)];
+  const ld = leaders(S), r = Math.random(), cut = (a, b) => (S.cutOn[LID[a][b]] = 1);
+  const pick = () => floor(Math.random() * N);
+  if (r < 0.5) {
+    // one server cut off, in three cases of five the leader
+    const v = r < 0.3 && ld.length ? ld[0] : pick();
     for (let j = 0; j < N; j++) if (j !== v) cut(v, j);
   } else if (r < 0.72) {
-    const a = floor(Math.random() * N);
-    let b = (a + 1 + floor(Math.random() * (N - 1))) % N;
+    // two against three
+    const a = pick(), b = (a + 1 + floor(Math.random() * (N - 1))) % N;
     for (let x = 0; x < N; x++)
-      for (let y = x + 1; y < N; y++) {
-        const ix = x === a || x === b, iy = y === a || y === b;
-        if (ix !== iy) cut(x, y);
-      }
-    b = 0;
-  } else {
-    if (ld.length && Math.random() < 0.6) {
-      const v = ld[0];
-      let f = floor(Math.random() * N);
-      if (f === v) f = (f + 1) % N;
-      cut(v, f);
-    } else S.cutOn[floor(Math.random() * NL)] = 1;
-  }
+      for (let y = x + 1; y < N; y++) if ((x === a || x === b) !== (y === a || y === b)) cut(x, y);
+  } else if (ld.length && Math.random() < 0.6) cut(ld[0], (ld[0] + 1 + floor(Math.random() * (N - 1))) % N);
+  else S.cutOn[floor(Math.random() * NL)] = 1;
 }
 
 function step(S, P, dt) {
@@ -310,20 +291,23 @@ function step(S, P, dt) {
   if (S.cNext <= 0) {
     const ld = leaders(S);
     let downs = 0;
-    for (let i = 0; i < N; i++) if (!S.srv[i].alive) downs++;
+    for (const s of S.srv) if (!s.alive) downs++;
+    S.cNext = 0.8;
     if (downs < 2 && (ld.length || Math.random() < 0.5)) {
-      let v = ld.length ? ld[0] : -1;
+      let v = ld[0];
       for (const j of ld) if (S.srv[j].term > S.srv[v].term) v = j;
-      if (v < 0 || Math.random() < 0.3) {
-        // now and then it is a follower that goes down, and has to catch up when it returns
+      if (v === undefined || Math.random() < 0.3) {
+        // now and then a follower goes down, and has to catch up when it returns
         const f = [];
         for (let j = 0; j < N; j++) if (S.srv[j].alive && S.srv[j].role !== 2) f.push(j);
         if (f.length) v = f[floor(Math.random() * f.length)];
       }
-      const s = S.srv[v];
-      s.alive = false; s.role = 0; s.vmask = 0; s.down = rnd(3.5, 9);
-      S.cNext = expo(P.crash) + 1.5;
-    } else S.cNext = 0.8;
+      if (v !== undefined) {
+        const s = S.srv[v];
+        s.alive = false; s.role = 0; s.vmask = 0; s.down = rnd(3.5, 9);
+        S.cNext = expo(P.crash) + 1.5;
+      }
+    }
   }
   for (let i = 0; i < N; i++) {
     const s = S.srv[i];
@@ -363,12 +347,9 @@ function step(S, P, dt) {
     m.a += dt;
     const f = m.a / m.dur;
     if (m.die > 1 && S.cutOn[m.l]) m.die = f + 0.03;
-    if (f >= m.die) {
-      S.puffs.push({ x: PX[m.from] + (PX[m.to] - PX[m.from]) * f, y: PY[m.from] + (PY[m.to] - PY[m.from]) * f, a: 0, t: m.t, term: m.term });
+    if (f >= m.die || f >= 1) {
       S.msgs.splice(q, 1);
-    } else if (f >= 1) {
-      S.msgs.splice(q, 1);
-      deliver(S, P, m);
+      if (f < m.die) deliver(S, P, m);
     }
   }
   // the log's agreed prefix is dropped once every server holds it as committed
@@ -378,7 +359,7 @@ function step(S, P, dt) {
     const t = S.srv[0].lg[0];
     for (let i = 0; i < N; i++) { S.srv[i].lg.shift(); S.srv[i].bn.shift(); }
     S.hist.push(t);
-    if (S.hist.length > HIST) S.hist.shift();
+    if (S.hist.length > 48) S.hist.shift();
     S.G++;
   }
 }
@@ -388,25 +369,20 @@ export function setup(params) {
   const srv = [];
   for (let i = 0; i < N; i++) srv.push(newSrv());
   params.s = {
-    now: 0, k: null, ready: false, srv, msgs: [], puffs: [], G: 0, hist: [],
+    now: 0, k: null, ready: false, srv, msgs: [], G: 0, hist: [],
     cutOn: new Uint8Array(NL), cv: new Float32Array(NL),
-    lgl: new Float32Array(NL), lgt: new Uint8Array(NL), lgm: new Float32Array(NL),
+    lgl: new Float32Array(NL),
     pLeft: 0, pNext: rnd(8, 18), cNext: rnd(10, 22), eNext: 1,
     scroll: 0, amb: [0, 0, 0],
   };
 }
 
-const MS = 0.5;
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kv = (input && input.knobValues) || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
-  if (!S.k) {
-    S.k = [0, 2, 0, 0.06];
-    for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] = kv[i];
-  } else {
-    const al = 1 - exp(-d / 0.2);
-    for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
-  }
+  const al = S.k ? 1 - exp(-d / 0.2) : 1;
+  if (!S.k) S.k = [0, 2, 0, 0.06];
+  for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
   const P = par(S.k);
   if (!S.ready) {
     S.ready = true;
@@ -414,15 +390,13 @@ export function update(dt, input, params) {
     let tt = 0;
     while (tt < 45 || (tt < 120 && !leaders(S).length)) { step(S, P, 1 / 30); tt += 1 / 30; }
     S.msgs.length = 0;
-    S.puffs.length = 0;
-    S.scroll = medianLast(S) + MS;
+    S.scroll = medianLast(S) + 0.5;
     S.cv.set(S.cutOn);
   }
   const n = max(1, ceil(d / (1 / 60)));
   for (let q = 0; q < n; q++) step(S, P, d / n);
   // eased things for the picture
-  const now = S.now;
-  const a8 = 1 - exp(-d / 0.12), a3 = 1 - exp(-d / 0.3);
+  const now = S.now, a3 = 1 - exp(-d / 0.3);
   for (let l = 0; l < NL; l++) {
     S.cv[l] += (S.cutOn[l] - S.cv[l]) * a3;
     S.lgl[l] *= exp(-d / 0.5);
@@ -434,41 +408,26 @@ export function update(dt, input, params) {
     while (s.pl.length && now - s.pl[0] > 0.9) s.pl.shift();
     for (const [k, g] of s.gh) if (now - g.at > 1.2) s.gh.delete(k);
   }
-  for (let q = S.puffs.length - 1; q >= 0; q--) {
-    S.puffs[q].a += d;
-    if (S.puffs[q].a > 0.4) S.puffs.splice(q, 1);
-  }
-  S.scroll += (medianLast(S) + MS - S.scroll) * (1 - exp(-d / 0.25));
+  S.scroll += (medianLast(S) + 0.5 - S.scroll) * (1 - exp(-d / 0.25));
   // ground glow follows the newest term
-  let tm = 0, ld = -1;
-  for (let i = 0; i < N; i++) {
-    if (S.srv[i].alive && S.srv[i].term > tm) tm = S.srv[i].term;
-    if (S.srv[i].role === 2 && S.srv[i].alive) ld = i;
-  }
+  let tm = 0;
+  for (const s of S.srv) if (s.alive && s.term > tm) tm = s.term;
   tcol(tm, S.k[0], 0.5, 1, AMB);
-  const amp = ld >= 0 ? 0.17 : 0.09;
+  const amp = leaders(S).length ? 0.17 : 0.09;
   for (let c = 0; c < 3; c++) S.amb[c] += (AMB[c] * amp - S.amb[c]) * a3;
-  void a8;
 }
 
-function medianLast(S) {
-  const a = [];
-  for (let i = 0; i < N; i++) a.push(lastIdx(S, S.srv[i]));
-  a.sort((x, y) => x - y);
-  return a[2];
-}
+const medianLast = (S) => S.srv.map((s) => lastIdx(S, s)).sort((x, y) => x - y)[2];
 
 // ---------------------------------------------------------------- draw
 const AMB = [0, 0, 0];
 const BUF = new Float32Array(W * H * 3);
-const C1 = [0, 0, 0], C2 = [0, 0, 0], C3 = [0, 0, 0];
+const C1 = [0, 0, 0], C2 = [0, 0, 0];
 
 function lump(cx, cy, sig, amp, c) {
   const R = floor(sig * 3) + 1, is2 = 1 / (2 * sig * sig);
-  const x0 = max(0, floor(cx) - R), x1 = min(W - 1, floor(cx) + R);
-  const y0 = max(0, floor(cy) - R), y1 = min(H - 1, floor(cy) + R);
-  for (let y = y0; y <= y1; y++)
-    for (let x = x0; x <= x1; x++) {
+  for (let y = max(0, floor(cy) - R); y <= min(H - 1, floor(cy) + R); y++)
+    for (let x = max(0, floor(cx) - R); x <= min(W - 1, floor(cx) + R); x++) {
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy, a = 255 * amp * exp(-(dx * dx + dy * dy) * is2);
       const o = (y * W + x) * 3;
       BUF[o] += c[0] * a; BUF[o + 1] += c[1] * a; BUF[o + 2] += c[2] * a;
@@ -492,15 +451,13 @@ function ground(S) {
     }
 }
 
-function drawLinks(S, k1) {
+function drawLinks(S) {
   for (let l = 0; l < NL; l++) {
     const a = LA[l], b = LB[l];
     const ax = PX[a], ay = PY[a], bx = PX[b], by = PY[b];
     const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
     const ux = (bx - ax) / len, uy = (by - ay) / len;
     const cv = S.cv[l], gl = S.lgl[l];
-    tcol(S.lgm[l], k1, 0.4, 1, C1);
-    if (S.lgt[l] < 2) { C1[0] = 0.95; C1[1] = 0.88; C1[2] = 0.7; }
     const x0 = max(0, floor(min(ax, bx)) - 2), x1 = min(W - 1, ceil(max(ax, bx)) + 2);
     const y0 = max(0, floor(min(ay, by)) - 2), y1 = min(H - 1, ceil(max(ay, by)) + 2);
     for (let y = y0; y <= y1; y++)
@@ -515,62 +472,49 @@ function drawLinks(S, k1) {
         c *= 1 - gap;
         const v = c * (0.11 * (1 - 0.8 * cv) + 0.2 * gl);
         const o = (y * W + x) * 3;
-        BUF[o] += 255 * v * (0.55 + 0.45 * C1[0] * gl);
-        BUF[o + 1] += 255 * v * (0.68 + 0.32 * C1[1] * gl);
-        BUF[o + 2] += 255 * v * (0.95);
+        BUF[o] += 255 * v * (0.55 + 0.4 * gl);
+        BUF[o + 1] += 255 * v * (0.68 + 0.3 * gl);
+        BUF[o + 2] += 255 * v;
       }
   }
 }
 
+const DEAD = [30, 36, 51], TRK = [0.55, 0.65, 0.9];
 function drawNodes(S, k1, now) {
   for (let i = 0; i < N; i++) {
-    const s = S.srv[i], cx = PX[i], cy = PY[i], up = s.up;
-    const cand = s.role === 1, lead = s.role === 2;
-    const fl = 0.5 + 0.5 * sin(now * TAU * 2.3 + i * 1.7);
+    const s = S.srv[i], cx = PX[i], cy = PY[i], up = s.up, lead = s.role === 2, cand = s.role === 1;
+    const fl = 0.5 + 0.5 * sin(now * TAU * 2.3 + i * 1.7), fill = lead ? 1 : 1 - s.tm / s.tmFull;
     tcol(s.term, k1, 0.42, 1, C1);
-    // halo and heartbeat pulses of a leader
     if (lead && s.alive) {
+      // the halo, and a ring that leaves it with every heartbeat
       lump(cx, cy, 6.5, 0.12 * up, C1);
       for (const t0 of s.pl) {
-        const age = (now - t0) / 0.9, r0 = 7.5 + 13 * pow(age, 0.75), amp = 0.55 * pow(1 - age, 1.6);
-        const R = ceil(r0 + 3);
+        const age = (now - t0) / 0.9, r0 = 7.5 + 13 * pow(age, 0.75), amp = 0.55 * pow(1 - age, 1.6), R = ceil(r0 + 3);
         for (let y = max(0, floor(cy) - R); y <= min(H - 1, floor(cy) + R); y++)
           for (let x = max(0, floor(cx) - R); x <= min(W - 1, floor(cx) + R); x++) {
-            const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = sqrt(dx * dx + dy * dy);
-            const c = cl((1.8 - abs(d - r0)) / 1.2, 0, 1) * amp;
-            if (c > 0) add(x, y, 255 * c * C1[0], 255 * c * C1[1], 255 * c * C1[2]);
+            const dx = x + 0.5 - cx, dy = y + 0.5 - cy, c = cl((1.8 - abs(sqrt(dx * dx + dy * dy) - r0)) / 1.2, 0, 1) * amp * 255;
+            if (c > 0) add(x, y, c * C1[0], c * C1[1], c * C1[2]);
           }
       }
     }
-    // disc and timer ring
-    const fill = lead ? 1 : 1 - s.tm / s.tmFull;
-    const dv = lead ? 1 : cand ? 0.35 + 0.65 * fl : 0.55;
-    const wh = lead ? 0.12 : cand ? 0.25 * fl : 0;
-    const rd = 3.2 + 1.4 * up;
-    const R = 10;
-    for (let y = max(0, floor(cy) - R); y <= min(H - 1, floor(cy) + R); y++)
-      for (let x = max(0, floor(cx) - R); x <= min(W - 1, floor(cx) + R); x++) {
+    // the disc, and the ring that is the election timer
+    const wh = lead ? 0.12 : cand ? 0.25 * fl : 0, rd = 3.2 + 1.4 * up;
+    const dv = up * ((lead ? 1 : cand ? 0.35 + 0.65 * fl : 0.55) + 0.35 * s.rc);
+    const rv = up * (lead ? 0.85 : cand ? 0.55 + 0.4 * fl : 0.7);
+    for (let y = max(0, floor(cy) - 10); y <= min(H - 1, floor(cy) + 10); y++)
+      for (let x = max(0, floor(cx) - 10); x <= min(W - 1, floor(cx) + 10); x++) {
         const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = sqrt(dx * dx + dy * dy);
-        let r = 0, g = 0, b = 0;
-        const cd = cl((rd + 0.7 - d) / 1.2, 0, 1);
-        if (cd > 0) {
-          const v = (up * (dv + 0.35 * s.rc) + (1 - up) * 0.18) * cd;
-          r += 255 * v * (C1[0] * (1 - wh) + wh) * up + 255 * 0.12 * (1 - up) * cd;
-          g += 255 * v * (C1[1] * (1 - wh) + wh) * up + 255 * 0.14 * (1 - up) * cd;
-          b += 255 * v * (C1[2] * (1 - wh) + wh) * up + 255 * 0.2 * (1 - up) * cd;
+        const cd = cl((rd + 0.7 - d) / 1.2, 0, 1), cr = up > 0.02 ? cl((1.25 - abs(d - 7.4)) / 0.5, 0, 1) : 0;
+        if (cd <= 0 && cr <= 0) continue;
+        let on = 0;
+        if (cr > 0) {
+          const ph = atan2(dx, -dy) / TAU;
+          on = lead ? 1 : sm(fill + 0.01, fill - 0.01, ph - floor(ph));
         }
-        const cr = cl((1.25 - abs(d - 7.4)) / 0.5, 0, 1);
-        if (cr > 0 && up > 0.02) {
-          let ph = atan2(dx, -dy) / TAU;
-          ph -= floor(ph);
-          const on = lead ? 1 : sm(fill + 0.01, fill - 0.01, ph);
-          const rv = (lead ? 0.85 : cand ? 0.55 + 0.4 * fl : 0.7) * on + 0.22 * (1 - on);
-          const w2 = lead ? 0.2 : 0;
-          r += 255 * cr * rv * up * (on * (C1[0] * (1 - w2) + w2) + (1 - on) * 0.55);
-          g += 255 * cr * rv * up * (on * (C1[1] * (1 - w2) + w2) + (1 - on) * 0.65);
-          b += 255 * cr * rv * up * (on * (C1[2] * (1 - w2) + w2) + (1 - on) * 0.9);
-        }
-        if (r + g + b > 0) add(x, y, r, g, b);
+        const ra = cr * 255 * (rv * on + 0.22 * up * (1 - on));
+        const o = (y * W + x) * 3;
+        for (let c = 0; c < 3; c++)
+          BUF[o + c] += cd * 255 * (dv * (C1[c] * (1 - wh) + wh) + (1 - up) * DEAD[c] / 255) + ra * (on * C1[c] + (1 - on) * TRK[c]);
       }
   }
 }
@@ -597,11 +541,6 @@ function drawComets(S, k1) {
       if (p < s0 - 1 || p > len - s0 + 1) continue;
       lump(ax + ux * p, ay + uy * p, sig * (1 - 0.1 * q), amp * fade * pow(0.58, q), C2);
     }
-  }
-  for (const p of S.puffs) {
-    const a = p.a / 0.4;
-    if (p.t < 2) { C3[0] = 1; C3[1] = 0.92; C3[2] = 0.72; } else tcol(p.term, k1, 0.38, 1, C3);
-    lump(p.x, p.y, 1.2 + 2.2 * a, 0.45 * (1 - a), C3);
   }
 }
 
@@ -652,7 +591,7 @@ export function draw(display, params) {
   if (!S || !S.ready) return;
   const k1 = S.k[0], now = S.now;
   ground(S);
-  drawLinks(S, k1);
+  drawLinks(S);
   drawNodes(S, k1, now);
   drawComets(S, k1);
   drawLogs(S, k1, now);
