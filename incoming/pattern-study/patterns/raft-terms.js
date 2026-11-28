@@ -11,14 +11,15 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Timeout=1.2..4, Loss=-1..1, Crashes=-1..1
 //
-// Knob 1: Hue. The hue of term t is 0.58 + 0.137 t + K1 turns, so at 0 the terms run blue, violet, magenta, red, orange and K1 turns the whole sequence once round over the range. The lightness of a term follows a triangle wave on 0.235 a term, between 0.65 and 1.
-// Knob 2: Timeout. The base election timeout T in seconds, 1.2 to 4, opening at 2. Every election timer is drawn from [T, 2T], and the leader beats every 0.3 T clamped to 0.4 to 1 s. In 600 s runs at the other knobs' opening, T = 1.2 gave 126 terms with 11 percent of the time leaderless, 2 gave 85 and 18 percent, 4 gave 64 and 26 percent: jittery to stately.
-// Knob 3: Loss. s = (K3 + 1) / 2 sets the mean delay of a message, 0.1 + 0.5 s^2.5 seconds (each one takes 0.6 to 1.4 of that), and the chance that a message is dropped on its way, 0.38 s^2: 0.1 s and 0 at -1, 0.19 s and 9.5 percent at the opening, 0.6 s and 38 percent at 1. 600 s runs: 79 terms and 11 percent leaderless at -1, 209 terms and 59 percent at 1, where votes split, leaders flap and the logs fall behind.
-// Knob 4: Crashes. The mean wait between crashes is 30 x 2^(-2.2 K4) seconds plus 1.5: 138 at -1, 27 at the opening, 6.5 at 1. A crash takes down the leader (a follower in three cases of ten) for 3.5 to 9 s, never more than two at once. 600 s runs: 75 terms and 8 percent leaderless at -1 (the partitions alone), 135 terms and 40 percent at 1.
+// Knob 1: Hue. The hue of term t is 0.58 + 0.137 t + K1 turns, so at 0 the terms run blue, violet, magenta, red, orange, and K1 turns the whole run once round over the range. The lightness of a term follows a triangle wave on 0.235 a term, between 0.65 and 1.
+// Knob 2: Timeout. The base election timeout T in seconds, 1.2 to 4, opening at 2. Every election timer is drawn from [T, 2T] and the leader beats every 0.3 T, clamped to 0.4 to 1 s. In 600 s runs with the other knobs at the opening, T = 1.2 gave 126 terms and 11 percent of the time without a leader, T = 4 gave 64 terms and 26 percent.
+// Knob 3: Loss. With s = (K3 + 1) / 2 a message takes (0.1 + 0.5 s^2.5) x 0.6 to 1.4 seconds and is dropped with chance 0.38 s^2: 0.1 s and 0 at -1, 0.19 s and 9.5 percent at the opening, 0.6 s and 38 percent at 1. In 600 s: 79 terms and 11 percent leaderless at -1, 209 and 59 percent at 1, where votes split, leaders flap and the logs fall behind.
+// Knob 4: Crashes. The mean wait between crashes is 30 x 2^(-2.2 K4) seconds plus 1.5: 138 at -1, 27 at the opening, 6.5 at 1. A crash takes down the leader (a follower three times in ten) for 3.5 to 9 s, never more than two at once. In 600 s: 75 terms and 8 percent leaderless at -1 (the partitions alone), 135 and 40 percent at 1.
 //
-// What the picture is. Five servers of a Raft cluster, simulated for real in steps of 1/60 s. Each has a term, a vote, a role, an election timer that every valid AppendEntries and every granted vote resets, a log of entries tagged with the term they were written in, and a commit index. Exact: RequestVote with the up-to-date check and a majority of three, AppendEntries with the prevLogIndex and prevLogTerm check, truncation of a conflicting suffix, four entries a message, nextIndex backing up on the follower's hint, a no-op from every new leader, commit once a majority holds an entry of the leader's own term, step down on any higher term. Added: links with delay and loss, crashes (the log and the commit index survive, and the prefix every server holds as committed is dropped from the arrays), and a partition every 10 to 15 s that cuts one server off (three times in five the leader), splits two from three or cuts one link, for 3.5 to 10 s.
-// The network. Servers on a pentagon of radius 22 round (32, 42), a disc 9 LEDs, its ring 2. The ring is the election timer, an arc from the top that fills as the timeout nears (a heartbeat resets it, so a quiet cluster only ticks). A candidate and its ring flash at 2.3 Hz, the leader has a steady full ring, a halo and a ring that leaves it at every heartbeat, a crashed server is a dark disc. The ten links are faint 2 LED lines that open in the middle when cut. Comets run along them: RequestVote warm white, AppendEntries in the leader's term colour (bigger with entries), replies fainter, and a dropped message fades out partway.
-// The logs. Five columns in the order the servers stand across the panel, one bar 3 LEDs tall per entry with a gap, rows lined up by log index, scrolling up with the median log length. Committed entries are bright, the rest 0.4, an overwritten entry flashes white for 1.1 s, a tab above each column shows its role. A bar's width and shade are the entry's payload, drawn when the leader takes the request. That is not Raft, but it makes one entry look the same in every column and keeps a long quiet term from standing still.
+// What the picture is. Five servers of a Raft cluster, simulated for real in steps of 1/60 s. Each has a term, a vote, a role, an election timer that every valid AppendEntries and every granted vote resets, a log of entries tagged with the term they were written in, and a commit index. Exact: RequestVote with the up-to-date check and a majority of three, AppendEntries with the prevLogIndex and prevLogTerm check, truncation of a conflicting suffix, four entries a message, nextIndex backing up on the follower's hint, a no-op from every new leader, commit once a majority holds an entry of the leader's own term, step down on any higher term. Added: links with delay and loss, crashes (log and commit index survive, and the prefix every server holds as committed is dropped from the arrays), and a partition every 10 to 15 s that cuts one server off (three times in five the leader), splits two from three or cuts one link, for 3.5 to 10 s.
+// The network. Servers on a pentagon of radius 22 round (32, 42), a disc 9 LEDs, its ring 2. The ring is the election timer, an arc from the top that fills as the timeout nears (a heartbeat resets it, so a quiet cluster only ticks). A candidate and its ring flash at 2.3 Hz, the leader has a steady full ring, a halo and a ring that leaves it at every heartbeat, a crashed server is a dark disc. The ten links are faint 2 LED lines that open in the middle when cut. Comets run along them: RequestVote warm white, AppendEntries in the leader's term colour (bigger with entries), replies fainter, a dropped message fades out partway.
+// The logs. Five columns in the order the servers stand across the panel, one bar 3 LEDs tall per entry, rows lined up by log index, scrolling up with the median log length. Committed entries are bright, the rest 0.45, an overwritten entry flashes white for 1.1 s, a tab above each column shows its role. A bar's width and shade are the entry's payload, drawn when the leader takes the request. That is not Raft, but it makes one entry look the same in every column and keeps a long quiet term from standing still.
+// The ribbon. The top 6 rows are the terms through time, 2 s to the LED, newest at the right: the leader's term in its colour while there is a leader, the highest term dimmed while there is none.
 
 const W = 64, H = 128, N = 5, NL = 10;
 const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, pow, atan2, PI } = Math;
@@ -188,13 +189,11 @@ function onAE(S, P, i, m) {
   resetTimer(S, s, P);
   let last = lastIdx(S, s);
   if (m.pi > last || (m.pi >= S.G && termAt(S, s, m.pi) !== m.pt)) {
-    let hint;
-    if (m.pi > last) hint = last + 1;
-    else {
+    let hint = last + 1;
+    if (m.pi <= last) {
+      // the first index of the conflicting term, so the leader can skip the whole run
       const ct = termAt(S, s, m.pi);
-      let j = m.pi;
-      while (j - 1 > S.G && termAt(S, s, j - 1) === ct) j--;
-      hint = j;
+      for (hint = m.pi; hint - 1 > S.G && termAt(S, s, hint - 1) === ct; ) hint--;
     }
     send(S, P, i, m.from, { t: 3, term: s.term, ok: false, hint, rt: m.term, pi: m.pi });
     return;
@@ -352,6 +351,11 @@ function step(S, P, dt) {
       if (f < m.die) deliver(S, P, m);
     }
   }
+  // the ribbon of terms: the leader's term while there is a leader, minus the top term while there is none
+  let lt = 0, tm = 0;
+  for (const s of S.srv) if (s.alive) { tm = max(tm, s.term); if (s.role === 2) lt = max(lt, s.term); }
+  if (S.rib[S.rib.length - 1].v !== (lt || -tm)) S.rib.push({ t: S.now, v: lt || -tm });
+  while (S.rib.length > 2 && S.rib[1].t < S.now - 130) S.rib.shift();
   // the log's agreed prefix is dropped once every server holds it as committed
   let mc = 1e9;
   for (let i = 0; i < N; i++) mc = min(mc, S.srv[i].commit);
@@ -373,7 +377,7 @@ export function setup(params) {
     cutOn: new Uint8Array(NL), cv: new Float32Array(NL),
     lgl: new Float32Array(NL),
     pLeft: 0, pNext: rnd(8, 18), cNext: rnd(10, 22), eNext: 1,
-    scroll: 0, amb: [0, 0, 0],
+    scroll: 0, amb: [0, 0, 0], rib: [{ t: 0, v: 0 }],
   };
 }
 
@@ -388,7 +392,7 @@ export function update(dt, input, params) {
     S.ready = true;
     for (let i = 0; i < N; i++) resetTimer(S, S.srv[i], P);
     let tt = 0;
-    while (tt < 45 || (tt < 120 && !leaders(S).length)) { step(S, P, 1 / 30); tt += 1 / 30; }
+    while (tt < 70 || (tt < 140 && !leaders(S).length)) { step(S, P, 1 / 30); tt += 1 / 30; }
     S.msgs.length = 0;
     S.scroll = medianLast(S) + 0.5;
     S.cv.set(S.cutOn);
@@ -410,10 +414,9 @@ export function update(dt, input, params) {
   }
   S.scroll += (medianLast(S) + 0.5 - S.scroll) * (1 - exp(-d / 0.25));
   // ground glow follows the newest term
-  let tm = 0;
-  for (const s of S.srv) if (s.alive && s.term > tm) tm = s.term;
-  tcol(tm, S.k[0], 0.5, 1, AMB);
-  const amp = leaders(S).length ? 0.17 : 0.09;
+  const v = S.rib[S.rib.length - 1].v;
+  tcol(abs(v), S.k[0], 0.5, 1, AMB);
+  const amp = v > 0 ? 0.17 : 0.16;
   for (let c = 0; c < 3; c++) S.amb[c] += (AMB[c] * amp - S.amb[c]) * a3;
 }
 
@@ -445,36 +448,26 @@ function ground(S) {
     for (let x = 0; x < W; x++) {
       const dx = x + 0.5 - CX, dy = y + 0.5 - CY, g = exp(-(dx * dx + dy * dy) / (2 * 30 * 30));
       const o = (y * W + x) * 3;
-      BUF[o] = 13 + 255 * S.amb[0] * g;
-      BUF[o + 1] = 17 + 255 * S.amb[1] * g;
-      BUF[o + 2] = 28 + 255 * S.amb[2] * g;
+      BUF[o] = 15 + 255 * S.amb[0] * g;
+      BUF[o + 1] = 19 + 255 * S.amb[1] * g;
+      BUF[o + 2] = 31 + 255 * S.amb[2] * g;
     }
 }
 
 function drawLinks(S) {
   for (let l = 0; l < NL; l++) {
-    const a = LA[l], b = LB[l];
-    const ax = PX[a], ay = PY[a], bx = PX[b], by = PY[b];
-    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
-    const ux = (bx - ax) / len, uy = (by - ay) / len;
-    const cv = S.cv[l], gl = S.lgl[l];
-    const x0 = max(0, floor(min(ax, bx)) - 2), x1 = min(W - 1, ceil(max(ax, bx)) + 2);
-    const y0 = max(0, floor(min(ay, by)) - 2), y1 = min(H - 1, ceil(max(ay, by)) + 2);
-    for (let y = y0; y <= y1; y++)
-      for (let x = x0; x <= x1; x++) {
-        const px = x + 0.5 - ax, py = y + 0.5 - ay;
-        const t = px * ux + py * uy;
+    const ax = PX[LA[l]], ay = PY[LA[l]], dx = PX[LB[l]] - ax, dy = PY[LB[l]] - ay, len = sqrt(dx * dx + dy * dy);
+    const ux = dx / len, uy = dy / len, cv = S.cv[l], gl = S.lgl[l];
+    for (let y = max(0, floor(min(ay, ay + dy)) - 2); y <= min(H - 1, ceil(max(ay, ay + dy)) + 2); y++)
+      for (let x = max(0, floor(min(ax, ax + dx)) - 2); x <= min(W - 1, ceil(max(ax, ax + dx)) + 2); x++) {
+        const px = x + 0.5 - ax, py = y + 0.5 - ay, t = px * ux + py * uy;
         if (t < 8 || t > len - 8) continue;
-        const dd = abs(px * uy - py * ux);
-        let c = cl((1.4 - dd) / 0.7, 0, 1);
-        if (c <= 0) continue;
-        const gap = cv * sm(0.5, 3.5, 5.5 - abs(t - len / 2));
-        c *= 1 - gap;
-        const v = c * (0.11 * (1 - 0.8 * cv) + 0.2 * gl);
-        const o = (y * W + x) * 3;
-        BUF[o] += 255 * v * (0.55 + 0.4 * gl);
-        BUF[o + 1] += 255 * v * (0.68 + 0.3 * gl);
-        BUF[o + 2] += 255 * v;
+        // 2 LEDs wide, open in the middle when the link is cut
+        const c = cl((1.4 - abs(px * uy - py * ux)) / 0.7, 0, 1) * (1 - cv * sm(0.5, 3.5, 5.5 - abs(t - len / 2)));
+        const v = 255 * c * (0.11 * (1 - 0.8 * cv) + 0.2 * gl), o = (y * W + x) * 3;
+        BUF[o] += v * (0.55 + 0.4 * gl);
+        BUF[o + 1] += v * (0.68 + 0.3 * gl);
+        BUF[o + 2] += v;
       }
   }
 }
@@ -499,7 +492,7 @@ function drawNodes(S, k1, now) {
     }
     // the disc, and the ring that is the election timer
     const wh = lead ? 0.12 : cand ? 0.25 * fl : 0, rd = 3.2 + 1.4 * up;
-    const dv = up * ((lead ? 1 : cand ? 0.35 + 0.65 * fl : 0.55) + 0.35 * s.rc);
+    const dv = up * ((lead ? 1 : cand ? 0.35 + 0.65 * fl : 0.62) + 0.35 * s.rc);
     const rv = up * (lead ? 0.85 : cand ? 0.55 + 0.4 * fl : 0.7);
     for (let y = max(0, floor(cy) - 10); y <= min(H - 1, floor(cy) + 10); y++)
       for (let x = max(0, floor(cx) - 10); x <= min(W - 1, floor(cx) + 10); x++) {
@@ -519,28 +512,38 @@ function drawNodes(S, k1, now) {
   }
 }
 
+const CP = [[1, 1.5, 1.6], [0.7, 1.1, 1.2], [1, 1.5, 1.7], [0.4, 1, 1.2]]; // amplitude, width and tail of a comet by kind
 function drawComets(S, k1) {
   for (const m of S.msgs) {
     const f = m.a / m.dur;
     if (f > m.die) continue;
-    const ax = PX[m.from], ay = PY[m.from], bx = PX[m.to], by = PY[m.to];
-    const len = sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
-    const ux = (bx - ax) / len, uy = (by - ay) / len;
+    const ax = PX[m.from], ay = PY[m.from], dx = PX[m.to] - ax, dy = PY[m.to] - ay, len = sqrt(dx * dx + dy * dy);
     const s0 = 4.5, run = len - 2 * s0;
-    let amp, sig, tl;
-    if (m.t === 0) { C2[0] = 1; C2[1] = 0.92; C2[2] = 0.72; amp = 1; sig = 1.5; tl = 1.6; }
-    else if (m.t === 1) { C2[0] = 1; C2[1] = 0.92; C2[2] = 0.72; amp = m.gr ? 0.7 : 0.3; sig = 1.1; tl = 1.2; }
-    else {
-      tcol(m.term, k1, 0.38, 1, C2);
-      if (m.t === 2) { const e = m.ents.length > 0; amp = e ? 1 : 0.75; sig = e ? 1.5 : 1.25; tl = e ? 1.7 : 1.4; }
-      else { amp = 0.4; sig = 1.0; tl = 1.2; }
-    }
+    let [amp, sig, tl] = CP[m.t];
+    if (m.t === 1 && !m.gr) amp = 0.3;
+    if (m.t === 2 && !m.ents.length) [amp, sig, tl] = [0.75, 1.25, 1.4];
+    if (m.t < 2) [C2[0], C2[1], C2[2]] = [1, 0.92, 0.72];
+    else tcol(m.term, k1, 0.38, 1, C2);
     const fade = sm(0, 0.08, f) * (m.die <= 1 ? 1 - sm(m.die - 0.12, m.die, f) : sm(1.0, 0.9, f));
     for (let q = 0; q < 4; q++) {
       const p = s0 + run * f - q * tl;
-      if (p < s0 - 1 || p > len - s0 + 1) continue;
-      lump(ax + ux * p, ay + uy * p, sig * (1 - 0.1 * q), amp * fade * pow(0.58, q), C2);
+      if (p > s0 - 1 && p < len - s0 + 1) lump(ax + (dx * p) / len, ay + (dy * p) / len, sig * (1 - 0.1 * q), amp * fade * pow(0.58, q), C2);
     }
+  }
+}
+
+function drawRibbon(S, k1, now) {
+  for (let x = 0; x < W; x++) {
+    const t1 = now - (W - 1 - x) * 2, t0 = t1 - 2;
+    let r = 0, g = 0, b = 0;
+    for (let q = 0; q < S.rib.length; q++) {
+      const a = max(t0, S.rib[q].t), e = min(t1, q + 1 < S.rib.length ? S.rib[q + 1].t : 1e9);
+      if (e <= a) continue;
+      const v = S.rib[q].v, w = v ? (e - a) / 2 : 0;
+      tcol(abs(v), k1, 0.42, v > 0 ? 0.75 : 0.34, C2);
+      r += C2[0] * w; g += C2[1] * w; b += C2[2] * w;
+    }
+    for (let y = 0; y < 8; y++) add(x, y, 255 * r, 255 * g, 255 * b);
   }
 }
 
@@ -552,10 +555,8 @@ function drawLogs(S, k1, now) {
     const last = lastIdx(S, s);
     // header tab
     const lead = s.role === 2 && s.alive, cand = s.role === 1 && s.alive;
-    tcol(s.term, k1, 0.42, 1, C1);
-    const tv = (lead ? 1 : cand ? 0.35 + 0.65 * (0.5 + 0.5 * sin(now * TAU * 2.3 + si * 1.7)) : 0.5) * (0.15 + 0.85 * s.up);
-    for (let y = 71; y <= 72; y++)
-      for (let x = x0; x < x0 + COLW; x++) add(x, y, 255 * tv * C1[0], 255 * tv * C1[1], 255 * tv * C1[2]);
+    tcol(s.term, k1, 0.42, 255 * (lead ? 1 : cand ? 0.35 + 0.65 * (0.5 + 0.5 * sin(now * TAU * 2.3 + si * 1.7)) : 0.5) * (0.15 + 0.85 * s.up), C1);
+    for (let y = 71; y <= 72; y++) for (let x = x0; x < x0 + COLW; x++) add(x, y, C1[0], C1[1], C1[2]);
     for (let y = LTOP; y < H; y++) for (let x = x0; x < x0 + COLW; x++) add(x, y, 3, 4, 7);
     for (let i = max(1, floor(sc - 14)); i <= ceil(sc) + 2; i++) {
       const bot = LBOT - (sc - i) * PITCH + 1, top = bot - 3, gh = s.gh.get(i);
@@ -563,7 +564,7 @@ function drawLogs(S, k1, now) {
       let raw = -1, tv = 0, wh = ga * 0.8, al = 1;
       if (i <= last) {
         raw = entAt(S, s, i);
-        tv = (i <= s.commit ? 0.95 : 0.4) * dim;
+        tv = (i <= s.commit ? 0.95 : 0.45) * dim;
         if (i > S.G) wh = max(wh, 0.5 * exp(-(now - s.bn[i - S.G - 1]) / 0.35));
       } else if (ga > 0) {
         raw = gh.t; tv = 0.55 * dim; al = ga; wh = ga * 0.7;
@@ -594,6 +595,7 @@ export function draw(display, params) {
   drawLinks(S);
   drawNodes(S, k1, now);
   drawComets(S, k1);
+  drawRibbon(S, k1, now);
   drawLogs(S, k1, now);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
