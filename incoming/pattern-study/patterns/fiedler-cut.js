@@ -27,10 +27,12 @@ const N = 220;            // points
 const NG = 4;             // slots: a scene gives each of them one piece of curve or one blob
 const PER = N / NG;       // points to a slot
 const KMAX = 5;           // most clusters
-const QX = 3;             // extra columns the subspace carries beyond the clusters
+const QM = KMAX + 3;      // columns the subspace carries: the clusters and a few more, so the gap shows
+const GAPF = 1e-5;        // floor under 1 - lambda, so a gap between two nearly exact ones does not count
 const CX = 32, CYD = 32, CYE = 96;
 const RD = 28;            // LEDs to a data unit
 const RE = 26;            // LEDs from the centre to a cluster's corner in the embedding
+const GAMMA = 1.5;        // how much wider the scatter round a cluster is drawn than it is
 const RR = 30.5;          // the radius of the two rings that frame the views
 
 function hsv(h, s, v, o) {
@@ -97,8 +99,8 @@ function build(S, id) {
     }
     case 3: { // a pair of spirals
       const a = TAU * r(), s2 = J(2.2 * PI, 0.1), r1 = J(0.92, 0.04);
-      push(halves(sp(0, 0, 0.1, r1, a, s2, 0.02)));
-      push(halves(sp(0, 0, 0.1, r1, a + PI, s2, 0.02)));
+      push(halves(sp(0, 0, 0.2, r1, a, s2, 0.02)));
+      push(halves(sp(0, 0, 0.2, r1, a + PI, s2, 0.02)));
       break;
     }
     case 4: { // four blobs
@@ -112,10 +114,10 @@ function build(S, id) {
       P.push(blob(-d, o(0.1), th), blob(d, o(0.1), th));
       break;
     }
-    case 6: { // a ring round two crescents
-      const R = J(0.92, 0.03), rc = J(0.38, 0.1), dx = J(0.2, 0.15), dy = J(0.1, 0.2);
+    case 6: { // a ring round two facing arcs
+      const R = J(0.92, 0.03), rc = J(0.52, 0.12), sa = J(1.05, 0.12), d = J(0.03, 0.5), y = o(0.2);
       push(ring(0, 0, R, 0.02, 0));
-      P.push(sp(-dx, dy, rc, rc, PI, PI, 0.025), sp(dx, -dy, rc, rc, 0, PI, 0.025));
+      P.push(sp(d, y, rc, rc, PI - sa, 2 * sa, 0.025), sp(-d, -y, rc, rc, -sa, 2 * sa, 0.025));
       break;
     }
     case 7: { // two parallel arcs
@@ -133,7 +135,7 @@ function build(S, id) {
       break;
     case 9: { // three spiral arms
       const a = TAU * r(), s2 = J(1.6 * PI, 0.1), r1 = J(0.92, 0.04);
-      for (let i = 0; i < 3; i++) P.push(sp(0, 0, 0.1, r1, a + (i * TAU) / 3, s2, 0.02));
+      for (let i = 0; i < 3; i++) P.push(sp(0, 0, 0.28, r1, a + (i * TAU) / 3, s2, 0.02));
       P.push(P[floor(r() * 3)].slice());
       break;
     }
@@ -334,13 +336,12 @@ export function setup(params) {
     jr: new Float64Array(N), jw: new Float64Array(N), jp: new Float64Array(N),
     px: new Float64Array(N), py: new Float64Array(N),
     M: new Float32Array(N * N), dis: new Float64Array(N), dg: new Float64Array(N),
-    Q: new Float64Array(N * (KMAX + QX)), Z: new Float64Array(N * (KMAX + QX)), T: new Float64Array(N * (KMAX + QX)),
-    Q2: new Float64Array(N * (KMAX + QX)),
-    kc: 3, q: 6, lam: new Float64Array(KMAX + QX),
+    Q: new Float64Array(N * QM), Z: new Float64Array(N * QM), T: new Float64Array(N * QM), Q2: new Float64Array(N * QM),
+    kc: 3, ka: 3, kt: 0, lam: new Float64Array(QM), hasLb: false, kPrev: 0,
     Y: new Float64Array(N * KMAX), Yp: new Float64Array(N * KMAX), hasYp: false,
     C: new Float64Array(KMAX * KMAX), hasC: false, lb: new Uint8Array(N),
     dx: new Float64Array(N), dy: new Float64Array(N), cr: new Float64Array(N), cg: new Float64Array(N), cb: new Float64Array(N),
-    vx: new Float64Array(KMAX), vy: new Float64Array(KMAX), sig: 0.075,
+    vx: new Float64Array(KMAX), vy: new Float64Array(KMAX), cxl: new Float64Array(KMAX), cyl: new Float64Array(KMAX), sig: 0.075,
   };
   for (let i = 0; i < 40; i++) S.ph.push(TAU * r());
   for (let g = 0; g < NG; g++) {
@@ -409,10 +410,10 @@ function affinity(S, sig) {
   for (let i = 0; i < n; i++) S.dis[i] = 1 / sqrt(deg[i]);
 }
 
-const HM = new Float64Array((KMAX + QX) * (KMAX + QX)), HV = new Float64Array((KMAX + QX) * (KMAX + QX));
+const HM = new Float64Array(QM * QM), HV = new Float64Array(QM * QM);
 // sweeps of subspace iteration, then Rayleigh-Ritz: the columns of S.Q are the leading eigenvectors in order
 function eigen(S, sweeps) {
-  const n = N, q = S.q, Q = S.Q, Z = S.Z;
+  const n = N, q = QM, Q = S.Q, Z = S.Z;
   for (let s = 0; s < sweeps; s++) {
     mulM(S, Q, Z, q);
     Q.set(Z.subarray(0, n * q));
@@ -445,7 +446,7 @@ function eigen(S, sweeps) {
 }
 
 const MA = new Float64Array(KMAX * KMAX), RA = new Float64Array(KMAX * KMAX), CN = new Float64Array(KMAX * KMAX), RD2 = new Float64Array(KMAX * KMAX);
-function embed(S, first) {
+function embed(S) {
   const n = N, k = S.kc, Q = S.Q, Y = S.Y, Yp = S.Yp;
   for (let i = 0; i < n; i++) {
     let nn = 0;
@@ -475,23 +476,42 @@ function embed(S, first) {
 function kmeans(S, iters) {
   const n = N, k = S.kc, Y = S.Y, C = S.C, lb = S.lb;
   if (!S.hasC) {
-    // farthest first, then Lloyd
-    const pick = [floor(S.r() * n)];
+    // the clusters keep their labels across a change of k: seed from the points each held, then farthest first
+    const sum0 = new Float64Array(k * k), cnt0 = new Float64Array(k);
+    let have = 0;
+    if (S.hasLb) {
+      for (let i = 0; i < n; i++) {
+        const l = lb[i];
+        if (l >= k) continue;
+        cnt0[l]++;
+        for (let c = 0; c < k; c++) sum0[l * k + c] += Y[i * k + c];
+      }
+      while (have < k && cnt0[have] > 0) have++;
+      for (let j = 0; j < have; j++) for (let c = 0; c < k; c++) C[j * k + c] = sum0[j * k + c] / cnt0[j];
+    }
     const dm = new Float64Array(n).fill(1e9);
-    while (pick.length < k) {
-      const l = pick[pick.length - 1];
-      let bi = 0, bd = -1;
+    const upd = (l) => {
       for (let i = 0; i < n; i++) {
         let d = 0;
-        for (let c = 0; c < k; c++) d += (Y[i * k + c] - Y[l * k + c]) * (Y[i * k + c] - Y[l * k + c]);
+        for (let c = 0; c < k; c++) d += (Y[i * k + c] - C[l * k + c]) * (Y[i * k + c] - C[l * k + c]);
         if (d < dm[i]) dm[i] = d;
-        if (dm[i] > bd) ((bd = dm[i]), (bi = i));
       }
-      pick.push(bi);
+    };
+    if (have === 0) {
+      const f = floor(S.r() * n);
+      for (let c = 0; c < k; c++) C[c] = Y[f * k + c];
+      have = 1;
     }
-    for (let j = 0; j < k; j++) for (let c = 0; c < k; c++) C[j * k + c] = Y[pick[j] * k + c];
+    for (let j = 0; j < have; j++) upd(j);
+    while (have < k) {
+      let bi = 0, bd = -1;
+      for (let i = 0; i < n; i++) if (dm[i] > bd) ((bd = dm[i]), (bi = i));
+      for (let c = 0; c < k; c++) C[have * k + c] = Y[bi * k + c];
+      upd(have);
+      have++;
+    }
     S.hasC = true;
-    iters = 14;
+    iters = 12;
   }
   const sum = new Float64Array(k * k), cnt = new Float64Array(k);
   for (let it = 0; it < iters; it++) {
@@ -525,6 +545,7 @@ function kmeans(S, iters) {
       } else for (let c = 0; c < k; c++) C[j * k + c] = sum[j * k + c] / cnt[j];
     }
   }
+  S.hasLb = true;
 }
 
 const CK = [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]];
@@ -591,70 +612,92 @@ function layout(S, d, first) {
     }
   }
   const a = first ? 1 : 1 - exp(-d / 0.14);
+  const cx = S.cxl, cy = S.cyl;
+  for (let j = 0; j < k; j++) {
+    let x = 0, y = 0;
+    for (let b = 0; b < k; b++) ((x += C[j * k + b] * px[b]), (y += C[j * k + b] * py[b]));
+    cx[j] = x;
+    cy[j] = y;
+  }
   for (let i = 0; i < n; i++) {
     let x = 0, y = 0;
     for (let b = 0; b < k; b++) {
       x += Y[i * k + b] * px[b];
       y += Y[i * k + b] * py[b];
     }
+    // the scatter round a cluster is drawn GAMMA times as wide as it is
+    const l = S.lb[i];
+    x = cx[l] + GAMMA * (x - cx[l]);
+    y = cy[l] + GAMMA * (y - cy[l]);
+    const m = sqrt(x * x + y * y);
+    if (m > 1.04) ((x *= 1.04 / m), (y *= 1.04 / m));
     S.dx[i] += (x - S.dx[i]) * a;
     S.dy[i] += (y - S.dy[i]) * a;
   }
 }
 
-const kOf = (v) => (v < -0.4 ? 2 : v < 0.4 ? 3 : v < 0.75 ? 4 : 5);
+function tick(S, d, kv, first, adv) {
+  const al = first ? 1 : 1 - exp(-d / 0.18);
+  for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
+  S.sig = 0.075 * exp(0.62 * (S.k[1] - 2));
+  if (adv) {
+    const speed = exp(1.1 * S.k[2]);
+    S.t += d;
+    S.sc += d * speed;
+    S.rot += d * speed * 0.04;
+    // the script of shapes: hold, morph, and a new scene made at random each time
+    if (S.sc > S.tm + S.md) {
+      S.A = S.B;
+      newScene(S, nextId(S));
+      S.tm = S.sc + 6 + 8 * S.r();
+      S.md = 9 + 8 * S.r();
+    }
+    S.u = sm((S.sc - S.tm) / S.md);
+  }
+  place(S);
+  affinity(S, S.sig);
+  eigen(S, first ? 90 : 3);
+  // the number of clusters: where the eigenvalues leave 1 by the biggest step (the eigengap), the knob adding or taking away cuts
+  S.kt += d;
+  let bk = 2, br = 0, rk = 0;
+  for (let j = 2; j <= KMAX; j++) {
+    const rj = (1 - S.lam[j] + GAPF) / (1 - S.lam[j - 1] + GAPF);
+    if (rj > br) ((br = rj), (bk = j));
+    if (j === S.ka) rk = rj;
+  }
+  if (first) S.ka = bk;
+  else if (bk !== S.ka && br > 1.5 * rk && S.kt > 0.4) ((S.ka = bk), (S.kt = 0));
+  const kn = cl(S.ka + Math.round(3 * S.k[3]), 2, KMAX);
+  if (kn !== S.kc || first) {
+    S.kPrev = S.kc;
+    S.kc = kn;
+    S.hasYp = false;
+    S.hasC = false;
+  }
+  embed(S);
+  kmeans(S, 2);
+  recolor(S, first ? 100 : d);
+  layout(S, d, first);
+}
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kv = (input && input.knobValues) || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
-  const first = !S.ready;
-  if (first) {
+  if (!S.ready) {
     S.k = [kv[0], kv[1], kv[2], kv[3]];
-    S.kc = kOf(S.k[3]);
-    S.q = S.kc + QX;
-    for (let i = 0; i < N * S.q; i++) S.Q[i] = S.r() - 0.5;
-    orth(S, S.Q, S.q);
+    for (let i = 0; i < N * QM; i++) S.Q[i] = S.r() - 0.5;
+    orth(S, S.Q, QM);
     newScene(S, 6);
     S.A = S.B;
     newScene(S, nextId(S));
     S.tm = 16;
     S.md = 12;
-    S.sig = 0.075 * exp(0.62 * (S.k[1] - 2));
     S.ready = true;
+    // the opening is already settled: the eigenvectors, the clusters and the colours have run for a second
+    tick(S, 1 / 30, kv, true, false);
+    for (let i = 0; i < 36; i++) tick(S, 1 / 30, kv, false, false);
   }
-  const al = 1 - exp(-d / 0.18);
-  for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
-  S.sig = 0.075 * exp(0.62 * (S.k[1] - 2));
-  const speed = exp(1.1 * S.k[2]);
-  S.t += d;
-  S.sc += d * speed;
-  S.rot += d * speed * 0.04;
-  // the script of shapes: hold, morph, and a new scene made at random each time
-  if (S.sc > S.tm + S.md) {
-    S.A = S.B;
-    newScene(S, nextId(S));
-    S.tm = S.sc + 6 + 8 * S.r();
-    S.md = 9 + 8 * S.r();
-  }
-  S.u = sm((S.sc - S.tm) / S.md);
-  place(S);
-  affinity(S, S.sig);
-  // the number of clusters
-  const kn = kOf(S.k[3]);
-  if (kn !== S.kc) {
-    S.kc = kn;
-    const q = kn + QX;
-    for (let i = N * S.q; i < N * q; i++) S.Q[i] = S.r() - 0.5;
-    S.q = q;
-    orth(S, S.Q, q);
-    S.hasYp = false;
-    S.hasC = false;
-    eigen(S, 12);
-  } else eigen(S, first ? 90 : 3);
-  embed(S, first);
-  kmeans(S, 2);
-  recolor(S, first ? 100 : d);
-  layout(S, d, first);
+  tick(S, d, kv, false, true);
 }
 
 // ------------------------------------------------------------ drawing
@@ -692,6 +735,60 @@ function ring2(cx, cy, rad, r, g, b, k) {
   }
 }
 
+// the haze is made at half size: points are splatted on a 32 by 64 grid, blurred, and read back bilinearly
+const HW = W / 2, HHT = H / 2, KH = 4, KG = new Float32Array(2 * KH + 1), TMP = new Float32Array(HW * HHT);
+{
+  let t = 0;
+  for (let i = -KH; i <= KH; i++) t += KG[i + KH] = exp(-(i * i) / (2 * 1.25 * 1.25));
+  for (let i = 0; i < KG.length; i++) KG[i] /= t;
+}
+function blur(A) {
+  for (let y = 0; y < HHT; y++) {
+    for (let x = 0; x < HW; x++) {
+      let s = 0;
+      for (let i = -KH; i <= KH; i++) {
+        const xx = x + i;
+        if (xx >= 0 && xx < HW) s += A[y * HW + xx] * KG[i + KH];
+      }
+      TMP[y * HW + x] = s;
+    }
+  }
+  for (let y = 0; y < HHT; y++) {
+    for (let x = 0; x < HW; x++) {
+      let s = 0;
+      for (let i = -KH; i <= KH; i++) {
+        const yy = y + i;
+        if (yy >= 0 && yy < HHT) s += TMP[yy * HW + x] * KG[i + KH];
+      }
+      A[y * HW + x] = s;
+    }
+  }
+}
+function splat(x, y, r, g, b, k) {
+  x = x / 2;
+  y = y / 2;
+  const xi = floor(x - 0.5), yi = floor(y - 0.5), fx = x - 0.5 - xi, fy = y - 0.5 - yi;
+  for (let j = 0; j < 2; j++) {
+    for (let i = 0; i < 2; i++) {
+      const xx = xi + i, yy = yi + j;
+      if (xx < 0 || xx >= HW || yy < 0 || yy >= HHT) continue;
+      const w = k * (i ? fx : 1 - fx) * (j ? fy : 1 - fy), p = yy * HW + xx;
+      HR[p] += r * w;
+      HG[p] += g * w;
+      HB[p] += b * w;
+    }
+  }
+}
+const HR = new Float32Array(HW * HHT), HG = new Float32Array(HW * HHT), HB = new Float32Array(HW * HHT);
+// the haze at LED (x, y), bilinear
+function haze(A, x, y) {
+  const u = (x + 0.5) / 2 - 0.5, v = (y + 0.5) / 2 - 0.5, xi = floor(u), yi = floor(v), fx = u - xi, fy = v - yi;
+  const x0 = cl(xi, 0, HW - 1), x1 = cl(xi + 1, 0, HW - 1), y0 = cl(yi, 0, HHT - 1), y1 = cl(yi + 1, 0, HHT - 1);
+  return (A[y0 * HW + x0] * (1 - fx) + A[y0 * HW + x1] * fx) * (1 - fy) + (A[y1 * HW + x0] * (1 - fx) + A[y1 * HW + x1] * fx) * fy;
+}
+
+const TRC = [3 * PER / 4 | 0, PER + 20, 2 * PER + 31, 3 * PER + 8, PER + 44];
+
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
@@ -702,22 +799,49 @@ export function draw(display, params) {
   DR.fill(0);
   DG.fill(0);
   DB.fill(0);
+  HR.fill(0);
+  HG.fill(0);
+  HB.fill(0);
   ring2(CX, CYD, RR, 0.5, 0.6, 0.9, 0.2);
   ring2(CX, CYE, RR, 0.5, 0.6, 0.9, 0.2);
-  for (let i = 0; i < N; i++) {
-    disc(CX + S.px[i] * RD, CYD + S.py[i] * RD, S.cr[i], S.cg[i], S.cb[i], 0.85, 1.0);
-    disc(CX + S.dx[i] * RE, CYE + S.dy[i] * RE, S.cr[i], S.cg[i], S.cb[i], 0.85, 1.0);
+  const k = S.kc;
+  for (let j = 0; j < k; j++) {
+    pal(slotHue(S, j, k), 0.86, CK[j]);
+    ring2(CX + S.vx[j] * RE, CYE + S.vy[j] * RE, 4.6, CK[j][0], CK[j][1], CK[j][2], 0.2);
   }
+  for (let i = 0; i < N; i++) {
+    const x1 = CX + S.px[i] * RD, y1 = CYD + S.py[i] * RD, x2 = CX + S.dx[i] * RE, y2 = CYE + S.dy[i] * RE;
+    disc(x1, y1, S.cr[i], S.cg[i], S.cb[i], 0.9, 0.85);
+    disc(x2, y2, S.cr[i], S.cg[i], S.cb[i], 0.5, 1.05);
+    splat(x1, y1, S.cr[i], S.cg[i], S.cb[i], 0.3);
+    splat(x2, y2, S.cr[i], S.cg[i], S.cb[i], 0.5);
+  }
+  // a few points are followed: a pale ring round each in both views
+  for (let m = 0; m < TRC.length; m++) {
+    const i = TRC[m], x1 = CX + S.px[i] * RD, y1 = CYD + S.py[i] * RD, x2 = CX + S.dx[i] * RE, y2 = CYE + S.dy[i] * RE;
+    ring2(x1, y1, 3.3, 0.8, 0.8, 0.85, 0.6);
+    ring2(x2, y2, 3.3, 0.8, 0.8, 0.85, 0.6);
+  }
+  blur(HR);
+  blur(HG);
+  blur(HB);
   const G = 1.4;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x, a = AA[p];
-      let r = 0.01 + DR[p], g = 0.014 + DG[p], b = 0.03 + DB[p];
+      let r = 0.01 + DR[p] + haze(HR, x, y), g = 0.014 + DG[p] + haze(HG, x, y), b = 0.03 + DB[p] + haze(HB, x, y);
       if (a > 1e-4) {
         const t = 1 - exp(-G * a), f = t / a;
         r += AR[p] * f;
         g += AG[p] * f;
         b += AB[p] * f;
+      }
+      const m = max(r, g, b);
+      if (m > 0.85) {
+        const f = (0.85 + (1 - 0.85) * (1 - exp(-(m - 0.85) / 0.15))) / m;
+        r *= f;
+        g *= f;
+        b *= f;
       }
       display.setPixel(x, y, min(255, (r * 255) | 0), min(255, (g * 255) | 0), min(255, (b * 255) | 0));
     }
