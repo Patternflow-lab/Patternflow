@@ -31,15 +31,16 @@ const XL = -32, LM = 128;               // model domain from XL, length LM, colu
 const NJ = 257;                         // grid points at half a column
 const NM = 36;                          // cosine modes 0..NM
 const J0 = 64;                          // grid index of column 0
-const YS = 64;                          // row of the datum sea level
-const CRUST = 15;                       // rows of crust and lithosphere drawn under the land
+const YS = 58;                          // row of the datum sea level
+let CRUST = 15;                         // rows of lithosphere drawn under the land, set from the Lithosphere knob each frame
 const RHO = 0.917 / 3.3;                // ice density over mantle density
-const HS = 5;                         // ice thickness 3.6 sqrt(L - x) rows, columns of 5 km, rows of 90 m
-const TAU1 = 9.7;                       // relaxation time of the longest mode for eta = 1e21 Pa s, thousand years
+const HS = 6.4;                         // ice thickness 3.6 sqrt(L - x) rows, columns of 5 km, rows of 90 m
+const TAU1 = 50;                        // relaxation time of the longest mode for eta = 1e21 Pa s, thousand years
 const ES = 3;                         // eustatic drop in rows at the largest ice
-const PRE = 170;                        // model time run before the first frame, thousand years
+const PRE = 330;                        // model time run before the first frame, thousand years
 const TL = 1.5;                         // time-lapse: thousand years of model time in a second on the panel
-const NRID = 14, NDS = 30;
+const NRID = 16, NDS = 30;
+const BW = 1.2;                         // half width of a bench, columns
 
 const CT = new Float32Array((NM + 1) * NJ);
 const KN = new Float64Array(NM + 1);
@@ -48,7 +49,7 @@ for (let n = 0; n <= NM; n++) {
   for (let j = 0; j < NJ; j++) CT[n * NJ + j] = cos((n * PI * j) / (NJ - 1));
 }
 const ZB = new Float64Array(NJ);        // the land before the ice, rows above the datum
-const zbf = (x) => 11 - 0.4 * sp(x - 6, 4) - 0.25 * sp(x - 44, 5);
+const zbf = (x) => 9 - 0.28 * sp(x, 4) - 0.25 * sp(x - 40, 5);
 for (let j = 0; j < NJ; j++) ZB[j] = zbf(XL + 0.5 * j);
 
 function hsv(h, s, v, o) {
@@ -121,10 +122,10 @@ export function setup(params) {
   }
   params.s = {
     tm: 0, rt: 0, k: null, A: new Float64Array(NM + 1), Rt: new Float64Array(NM + 1), ready: false,
-    wl: wander(6, 36, 400), wc: wander(5, 60, 420), wf: wander(4, 9, 52),
+    wl: wander(6, 36, 400), wc: wander(5, 60, 420), wf: wander(5, 40, 380),
     u: 0.5, ice: { xd: -4, R: 40, L: 40, V: 0 }, e: 0, vref,
-    sh: { x: NaN, px: NaN, v: 0, quiet: 0, cur: null, lo: NaN, hi: NaN },
-    rid: [], dash: dashes, hue: -9, n: 0, wmin: 0, wmax: 0, nform: 0,
+    sh: { x: NaN, front: false, quiet: 0, cur: null, lo: NaN, hi: NaN },
+    rid: [], zc: new Float64Array(NJ), dash: dashes, hue: -9, n: 0, wmin: 0, wmax: 0, nform: 0,
   };
   // start the history where the ice has been growing and stands at a middling size, so the first picture is a mature one
   const S = params.s;
@@ -138,25 +139,26 @@ export function setup(params) {
 
 const AEQ = new Float64Array(NM + 1);
 
-const target = (S, t) => 0.5 + 0.5 * tanh(1.15 * wv(S.wl, t));
+const alphaOf = (k) => 7 * pow(2, 1.9 * cl(k, -1, 1));
+const target = (S, t) => 0.5 + 0.5 * tanh(1.3 * wv(S.wl, t) - 0.45);
 
 function stepModel(S, dt) {
   const kk = S.k;
   S.tm += dt;
   const t = S.tm;
   // the ice history: a target from the wander, followed slowly on the way up and quickly on the way down
-  const lmax = 20 + 26 * (cl(kk[3], -1, 1) + 1);
+  const lmax = 22 + 28 * (cl(kk[3], -1, 1) + 1);
   const tar = target(S, t);
-  S.u += cl(tar - S.u, -dt / 32, dt / 80);
+  S.u += cl(tar - S.u, -dt / 40, dt / 90);
   const L = 11 + (lmax - 11) * S.u;
   const xd = -5 + 11 * tanh(0.9 * wv(S.wc, t));
   const ice = S.ice;
   ice.L = L; ice.xd = xd; ice.R = max(L - xd, 14);
   ice.V = iceProfile(S, ice);
-  S.e = -ES * min(1, ice.V / S.vref) + 0.35 * wv(S.wf, t);
+  S.e = -ES * min(1, ice.V / S.vref) + 1.0 * wv(S.wf, t);
 
   // the load in cosine modes, each mode relaxes toward its own equilibrium
-  const alpha = 7 * pow(2, 1.9 * cl(kk[2], -1, 1));
+  const alpha = alphaOf(kk[2]);
   const visc = pow(2, 1.15 * (cl(kk[1], 0, 4) - 2));
   for (let n = 0; n <= NM; n++) {
     let a = 0;
@@ -176,46 +178,54 @@ function stepModel(S, dt) {
     const j = J0 + i;
     for (let n = 0; n <= NM; n++) w += S.A[n] * CT[n * NJ + j];
     WP[i] = w;
-    ZL[i] = ZB[j] + w;
+    ZL[i] = ZB[j] + S.zc[j] + w;
   }
 
-  // the shoreline: where the land first goes under the sea, going right from the interior
+  // the sea is the water connected to the right edge: walk left while the land is under it and no ice stands there.
+  // It ends on the land (a shoreline, where a beach can be cut) or on the ice (an ice front, where none can)
   const sh = S.sh;
-  let xs = NaN;
-  for (let i = 1; i <= 128; i++)
-    if (ZL[i] < S.e && ZL[i - 1] >= S.e) { xs = 0.5 * (i - 1 + (ZL[i - 1] - S.e) / (ZL[i - 1] - ZL[i])); break; }
-  if (Number.isFinite(xs) && Number.isFinite(sh.px)) {
-    const v = (xs - sh.px) / dt;
-    sh.v += (v - sh.v) * (1 - exp(-dt / 1.5));
-  } else sh.v = 9;
-  sh.px = xs;
-  sh.x = xs;
-  const iceAt = (x) => {
-    const j = cl(round2(x - XL), 0, NJ - 1);
-    return SH[j];
-  };
-  if (Number.isFinite(xs) && xs > 3 && xs < 61 && iceAt(xs) < 0.8) {
-    // the shoreline holds still while it stays inside a window 1.6 columns wide; a beach is cut after 4 seconds there
-    if (!Number.isFinite(sh.lo) || xs < sh.hi - 1.6 || xs > sh.lo + 1.6) { sh.lo = sh.hi = xs; sh.quiet = 0; sh.cur = null; }
+  let xs = NaN, front = false;
+  if (ZL[128] < S.e && SH[J0 + 128] < 0.6) {
+    let i = 128;
+    while (i > 0 && ZL[i - 1] < S.e && SH[J0 + i - 1] < 0.6) i--;
+    if (i === 0) xs = 0;
+    else if (SH[J0 + i - 1] >= 0.6 && ZL[i - 1] < S.e) { xs = 0.5 * i; front = true; }
+    else xs = 0.5 * (i - 1 + (ZL[i - 1] - S.e) / (ZL[i - 1] - ZL[i]));
+  }
+  sh.x = xs; sh.front = front;
+  const iceAt = (x) => SH[cl(round2(x - XL), 0, NJ - 1)];
+  if (Number.isFinite(xs) && !front && xs > 3 && xs < 61) {
+    // the shoreline holds still while it stays inside a window 2 columns wide; a beach is cut after 2.5 thousand years there
+    if (!Number.isFinite(sh.lo) || xs < sh.hi - 2.4 || xs > sh.lo + 2.4) { sh.lo = sh.hi = xs; sh.quiet = 0; sh.cur = null; }
     else { sh.lo = min(sh.lo, xs); sh.hi = max(sh.hi, xs); sh.quiet += dt; }
-    if (sh.quiet > 4) {
+    if (sh.quiet > 1.5) {
       const xr = 0.5 * (sh.lo + sh.hi);
       if (!sh.cur) {
         let near = null;
-        for (const r of S.rid) if (abs(r.x - xr) < 2.7 && (!near || abs(r.x - xr) < abs(near.x - xr))) near = r;
+        for (const r of S.rid) if (abs(r.x - xr) < 2.6 && (!near || abs(r.x - xr) < abs(near.x - xr))) near = r;
         if (near) sh.cur = near;
         else {
-          sh.cur = { x: xr, h0: S.e, w0: interpW(xr), t0: S.tm, s: 0.35 };
+          sh.cur = { x: xr, h0: S.e, w0: interpW(xr), t0: S.tm, s: 0.25 };
           S.rid.push(sh.cur); S.nform++;
         }
       }
-      sh.cur.s = min(1, sh.cur.s + dt / 26);
+      sh.cur.s = min(1, sh.cur.s + dt / 22);
     }
   } else { sh.lo = NaN; sh.quiet = 0; sh.cur = null; }
+  // while a beach is being cut the sea planes the land flat at its own level, a bench with a small seaward slope: the cut is made in
+  // the crust's own frame, so every bench is carried up, and tilted, with the land it was cut in
+  if (sh.cur && sh.quiet > 1.5) {
+    const xr = sh.cur.x, k = 1 - exp(-dt / 2.5);
+    for (let i = max(0, floor(2 * (xr - BW - 1))); i <= min(128, ceil(2 * (xr + BW + 1))); i++) {
+      const x = 0.5 * i, j = J0 + i, g = exp(-pow(abs(x - xr) / BW, 4));
+      const target = S.e - WP[i] - 0.07 * (x - xr);
+      S.zc[j] += (target - (ZB[j] + S.zc[j])) * g * k * (0.4 + 0.6 * sh.cur.s);
+    }
+  }
   // erosion, scouring under the ice, and the limit on how many are kept
   for (const r of S.rid) {
     const covered = iceAt(r.x) > 2;
-    r.s *= exp(-dt / (covered ? 14 : 300));
+    r.s *= exp(-dt / (covered ? 400 : 600));
   }
   S.rid = S.rid.filter((r) => r.s > 0.1);
   while (S.rid.length > NRID) {
@@ -258,7 +268,7 @@ function buildColors(h) {
   for (let y = 0; y < H; y++) {
     const t = cl(y / 74, 0, 1), q = t * t;
     const q2 = q * q;
-    hsv(lerp(0.615, 0.54, q2) + h, lerp(0.7, 0.22, q2), lerp(0.4, 0.9, q2), T);
+    hsv(lerp(0.615, 0.54, q2) + h, lerp(0.64, 0.22, q2), lerp(0.5, 0.92, q2), T);
     lutSet(SKY, y, T);
   }
   for (let d = 0; d < 100; d++) {
@@ -271,12 +281,12 @@ function buildColors(h) {
     lutSet(ICE, i, T);
   }
   for (let d = 0; d < 110; d++) {
-    hsv(0.03 + he + 0.03 * sm(0, 90, d), lerp(0.66, 0.74, sm(0, 60, d)), lerp(0.27, 0.62, sm(0, 100, d)), T);
+    hsv(0.045 + he + 0.03 * sm(0, 90, d), lerp(0.58, 0.68, sm(0, 60, d)), lerp(0.36, 0.7, sm(0, 100, d)), T);
     lutSet(MAN, d, T);
   }
-  hsv(0.065 + he, 0.6, 0.32, T); lutSet(EAR, 0, T);    // umber
-  hsv(0.1 + he, 0.56, 0.64, T); lutSet(EAR, 1, T);     // ochre
-  hsv(0.125 + he, 0.28, 0.95, T); lutSet(EAR, 2, T);   // beach sand
+  hsv(0.06 + he, 0.62, 0.3, T); lutSet(EAR, 0, T);     // umber
+  hsv(0.1 + he, 0.58, 0.6, T); lutSet(EAR, 1, T);      // ochre
+  hsv(0.13 + he, 0.22, 1, T); lutSet(EAR, 2, T);       // beach sand
   hsv(0.09 + he, 0.5, 0.58, T); lutSet(EAR, 3, T);     // soil
 }
 
@@ -288,21 +298,25 @@ export function draw(display, params) {
   if (!S || !S.k) return;
   if (abs(S.hue - S.k[0]) > 0.0005) { buildColors(S.k[0]); S.hue = S.k[0]; }
   const rt = S.rt, ice = S.ice, ysea = YS - S.e;
+  // the plate is drawn as thick as the elastic plate is stiff: 8 rows for the thinnest, 22 for the thickest
+  CRUST = 8 + 14 * cl(log(alphaOf(S.k[2]) / 1.6) / log(16.25), 0, 1);
+  const vq = (cl(S.k[1], 0, 4) - 2) * 0.5;
 
   // per column: the land, the ice, the crust base, the beach weight
   for (let x = 0; x < W; x++) {
     const w = WP[2 * x + 1], j = J0 + 2 * x + 1, xc = x + 0.5;
     let bump = 0, rw = 0;
     for (const r of S.rid) {
-      const u = (xc - r.x) / 1.5;
-      if (u > -3.2 && u < 3.2) { const g = exp(-u * u); bump += (1.1 + 1.9 * r.s) * g; rw += r.s * g; }
+      const u = (xc - r.x + 0.8 * BW) / 1.4, v = abs(xc - r.x) / (BW + 0.6);
+      if (u > -3.2 && u < 3.2) bump += (0.4 + 0.9 * r.s) * exp(-u * u);
+      if (v < 2) rw += (0.3 + 0.8 * r.s) * exp(-pow(v, 4));
     }
-    const ys = YS - ZB[j] - w - bump;
+    const ys = YS - ZB[j] - S.zc[j] - w - bump;
     CS[x] = ys;
     CB[x] = YS - ZB[j] + CRUST - w;
     CH[x] = SH[j];
     CI[x] = ys - SH[j];
-    CR[x] = min(1, rw * 1.3);
+    CR[x] = min(1, rw);
     CW[x] = w;
   }
 
@@ -350,8 +364,12 @@ export function draw(display, params) {
         let lr = EAR[0] + (EAR[3] - EAR[0]) * st, lg = EAR[1] + (EAR[4] - EAR[1]) * st, lb = EAR[2] + (EAR[5] - EAR[2]) * st;
         const so = 0.7 * (1 - sm(0.5, 3.5, dp));
         lr += (EAR[9] - lr) * so; lg += (EAR[10] - lg) * so; lb += (EAR[11] - lb) * so;
-        const pw = CR[x] * (1 - sm(1.2, 4.2, dp));
+        const pw = CR[x] * (1 - sm(1.8, 4.6, dp));
         lr += (EAR[6] - lr) * pw; lg += (EAR[7] - lg) * pw; lb += (EAR[8] - lb) * pw;
+        // a low light from the right: faces that look out to sea take it, faces that look inland do not, so the risers between benches show
+        const sl = cl((CS[min(W - 1, x + 1)] - CS[max(0, x - 1)]) * 0.5, -2.2, 2.2);
+        const lf = 1 + 0.2 * (sl - 0.4) * (1 - sm(0, 3.6, dp));
+        lr *= lf; lg *= lf; lb *= lf;
         r += (lr - r) * cl2; g += (lg - g) * cl2; b += (lb - b) * cl2;
       }
       // mantle: dark umber under the crust to glowing amber at the bottom, with slow blotches and the streaks of flow
@@ -359,8 +377,8 @@ export function draw(display, params) {
       if (cm > 0.002) {
         const dm = cl(yc - yb, 0, 108), i0 = floor(dm) * 3;
         const nb = vn(x * 0.07 + rt * 0.03, yc * 0.09 - rt * 0.045 + 4.3);
-        const lum = 0.82 + 0.36 * nb + 0.22 * sm(88, 128, yc);
-        let mr = MAN[i0] * lum, mg = MAN[i0 + 1] * lum * (0.92 + 0.16 * nb), mb = MAN[i0 + 2] * lum;
+        const lum = (0.82 + 0.36 * nb + 0.22 * sm(88, 128, yc)) * (1 - 0.3 * vq);
+        let mr = MAN[i0] * lum, mg = MAN[i0 + 1] * lum * (0.92 + 0.16 * nb) * (1 - 0.14 * vq), mb = MAN[i0 + 2] * lum * (1 - 0.3 * vq);
         const dsh = DSH[y * W + x];
         mr += 255 * 0.55 * dsh; mg += 190 * 0.55 * dsh; mb += 80 * 0.55 * dsh;
         r += (mr - r) * cm; g += (mg - g) * cm; b += (mb - b) * cm;
