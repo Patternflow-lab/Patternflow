@@ -65,19 +65,16 @@ const ring = (cx, cy, r, th, a0, span) => halves(sp(cx, cy, r, r, a0 || 0, span 
 const arc = (cx, cy, r, a0, span, th) => [sp(cx, cy, r, r, a0, span, th)];
 // a scene is a list of curves, each a list of one or two pieces; a curve that comes twice is heavier
 const ARCH = [
+  (J, o) => { const rc = J(0.42, 0.1), sa = J(1, 0.1), d = J(0.03, 0.5), y = o(0.12); return [ring(0, 0, J(0.92, 0.03), 0.02), arc(d, y, rc, PI - sa, 2 * sa, 0.025), arc(-d, -y, rc, -sa, 2 * sa, 0.025)]; }, // ring round two facing arcs
   (J, o) => [ring(o(0.1), o(0.1), J(0.9, 0.04), 0.02), ring(o(0.1), o(0.1), J(0.42, 0.1), 0.02)], // nested rings
   (J, o) => { const R = J(0.6, 0.06), dx = J(0.28, 0.1), dy = J(0.14, 0.2), t = J(0.03, 0.2); return [ring(-dx, dy, R, t, PI, PI), ring(dx, -dy, R, t, 0, PI)]; }, // two moons
   (J, o, r) => { const a = TAU * r(), R = J(0.55, 0.1), t = J(0.13, 0.15), c = [0, 1, 2].map((i) => blob(R * cos(a + (i * TAU) / 3), R * sin(a + (i * TAU) / 3), t)); return [...c, c[floor(r() * 3)]]; }, // three blobs
   (J, o, r) => { const a = TAU * r(), s2 = J(2.2 * PI, 0.1), r1 = J(0.92, 0.04); return [halves(sp(0, 0, 0.2, r1, a, s2, 0.02)), halves(sp(0, 0, 0.2, r1, a + PI, s2, 0.02))]; }, // spiral pair
-  (J, o, r) => { const a = TAU * r(), R = J(0.68, 0.1), t = J(0.11, 0.2); return [0, 1, 2, 3].map((i) => blob(R * cos(a + (i * TAU) / 4), R * sin(a + (i * TAU) / 4), t)); }, // four blobs
   (J, o) => { const d = J(0.32, 0.15), t = J(0.1, 0.2); return [ring(0, 0, J(0.9, 0.04), 0.02), blob(-d, o(0.1), t), blob(d, o(0.1), t)]; }, // ring round two blobs
-  (J, o) => { const rc = J(0.42, 0.1), sa = J(1, 0.1), d = J(0.03, 0.5), y = o(0.12); return [ring(0, 0, J(0.92, 0.03), 0.02), arc(d, y, rc, PI - sa, 2 * sa, 0.025), arc(-d, -y, rc, -sa, 2 * sa, 0.025)]; }, // ring round two facing arcs
   (J, o) => { const R = J(1.2, 0.1), sg = J(0.5, 0.12), g = J(0.5, 0.12), t = J(0.025, 0.2); return [ring(0, -g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg), ring(0, g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg)]; }, // two parallel arcs
   (J, o, r) => { const a = TAU * r(), s2 = J(1.6 * PI, 0.1), r1 = J(0.92, 0.04), c = [0, 1, 2].map((i) => [sp(0, 0, 0.28, r1, a + (i * TAU) / 3, s2, 0.02)]); return [...c, c[floor(r() * 3)]]; }, // three spiral arms
   (J, o, r) => { const d = J(0.5, 0.15), t = J(0.17, 0.15), a = TAU * r(), c = [blob(-d * cos(a), -d * sin(a), t), blob(d * cos(a), d * sin(a), t)]; return [c[0], c[1], c[0], c[1]]; }, // two blobs
-  (J, o) => { const t = J(0.3, 0.2); return [0, 1, 2, 3].map(() => blob(o(0.08), o(0.08), t)); }, // one blob: everything merged
 ];
-const AW = ARCH.map((_, i) => (i === 10 ? 0.45 : 1));
 
 function build(S, id) {
   const r = S.r, J = (v, f) => v * (1 + f * (2 * r() - 1)), o = (f) => (r() - 0.5) * f, cs = ARCH[id](J, o, r), seen = [], P = [];
@@ -104,17 +101,10 @@ function build(S, id) {
 }
 
 function newScene(S) {
-  let tot = 0, id = 0;
-  for (let i = 0; i < ARCH.length; i++) if (S.hist.indexOf(i) < 0) tot += AW[i];
-  let v = S.r() * tot;
-  for (let i = 0; i < ARCH.length; i++) {
-    if (S.hist.indexOf(i) >= 0) continue;
-    id = i;
-    if ((v -= AW[i]) <= 0) break;
-  }
+  let id = 0;
+  if (S.B) do id = floor(S.r() * ARCH.length); while (S.hist.indexOf(id) >= 0);
   S.A = S.B;
-  S.B = build(S, S.first ? 6 : id);
-  S.first = false;
+  S.B = build(S, id);
   // each arc turns the short way
   if (S.A) {
     for (let g = 0; g < NG; g++) {
@@ -125,7 +115,7 @@ function newScene(S) {
     }
   }
   S.hist.push(id);
-  if (S.hist.length > 4) S.hist.shift();
+  if (S.hist.length > 3) S.hist.shift();
 }
 
 // ---------------------------------------------------------------- the numbers
@@ -196,7 +186,7 @@ function jacobi(A, n, V) {
 export function setup(params) {
   const r = mulberry((Math.random() * 4294967296) >>> 0), f = (n) => new Float64Array(n);
   const S = {
-    r, t: 0, sc: 0, k: [0, 2, 0, 0.06], ready: false, first: true, A: null, B: null, hist: [], u: 0, tm: 16, md: 12, rot: TAU * r(),
+    r, t: 0, sc: 0, k: [0, 2, 0, 0.06], ready: false, A: null, B: null, hist: [], u: 0, tm: 16, md: 12, rot: TAU * r(),
     ph: [], grp: new Uint8Array(N), sv: f(N), gx: f(N), gy: f(N), jw: f(N), jp: f(N), jr: f(N), px: f(N), py: f(N),
     M: new Float32Array(N * N), dis: f(N), Q: f(N * QM), Z: f(N * QM), T: f(N * QM), Q2: f(N * QM), lam: f(QM),
     kc: 3, ka: 3, kt: 0, Y: f(N * KMAX), C: f(KMAX * KMAX), lb: new Uint8Array(N).fill(255),
@@ -209,8 +199,8 @@ export function setup(params) {
     S.sv[i] = (j + 0.15 + 0.7 * r()) / PER;
     S.gx[i] = m * cos(a);
     S.gy[i] = m * sin(a);
-    S.ux[i] = cos(TAU * r());
-    S.uy[i] = sin(TAU * r());
+    S.ux[i] = sqrt(r()) * cos(TAU * r());
+    S.uy[i] = sqrt(r()) * sin(TAU * r());
     S.jr[i] = 0.01 + 0.022 * r();
     S.jw[i] = 0.35 + 1.1 * r();
     S.jp[i] = TAU * r();
@@ -379,7 +369,7 @@ function show(S, d, first) {
       x += w * vx[j];
       y += w * vy[j];
     }
-    const sc = GAMMA * min(own, 0.1);
+    const sc = 0.045 + GAMMA * min(own, 0.1);
     S.cr[i] += (r / ws - S.cr[i]) * a;
     S.cg[i] += (g / ws - S.cg[i]) * a;
     S.cb[i] += (b / ws - S.cb[i]) * a;
@@ -460,23 +450,6 @@ function disc(x, y, r, g, b, a, sg) {
     }
   }
 }
-// the haze under the points: a wide dot from a table, at the nearest LED
-const HK = new Float32Array(121);
-for (let j = 0; j < 11; j++) for (let i = 0; i < 11; i++) HK[j * 11 + i] = exp(-((i - 5) * (i - 5) + (j - 5) * (j - 5)) / (2 * 2.4 * 2.4));
-function halo(x, y, r, g, b, k) {
-  const xc = floor(x), yc = floor(y);
-  for (let j = 0; j < 11; j++) {
-    const yy = yc + j - 5;
-    if (yy < 0 || yy >= H) continue;
-    for (let i = 0; i < 11; i++) {
-      const xx = xc + i - 5, w = k * HK[j * 11 + i], p = yy * W + xx;
-      if (xx < 0 || xx >= W) continue;
-      DR[p] += r * w;
-      DG[p] += g * w;
-      DB[p] += b * w;
-    }
-  }
-}
 // a thin ring, about 1.6 LED wide, into the decoration layer
 function ring2(cx, cy, rad, r, g, b, k) {
   const x0 = max(0, floor(cx - rad - 3)), x1 = min(W - 1, ceil(cx + rad + 3)), y0 = max(0, floor(cy - rad - 3)), y1 = min(H - 1, ceil(cy + rad + 3));
@@ -489,15 +462,6 @@ function ring2(cx, cy, rad, r, g, b, k) {
     }
   }
 }
-// the ground: a deep blue everywhere, lifted a little inside each of the two rings
-const GROUND = new Float32Array(W * H);
-for (let y = 0; y < H; y++) {
-  for (let x = 0; x < W; x++) {
-    const dy = y + 0.5 - (y < 64 ? CYD : CYE), dx = x + 0.5 - CX, q = sqrt(dx * dx + dy * dy) / RR;
-    GROUND[y * W + x] = 1 + 0.35 * (1 - sm(q * 1.05 - 0.1)) + (q < 1 ? 0.12 * q * q : 0);
-  }
-}
-
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
@@ -510,13 +474,12 @@ export function draw(display, params) {
     const x1 = CX + S.px[i] * RD, y1 = CYD + S.py[i] * RD, ja = S.jw[i] * 1.7 * S.t + S.jp[i];
     const x2 = CX + S.dx[i] * RE + 0.7 * cos(ja), y2 = CYE + S.dy[i] * RE + 0.7 * sin(ja), r = S.cr[i], g = S.cg[i], b = S.cb[i];
     disc(x1, y1, r, g, b, 0.9, 0.85);
-    disc(x2, y2, r, g, b, 0.3, 0.95);
-    halo(x1, y1, r, g, b, 0.04);
-    halo(x2, y2, r, g, b, 0.07);
+    disc(x2, y2, r, g, b, 0.4, 0.95);
   }
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const p = y * W + x, a = AA[p], gd = GROUND[p];
+      const p = y * W + x, a = AA[p], q = sqrt((x + 0.5 - CX) * (x + 0.5 - CX) + (y + 0.5 - (y < 64 ? CYD : CYE)) ** 2) / RR;
+      const gd = 1 + 0.35 * (1 - sm(q * 1.05 - 0.1)) + (q < 1 ? 0.12 * q * q : 0); // a deep blue ground, a little lifted inside each ring
       let r = 0.034 * gd + DR[p], g = 0.052 * gd + DG[p], b = 0.1 * gd + DB[p];
       if (a > 1e-4) {
         const f = (1 - exp(-(y < 64 ? 1.4 : 1.1) * a)) / a;
