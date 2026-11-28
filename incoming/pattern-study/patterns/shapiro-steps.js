@@ -53,22 +53,22 @@ export function setup(params) {
 
 // the swing b of the drive, as a number between -1 and 1 about its centre: sines whose periods do not divide each other
 function wander(t) {
-  return 0.36 * sin(TAU * t / 14 + 5.35) + 0.22 * sin(TAU * t / 23.5 + 2.91) + 0.13 * sin(TAU * t / 9.6 + 0.13) + 0.1 * sin(TAU * t / 38 + 0.92) + 0.1 * sin(TAU * t / 61.7 + 1.54) + 0.09 * sin(TAU * t / 6.1 + 2.02);
+  return 0.36 * sin(TAU * t / 14 + 3.08) + 0.22 * sin(TAU * t / 23.5 + 2.34) + 0.13 * sin(TAU * t / 9.6 + 6.22) + 0.1 * sin(TAU * t / 38 + 2.15) + 0.1 * sin(TAU * t / 61.7 + 1.08) + 0.09 * sin(TAU * t / 6.1 + 5.44);
 }
 // the centre of the swing, the drive frequency and the hue each drift on sines of their own, slower still
-const b0Of = (k, t) => 3.9 + 2.3 * cl(k, -1, 1) + 0.4 * sin(TAU * t / 97 + 0.63) + 0.25 * sin(TAU * t / 151 + 0.38);
-const ampOf = (b0) => min(2.4, b0 - 0.7);
-const omOf = (om, t) => om * (1 + 0.04 * sin(TAU * t / 37.3 + 0.7) + 0.02 * sin(TAU * t / 83 + 2.9));
-const hueOf = (h, t) => h + H0 + 0.07 * sin(TAU * t / 131 + 0.9) + 0.045 * sin(TAU * t / 71 + 3.4);
+const b0Of = (k, t) => 3.9 + 2.3 * cl(k, -1, 1) + 0.7 * sin(TAU * t / 97 + 0.27) + 0.4 * sin(TAU * t / 151 + 1.06);
+const ampOf = (b0, t) => min(2.4, b0 - 0.7) * (0.85 + 0.15 * sin(TAU * t / 53 + 2.53));
+const omOf = (om, t) => om * (1 + 0.08 * sin(TAU * t / 37.3 + 0.7) + 0.05 * sin(TAU * t / 83 + 2.9));
+const hueOf = (h, t) => h + H0 + t / 330 + 0.05 * sin(TAU * t / 71 + 3.4) + 0.04 * sin(TAU * t / 43 + 1.1);
 const speedOf = (k) => 4.2 * exp(0.6 * cl(k, -1, 1));   // columns a second
 
 // one column: the overdamped junction, d phi / dt = I + a cos(Omega t) - sin(phi), for every bias row
-function integrate(S, slot, om, a, nburn) {
+function integrate(S, slot, om, a, ds, nburn) {
   const T = TAU / om, spp = max(14, ceil(T / 0.25)), dt = T / spp, hd = 0.5 * dt, drv = S.drv;
   for (let i = 0; i <= 2 * spp; i++) drv[i] = a * cos(om * i * hd);
   const base = slot * NS, tot = (nburn + 2 * MEAS) * spp, st = nburn * spp, mid = (nburn + MEAS) * spp;
   for (let k = 0; k < NS; k++) {
-    const I = (k + 0.5) * DS;
+    const I = (k + 0.5) * ds;
     let p = S.phi[base + k], p0 = 0, p1 = 0;
     for (let n = 0; n < tot; n++) {
       if (n === st) p0 = p;
@@ -85,9 +85,8 @@ function integrate(S, slot, om, a, nburn) {
 
 const NEU = [0, 0, 0], BC = [0, 0, 0];
 const WS = new Float32Array(NS), SH = new Float32Array(NS), MS = new Int16Array(NS);
-const SR = new Float32Array(NS), SG = new Float32Array(NS), SB = new Float32Array(NS), SL = new Float32Array(NS), SC = new Float32Array(3 * NS);
+const SR = new Float32Array(NS), SG = new Float32Array(NS), SB = new Float32Array(NS);
 const BR = new Float32Array(NR), BG = new Float32Array(NR), BB = new Float32Array(NR);
-const LR = new Float32Array(NR), LG = new Float32Array(NR), LB = new Float32Array(NR);
 // a Gaussian of 3.4 rows for the halo, a narrow one of 0.85 for the edge of a band
 const HK = 9, GH = new Float32Array(2 * HK + 1), GE = new Float32Array(5);
 {
@@ -122,27 +121,17 @@ function paint(S, slot, h0) {
     }
     s = e;
   }
-  // between plateaus the rotation number runs on from one whole number to the next: a quiet glow where it is near one
   for (let s = 0; s < NS; s++) {
-    const c = 0.5 + 0.5 * cos(TAU * S.cr[o0 + s]), c2 = c * c, gl = c2 * c2 * c2 * c2 * (1 - WS[s]);
     hsv(h0 + DH * MS[s], 0.88, 1, BC);
     const w = WS[s] * SH[s];
     SR[s] = BC[0] * w;
     SG[s] = BC[1] * w;
     SB[s] = BC[2] * w;
-    SL[s] = gl;
-    SC[3 * s] = BC[0];
-    SC[3 * s + 1] = BC[1];
-    SC[3 * s + 2] = BC[2];
   }
   for (let k = 0; k < NR; k++) {
     BR[k] = 0.5 * (SR[2 * k] + SR[2 * k + 1]);
     BG[k] = 0.5 * (SG[2 * k] + SG[2 * k + 1]);
     BB[k] = 0.5 * (SB[2 * k] + SB[2 * k + 1]);
-    const a = 2 * k, b = a + 1;
-    LR[k] = 0.5 * (SL[a] * SC[3 * a] + SL[b] * SC[3 * b]);
-    LG[k] = 0.5 * (SL[a] * SC[3 * a + 1] + SL[b] * SC[3 * b + 1]);
-    LB[k] = 0.5 * (SL[a] * SC[3 * a + 2] + SL[b] * SC[3 * b + 2]);
   }
   const col = S.col, o = slot * H * 3;
   for (let k = 0; k < NR; k++) {
@@ -164,7 +153,7 @@ function paint(S, slot, h0) {
       hb += g * BB[q];
     }
     hsv(h0 + 0.62, 0.4, 0.04 + 0.07 * k / NR, NEU);
-    const r = min(1, NEU[0] + 0.92 * er + 0.5 * pow(hr, 0.72) + 0.22 * LR[k]), g = min(1, NEU[1] + 0.92 * eg + 0.5 * pow(hg, 0.72) + 0.22 * LG[k]), b = min(1, NEU[2] + 0.92 * eb + 0.5 * pow(hb, 0.72) + 0.22 * LB[k]);
+    const r = min(1, NEU[0] + 0.92 * er + 0.5 * pow(hr, 0.72)), g = min(1, NEU[1] + 0.92 * eg + 0.5 * pow(hg, 0.72)), b = min(1, NEU[2] + 0.92 * eb + 0.5 * pow(hb, 0.72));
     const u = o + (NR + k) * 3, v = o + (NR - 1 - k) * 3;
     col[u] = col[v] = r;
     col[u + 1] = col[v + 1] = g;
@@ -173,8 +162,8 @@ function paint(S, slot, h0) {
 }
 
 function compute(S, slot, t, nburn) {
-  const b0 = b0Of(S.k[2], t), b = max(0.4, b0 + ampOf(b0) * wander(t)), om = omOf(S.k[1], t);
-  integrate(S, slot, om, b * om, nburn);
+  const b0 = b0Of(S.k[2], t), b = max(0.4, b0 + ampOf(b0, t) * wander(t)), om = omOf(S.k[1], t);
+  integrate(S, slot, om, b * om, DS * (1 + 0.07 * sin(TAU * t / 59 + 1.2) + 0.04 * sin(TAU * t / 101 + 4.4)), nburn);
   paint(S, slot, hueOf(S.k[0], t));
   S.ct[slot] = t;
   S.cOm[slot] = S.k[1];
