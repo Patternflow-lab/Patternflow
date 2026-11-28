@@ -30,7 +30,7 @@ const WT = 0.05;             // how far a strip wanders along it on its own
            // half the spread of the strips along the ribbon
 const NT0 = 14;              // the number of strips the top row aims at
 const PA = 0.3;              // most white a strip takes in
-const HW = 0.2;              // turns the hue of the whole ribbon wanders each way, slowly
+const HW = 0.12;             // turns the hue of the whole ribbon wanders each way, slowly
 const HS = 0.07;             // how far the light that crosses the glass shifts the colour along the ribbon
 const LG = 0.0;              // most white the light that crosses the glass adds
 const LD = 0.0;              // how far the light that crosses the glass dims it
@@ -38,15 +38,17 @@ const SP0 = 1.2;             // strip time a second at Drift -1
 const WV = 0.5;              // weight of the brightness channel in the gradient
 const HUE0 = 0.0;            // turns added to the ribbon's hue at Hue = 0
 
-// the ribbon: a position t from 0 to 1 is a colour, cobalt through violet, rose and amber to lime, and a plateau is a position and a brightness
+// the ribbon: a position t from 0 to 1 is a colour, teal-blue through violet, ruby and amber to emerald, and a plateau is a position and a brightness
 const RIB = [
-  [0.00, 60, 105, 225],
-  [0.14, 105, 95, 215],
-  [0.28, 165, 95, 200],
-  [0.42, 215, 85, 130],
-  [0.56, 230, 120, 85],
-  [0.70, 235, 165, 60],
-  [0.84, 205, 195, 75],
+  [0.00, 60, 150, 215],
+  [0.11, 70, 110, 225],
+  [0.22, 115, 95, 215],
+  [0.33, 170, 95, 200],
+  [0.44, 215, 85, 130],
+  [0.55, 230, 120, 85],
+  [0.66, 235, 165, 60],
+  [0.77, 205, 195, 75],
+  [0.88, 140, 200, 90],
   [1.00, 70, 175, 120],
 ];
 const NL = 256;
@@ -82,7 +84,7 @@ function gauss(S) {
 // A strip takes the colour of the one to its left and goes a step along the ribbon, signed,
 // most steps small and a few large (a log-uniform length from 0.03 to 0.55), so the edges
 // between strips run from very weak to very strong and the weak ones are the first to melt.
-function newStrip(S, born, left) {
+function newStrip(S, born, left, right) {
   const r = S.r;
   // A new strip goes a signed step along the ribbon from the one to its left, most steps small
   // and a few large, and of four tries it keeps the one that lands farthest from every strip
@@ -99,6 +101,8 @@ function newStrip(S, born, left) {
       z = cl(z, 0, 1);
       let d = 9;
       for (let j = 0; j < S.strips.length; j++) d = min(d, abs(S.strips[j].b - z));
+      // and it must stand off from the strip that will be on its right as well
+      if (right) d = min(d, abs(right.b - z) + (abs(right.b - z) < SMIN ? -1 : 0));
       if (d > bd) {
         bd = d;
         b = z;
@@ -107,7 +111,7 @@ function newStrip(S, born, left) {
     }
   }
   return {
-    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, life: 20 + 60 * r(), mu: 0, amp: born ? 0 : 1, age: 0,
+    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, mu: 0, amp: born ? 0 : 1, age: 0,
     b, sg, ta: 0.35 + 0.65 * r(),
     w1: 0.12 + 0.2 * r(), p1: TAU * r(), w2: 0.2 + 0.25 * r(), p2: TAU * r(),
     va: 0.3 + 0.5 * r(), w3: 0.15 + 0.25 * r(), p3: TAU * r(), v0: r(),
@@ -154,8 +158,6 @@ function evolve(S, d, speed) {
   const mu = log(N / max(8, n));
   for (let j = st.length - 1; j >= 0; j--) {
     const s = st[j];
-    if (s.life > 0) s.life -= dt;
-    if (s.life <= 0 && !s.fade && n > NT0 - 3) { s.fade = 1; n--; }
     if (s.fade) {
       // a strip fades by taking the colour of its left neighbour, and goes when it has
       s.amp += (0 - s.amp) * (1 - exp(-dt / 3.5));
@@ -169,11 +171,42 @@ function evolve(S, d, speed) {
       s.x += (mu + s.mu - s.x) * (1 - exp(-dt / 4));
     }
   }
+  // Strips go now and then, and the one that goes is the one whose colour is most like another
+  // strip's, so the palette stays spread over the ribbon. It goes only if the two it leaves side
+  // by side are different enough.
+  if (n > NT0 - 3 && S.r() < 1 - exp(-0.2 * dt)) {
+    let tot = 0;
+    const wv = [];
+    for (let j = 0; j < st.length; j++) {
+      let w = 0;
+      const s = st[j];
+      if (!s.fade && s.amp > 0.9) {
+        const l = j ? st[j - 1] : null, rr = j < st.length - 1 ? st[j + 1] : null;
+        if (!l || !rr || abs(l.b - rr.b) >= SMIN) {
+          let d = 9;
+          for (let q = 0; q < st.length; q++) if (q !== j && !st[q].fade) d = min(d, abs(st[q].b - s.b));
+          w = exp(-d / 0.06);
+        }
+      }
+      wv.push(w);
+      tot += w;
+    }
+    if (tot > 0) {
+      let u = S.r() * tot;
+      for (let j = 0; j < st.length; j++) {
+        u -= wv[j];
+        if (u <= 0) {
+          st[j].fade = 1;
+          break;
+        }
+      }
+    }
+  }
   // a strip is born between two others, narrow, and widens
   const rate = n < NT0 - 2 ? 0.15 : n < NT0 ? 0.05 : n < NT0 + 2 ? 0.012 : 0;
   if (S.r() < 1 - exp(-rate * dt)) {
     const at = floor(S.r() * (st.length + 1));
-    st.splice(at, 0, newStrip(S, true, at ? st[at - 1] : null));
+    st.splice(at, 0, newStrip(S, true, at ? st[at - 1] : null, st[at]));
   }
 }
 
