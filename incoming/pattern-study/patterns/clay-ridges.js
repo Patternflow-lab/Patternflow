@@ -17,12 +17,12 @@
 // Knob 4: Sun. placeholder.
 
 const W = 64, H = 128;
-const { floor, ceil, sqrt, exp, sin, cos, min, max, abs, pow, PI } = Math;
+const { floor, sqrt, exp, sin, cos, min, max, pow, tanh, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-const M = 12;                  // margin of the height grid, the search radius
+const M = 10;                  // margin of the height grid, the search radius
 const GW = W + 2 * M, GH = H + 2 * M;
 const CX = 31.5, CY = 63.5;
 const NW = GW / 2 + 1, NH = GH / 2 + 1; // coarse nodes of the smooth fields, every second cell
@@ -91,9 +91,9 @@ const FH0 = new Float32Array(256), FH1 = new Float32Array(256), FH2 = new Float3
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 // horizon search: five steps in each of eight directions, integer offsets
-const STEPS_AX = [2, 3, 5, 8, 11];
-const STEPS_DG = [1, 2, 4, 6, 8];
-const RAD = 12;
+const STEPS_AX = [2, 3, 5, 8];
+const STEPS_DG = [1, 2, 4, 6];
+const RAD = 9;
 const DIRS = [];
 for (let d = 0; d < 8; d++) {
   const dx = [1, 1, 0, -1, -1, -1, 0, 1][d], dy = [0, 1, 1, 1, 0, -1, -1, -1][d];
@@ -108,11 +108,11 @@ for (let d = 0; d < 8; d++) {
   DIRS.push({ offs, wd });
 }
 const DX8 = [1, 1, 0, -1, -1, -1, 0, 1], DY8 = [0, 1, 1, 1, 0, -1, -1, -1];
-const DO = new Int32Array(40), DWD = new Float32Array(40);
+const DO = new Int32Array(32), DWD = new Float32Array(32);
 for (let d = 0; d < 8; d++)
-  for (let k = 0; k < 5; k++) {
-    DO[d * 5 + k] = DIRS[d].offs[k];
-    DWD[d * 5 + k] = DIRS[d].wd[k];
+  for (let k = 0; k < 4; k++) {
+    DO[d * 4 + k] = DIRS[d].offs[k];
+    DWD[d * 4 + k] = DIRS[d].wd[k];
   }
 
 // ---------------------------------------------------------------- state
@@ -144,12 +144,20 @@ export function update(dt, input, params) {
 const AL = [0, 0, 0], SH = [0, 0, 0], SK = [0, 0, 0];
 const GN = 2730.67;                       // gamma table steps to 1.0
 const GAMMA = new Float32Array(4097);
-for (let i = 0; i < GAMMA.length; i++) GAMMA[i] = min(255, 255 * pow(i / GN, 0.68));
+for (let i = 0; i < GAMMA.length; i++) {
+  let v = pow(i / GN, 0.68);
+  if (v > 0.9) v = 0.9 + 0.1 * tanh((v - 0.9) / 0.1); // a soft shoulder, so a crest never clips
+  GAMMA[i] = 255 * v;
+}
 const AMB = new Float32Array(1025), SUNV = new Float32Array(1025);
 
 // the clays K1 walks through, as hue (running backwards round the wheel) and saturation:
 // oat, terracotta, dusty rose, mauve, slate violet, slate blue, celadon, sage, bone
 const CLAYS = [[0.082, 0.28, 0.76], [0.03, 0.42, 0.66], [-0.04, 0.3, 0.64], [-0.12, 0.27, 0.62], [-0.27, 0.3, 0.6], [-0.4, 0.36, 0.58], [-0.52, 0.3, 0.64], [-0.68, 0.3, 0.64], [-0.85, 0.3, 0.76]];
+
+const SINT = new Float32Array(4097);
+for (let i = 0; i <= 4096; i++) SINT[i] = sin((i * TAU) / 4096);
+const sinL = (x) => SINT[((x * 651.8986469 + 0.5) | 0) & 4095]; // x radians, 4096 steps to the turn, nearest
 
 // per frame constants of the height field
 let AW = 32, A1m = 2.5, A1 = 5, A2 = 1.7, AS = 20, KC0 = 0.1, CA0 = 1, SA0 = 0, PSI0 = 0, KC = 0.2, KB = 0.2, KF = 0.5, CA = 1, SA = 0, CB = 1, SB = 0, CA2 = 1, SA2 = 0, PSI1 = 0, PSI2 = 0, PSI3 = 0;
@@ -157,10 +165,10 @@ const EPS = 0.34, E2 = EPS * EPS, NRM = 1 / (sqrt(1 + E2) - EPS);
 
 function hgt(x, y, wx, wy, sw, am, mb, mk, v0, v1, v2, v3) {
   const qx = x + AW * wx, qy = y + AW * wy;
-  const th0 = KC0 * (qx * CA0 + qy * SA0) + PSI0, s0 = sin(th0);
-  const th1 = KC * (qx * CA + qy * SA) + PSI1, s1 = sin(th1);
-  const th2 = KB * (qx * CB + qy * SB) + PSI3, s2 = sin(th2);
-  const th3 = KF * (qx * CA2 + qy * SA2) + PSI2, s3 = sin(th3);
+  const th0 = KC0 * (qx * CA0 + qy * SA0) + PSI0, s0 = sinL(th0);
+  const th1 = KC * (qx * CA + qy * SA) + PSI1, s1 = sinL(th1);
+  const th2 = KB * (qx * CB + qy * SB) + PSI3, s2 = sinL(th2);
+  const th3 = KF * (qx * CA2 + qy * SA2) + PSI2, s3 = sinL(th3);
   const d1 = FH1[floor(th1 / PI) & 255] * (sqrt(s1 * s1 + E2) - EPS);
   const d2 = FH2[floor(th2 / PI) & 255] * (sqrt(s2 * s2 + E2) - EPS);
   const g3 = sqrt(s3 * s3 + E2) - EPS;
@@ -331,8 +339,8 @@ export function draw(display, params) {
       let vis = 0;
       for (let d = 0; d < 8; d++) {
         let t = 0;
-        const b = d * 5;
-        for (let s = 0; s < 5; s++) {
+        const b = d * 4;
+        for (let s = 0; s < 4; s++) {
           const tt = (HG[idx + DO[b + s]] - h0) * DWD[b + s];
           if (tt > t) t = tt;
         }
