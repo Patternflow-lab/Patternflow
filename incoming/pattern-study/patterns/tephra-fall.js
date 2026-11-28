@@ -11,16 +11,16 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Wind=1.6..3.5, Fineness=-1..1, Rain=-1..1
 //
-// Knob 1: Hue. Turns the thickness scale round the colour wheel, one turn over the range, by adding 360 x K1 degrees to the hue of every step in OKLCH with its lightness kept and its chroma pulled in by up to 30 percent at the half turn, so the pale steps do not go neon. At 0 the scale is as drawn: dusty olive grey, tan, a narrow mustard sulphur, salmon, coral, rose and plum. At 0.25 it is cyan with an olive core, at 0.5 periwinkle with a teal core, at 0.75 pink with a violet core, and at 1 it is back. The ground, (36, 42, 50), does not turn.
-// Knob 2: Wind. How far the wind carries the ash, from 1.6 to 3.5, opening at 2. A grain released at the height s of the column (a fraction of it, 0.1 to 0.9) falls for T = 0.85 H s / v, H the column height and v the grain's fall speed, and is carried 5 x Wind x T x u LEDs, u being the gust of the moment (a log-normal with a spread of 35 percent) and the wind aloft 1.4 times the wind at the ground and turned from it by up to 0.9 rad. For a column of height 1, a grain of speed 0.12 released at mid height lands about 28 LEDs from the vent at Wind 1.6, 34 at 2 and 51 at 3.5, one of speed 0.25 lands 14, 17 and 29 LEDs away. The floor of 1.6 is there so that the lobes stay long enough to point somewhere even with coarse grains: below about 1.3 they came out as one round hill round the vent, which read as a target. Nothing is carried farther than 70 tanh(d / 70). At once, a turn stretches the whole map about the vent by (Wind / the Wind it was built under) ^ 0.45, 1.29 for a jump from 2 to 3.5 and 0.91 for one from 2 to 1.6, and the new eruptions take over as the built-under value follows over 14 s.
-// Knob 3: Fineness. How fine the grains are, from -1 to 1, opening at 0. Every fall speed is multiplied by 1.8 ^ -K: at -1 every grain falls 1.8 times faster, lands 1.8 times nearer and has 1.8 times less time to spread; at 1 it is the other way. The mix leans the same way: the four finest of the seven classes carry 49 percent of the mass at -1, 64 at 0 and 77 at 1, before each eruption's own lean (0.6 of a normal deviate) on top. At once, the thickness of the three coarse classes is multiplied by 1.7 ^ -(K - the K it was built under) and that of the four fine ones by 1.7 ^ (K - the K it was built under), so a turn up thins the vent's pile and thickens the haze.
+// Knob 1: Hue. Turns the thickness scale round the colour wheel, one turn over the range, by adding 360 x K1 degrees to the hue of every step in OKLCH with its lightness kept and its chroma pulled in by up to 30 percent at the half turn, so the pale steps do not go neon. At 0 the scale is as drawn: olive grey and tan dust, one thin line of mustard sulphur, then salmon, coral and a rose-magenta plum. At 0.25 it is grey-cyan with an ochre core, at 0.5 grey-blue with a green core, at 0.75 mauve with a blue core, and at 1 it is back. The ground, (36, 42, 50), does not turn.
+// Knob 2: Wind. How far the wind carries the ash, from 1.6 to 3.5, opening at 2. A grain released at the height s of the column (a fraction of it, 0.1 to 0.9) falls for T = 0.85 H s / v, H the column height and v the grain's fall speed, and is carried 5 x Wind x T x u LEDs, u being the gust of the moment (a log-normal with a spread of 35 percent) and the wind aloft 1.4 times the wind at the ground and turned from it by up to 0.9 rad. For a column of height 1, a grain of speed 0.12 released at mid height lands about 28 LEDs from the vent at Wind 1.6, 34 at 2 and 51 at 3.5, one of speed 0.25 lands 14, 17 and 29 LEDs away. The floor of 1.6 is there so that the lobes stay long enough to point somewhere even with coarse grains: at 1 they came out as one round hill round the vent, which read as a target. Nothing is carried farther than 70 tanh(d / 70). At once, a turn stretches the whole map about the vent by (Wind / the Wind it was built under) ^ 0.45, 1.29 for a jump from 2 to 3.5 and 0.91 for one from 2 to 1.6, and the new eruptions take over as the built-under value follows over 14 s.
+// Knob 3: Fineness. How fine the grains are, from -1 to 1, opening at 0. Every fall speed is multiplied by 1.5 ^ -K: at -1 every grain falls 1.5 times faster, lands 1.5 times nearer and has 1.5 times less time to spread; at 1 it is the other way. The mix leans the same way: the four finest of the seven classes carry 43 percent of the mass at -1, 64 at 0 and 82 at 1, before each eruption's own lean (0.6 of a normal deviate) on top. At once, the thickness of the three coarse classes is multiplied by 1.7 ^ -(K - the K it was built under) and that of the four fine ones by 1.7 ^ (K - the K it was built under), so a turn up thins the vent's pile and thickens the haze.
 // Knob 4: Rain. How fast the rain takes the ash off, from -1 to 1, opening at 0.06. The thickness is multiplied by exp(-dt / tau) each frame, tau = 26 x 2 ^ (-0.8 K) seconds: 45 s at -1, 25 s at the opening, 15 s at 1. One contour, a factor of 3.16 in thickness, goes in 52, 29 or 17 s. Slow, and several lobes of different ages overlap into one wide hill; fast, and only the last eruption or two are left on the dusty ground. At once, the thickness is scaled by tau now over tau it was built under, so the whole map steps up a few contours or down at the turn and the new eruptions settle it.
 //
-// What the picture is. A plan view of the ground round one vent at column 32, row 56 of the 128 rows (56 rows above it, 72 below). Each LED shows how thick the ash is there and nothing else is drawn: no cone, no plume, no fire. The vent is only the thickest point. The thickness is a 64 by 128 field of floats that every eruption adds to and the rain takes from, and it is shown on a log scale: a band is a factor of sqrt(10) in thickness, the contour between two bands is a ramp 2.4 LEDs across (or no ramp where the bands are narrower than that and merge into a gradient), so no contour is thinner than 2 LEDs. Fifteen colours carry the scale: the ground (36, 42, 50), three faint tints of dust a quarter, a half and three quarters of the way from the ground to the first ash, and eleven colours of ash in OKLCH (lightness, chroma, hue): five dull dusts from olive grey to tan, (0.38, 0.015, 80), (0.43, 0.02, 82), (0.50, 0.025, 85), (0.57, 0.035, 90) and (0.65, 0.05, 94), then (0.72, 0.06, 98), mustard sulphur (0.80, 0.085, 100), salmon (0.76, 0.095, 40), coral (0.69, 0.13, 18), rose (0.63, 0.15, 355) and plum (0.56, 0.17, 335). The dull colours cover most of the panel, the one band of sulphur is the only yellow, and the bright, saturated colours are the thick ones. The panel raises saturation by 1.62, so the yellow is kept dull: a lemon yellow drawn here is a neon on the LEDs. Each band is its own colour at its thick edge and gets darker toward its thin edge, by up to 55 percent in the dust and the middle steps and 22 percent in the thickest, so the brightness steps at every contour, and nothing is brighter than the scale. The mean brightness is about 105 to 125 of 255.
+// What the picture is. A plan view of the ground round one vent at column 32, row 56 of the 128 rows (56 rows above it, 72 below). Each LED shows how thick the ash is there and nothing else is drawn: no cone, no plume, no fire. The vent is only the thickest point. The thickness is a 64 by 128 field of floats that every eruption adds to and the rain takes from, and it is shown on a log scale: a band is a factor of sqrt(10) in thickness, the contour between two bands is a ramp 2.4 LEDs across (or no ramp where the bands are narrower than that and merge into a gradient), so no contour is thinner than 2 LEDs. Fifteen colours carry the scale: the ground (36, 42, 50), three faint tints of dust a quarter, a half and three quarters of the way from the ground to the first ash, and eleven colours of ash in OKLCH (lightness, chroma, hue). Seven are dull dusts from olive grey to tan: (0.40, 0.015, 80), (0.46, 0.02, 82), (0.52, 0.025, 84), (0.59, 0.03, 88), (0.67, 0.04, 91), (0.75, 0.05, 94) and (0.82, 0.06, 96). The bright, saturated ones are the thick ones: salmon (0.80, 0.10, 40), coral (0.72, 0.14, 18), rose (0.64, 0.16, 355) and plum (0.55, 0.17, 335). The dust takes about two thirds of the cells and the four thick colours the rest. The only yellow is a seam of mustard sulphur, (0.84, 0.10, 102), laid along the one contour between the last dust and the salmon, 2.4 LEDs wide like every contour. The panel raises saturation by 1.62, so a yellow drawn broad here comes out as a neon on the LEDs. Each band is its own colour at its thick edge and gets darker toward its thin edge, by up to 80 percent in the dust and the middle steps, 32 percent in the thickest and 28 in the faint tints, so the brightness steps at every contour and nothing is brighter than the scale. The mean brightness is 99 to 115 of 255 over the five places the study measures.
 // The model. Suzuki's way, as Tephra2 writes it. One eruption has a mass M, a column height H, a wind and a grain mix. Seven grain classes fall at speeds 1, 0.5, 0.25, 0.12, 0.06, 0.03 and 0.012 and carry 4, 10, 22, 26, 20, 13 and 5 percent of the mass; the mass is released at five heights, 0.1, 0.3, 0.5, 0.7 and 0.9 of the column, in the proportions of Suzuki's curve [(1 - s) exp(3 (s - 1))] ^ 3, 5, 14, 31, 41 and 9 percent. That is 35 layers. A layer falls for T, is carried by the wind to a point d from the vent and, spread by turbulence, lands as a Gaussian of mass M w_class w_height there, thickness M w / (2 pi sigma^2) exp(-r^2 / 2 sigma^2), with sigma^2 = (4.5 H + u)^2 + 3.2 T + (d / (10 s))^2. The u is an umbrella for the three finest classes, 16 s H^2 LEDs of sideways spread of the high release, and 0 for the rest, so the fine ash is wide enough to put a thin cover on the corners the lobes do not reach. The last term is there because the five heights are five points on a line, and left alone they came out as beads: each is smeared by half the spacing of the points. A Gaussian is separable, so a layer costs at most 192 exponentials and 8,192 multiply-adds, and a frame takes under a millisecond. The coarse grains land first and near, close to the vent within a second; the fine ones come up to 10 s later and far, and a layer is laid down over 0.5 + 0.3 x its delay seconds on a smoothstep, delay 0.5 + 0.35 T (3.5 + 0.12 (T - 10) beyond 10), so a lobe is seen to grow outward from the vent over a few seconds. The model's real fall times are far longer than that. The finest class would take 64 time units, and the compression is a drawing choice.
 // The eruptions. The wait to the next one is a log-normal around 7 s, 7 exp(0.45 q) exp(0.75 N), q a quiet or busy spell (an Ornstein-Uhlenbeck walk, unit spread, 70 s memory), clipped to 1.2 to 26 s, and three times in ten it is a burst of 1.3 to 3.8 s instead. In 900 s that was 120 to 140 eruptions, with a median gap of 3.7 s and a 90th percentile of 14 to 26 s. The mass is M = exp(0.8 N) x (0.55 + 0.7 min(repose / 40 s, 1)), so a long pause is followed by a bigger blast, and the column height is H = 0.9 + 0.25 ln M, kept between 0.6 and 1.6. Each eruption draws its own grain mix and its own turn of the wind with height.
 // The wind. Its direction turns with an angular speed that is itself a random walk (spread 0.2 rad/s, 80 s memory) plus a little diffusion, and about once in 100 s it swings by 0.9 to 2.2 rad one way or the other. Over 900 s the 45 degree sectors got between 73 and 162 s each of the 112 s an even spread would give, on six different runs, and the direction ended 0.7 to 11 turns, either way, from where it began, so the rose does not set into one petal. Each eruption takes the direction of its moment.
-// The exposure. A scale that stayed put would saturate after a big blast and empty after a long pause, so the scale follows the map: its offset in bands puts the thickest point of the map at band 12.5, the middle of a band of its own, eased over 10 s. The log keeps the map from saturating, the exposure keeps the colours in use, and holding the top mid-band keeps a summit from being a one or two LED dot (a closed contour of 12 cells or fewer showed in 0.3 to 0.9 percent of frames, not in 5 to 10). What the knobs do at once (above) sits on top of it, and the exposure does not take the Rain rescale back.
+// The exposure. A scale that stayed put would saturate after a big blast and empty after a long pause, so the scale follows the map: its offset in bands puts the thickest point of the map at band 12.8, in the upper part of the band between the contours 12 and 13 so that the summit is a patch and not a dot. When the top climbs the scale gives way in 5 s, and when it falls it takes the slack back over 28 s, so in a pause the rain shows as the whole map thinning and the contours drawing in, instead of being scaled away. The log keeps the map from saturating, the exposure keeps the colours in use. A closed contour of 12 cells or fewer, a dot, showed in 2 percent of frames at the opening and at all-min and 7 percent at all-max (where the lobes are long arms with tips). What the knobs do at once (above) sits on top of it, and the exposure does not take the Rain rescale back.
 // Set-up. The pattern runs six wash times of its own eruptions with the opening knobs before the first frame (40 to 240 s of model time in steps of 0.4 s), 150 s at the opening, so it opens on a map that is already built under those knobs. That takes 15 to 60 ms in the first update and under 1 ms in every frame after.
 // What is exact and what is drawn. The Gaussian lobe of one grain class and one release height, its centre at the wind's displacement over the fall time and its width from the turbulent spread, and the sum of such lobes as the thickness, are Suzuki's model as Tephra2 uses it. A contour of equal thickness is an isopach. The grain classes and their shares, the release curve's exponent, the umbrella, the smear, the cap on the displacement, the compressed fall times, the eruption process, the wind process, the rain's wash time, the exposure and all of the colour are drawing choices. The thickness has no unit.
 
@@ -44,7 +44,7 @@ const UMB = 16;                    // an umbrella cloud spreads the high, fine r
 const SIG0 = 4.5;                  // width of the column at its foot, LEDs
 const STEP = 0.5 * log(10);        // one band is a factor of sqrt(10) in thickness
 const OFF = 15.0;                  // band coordinate of a thickness of 1, before the exposure
-const BTOP = 12.5;                 // the band the exposure holds the thickest point of the map at
+const BTOP = 12.8;                 // the band the exposure holds the thickest point of the map at
 
 const FC = new Float32Array(NP);   // thickness of the coarse grains (the three fastest classes)
 const FF = new Float32Array(NP);   // thickness of the fine grains
@@ -88,9 +88,9 @@ function erupt(S) {
   const M = exp(0.8 * gauss()) * (0.55 + 0.7 * min(rep / 40, 1));
   const hgt = cl(0.9 + 0.25 * log(M), 0.6, 1.6);
   const veer = (Math.random() * 2 - 1) * 0.9;
-  const fv = pow(1.8, -S.k[2]);
+  const fv = pow(1.5, -S.k[2]);
   // each eruption has its own grain mix, coarse rich or fine rich, and the Fineness knob leans on it
-  const gm = 0.6 * gauss() - 0.55 * S.k[2], wc = new Float32Array(NCLS);
+  const gm = 0.6 * gauss() - 0.8 * S.k[2], wc = new Float32Array(NCLS);
   let ws = 0;
   for (let c = 0; c < NCLS; c++) ws += wc[c] = WC[c] * exp(-gm * (c - 3) * 0.45);
   for (let c = 0; c < NCLS; c++)
@@ -102,7 +102,7 @@ function erupt(S) {
 }
 
 function lay(S, p) {
-  const fv = pow(1.8, -S.k[2]);
+  const fv = pow(1.5, -S.k[2]);
   const T = (TSC * p.hgt * p.s) / (VS[p.c] * fv);
   const u0x = p.ug * cos(p.th), u0y = p.ug * sin(p.th);
   const u1x = 1.4 * p.ug * cos(p.th + p.veer), u1y = 1.4 * p.ug * sin(p.th + p.veer);
@@ -198,7 +198,9 @@ export function update(dt, input, params) {
   S.tauEff += ((tn - S.tauEff) * d) / tn;
   S.k2b += (S.k[1] - S.k2b) * (1 - exp(-d / 14));
   S.k3b += (S.k[2] - S.k3b) * (1 - exp(-d / 14));
-  S.ex += (exposure(S) - S.ex) * (1 - exp(-d / 10));
+  // the scale gives way fast when the top climbs and takes the slack back slowly, so the rain shows as the map thinning in a pause
+  const et = exposure(S);
+  S.ex += (et - S.ex) * (1 - exp(-d / (et < S.ex ? 5 : 28)));
 }
 
 // What turning a knob does at once, before the next eruption has laid anything: Fineness weighs the fine ash against the coarse by
@@ -227,14 +229,16 @@ function exposure(S) {
 // ---------------------------------------------------------------- colour
 const NB = 14;
 const NR = 11;                     // colours in the ramp proper; three more fade the ground in under it
-const SAW = 0.55;
-const COL = new Float32Array((NB + 1) * 3);
+const SAW = 0.8;
+const COL = new Float32Array((NB + 2) * 3);
 const GROUND = [36, 42, 50];
 // L, C, hue in degrees: thin to thick
 const RAMP = [
-  [0.38, 0.015, 80], [0.43, 0.02, 82], [0.50, 0.025, 85], [0.57, 0.035, 90], [0.65, 0.05, 94], [0.72, 0.06, 98],
-  [0.80, 0.085, 100], [0.76, 0.095, 40], [0.69, 0.13, 18], [0.63, 0.15, 355], [0.56, 0.17, 335],
+  [0.40, 0.015, 80], [0.46, 0.02, 82], [0.52, 0.025, 84], [0.59, 0.03, 88], [0.67, 0.04, 91], [0.75, 0.05, 94],
+  [0.82, 0.06, 96], [0.80, 0.10, 40], [0.72, 0.14, 18], [0.64, 0.16, 355], [0.55, 0.17, 335],
 ];
+const SEAMC = [0.84, 0.10, 102];     // mustard sulphur, laid along one contour only
+const SEAM = 10;                     // the contour between the last dust and the first salmon
 function oklch(L, C, h, o, k) {
   const a = C * cos(h * (PI / 180)), b = C * sin(h * (PI / 180));
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
@@ -260,6 +264,8 @@ function buildColors(hue) {
     }
     for (let q = 0; q < 3; q++) COL[(n + 4) * 3 + q] = cl(o[q], 0, 255);
   }
+  oklch(SEAMC[0], SEAMC[1] * (1 - 0.3 * sin(PI * hue) * sin(PI * hue)), SEAMC[2] + 360 * hue, o, 0);
+  for (let q = 0; q < 3; q++) COL[(NB + 1) * 3 + q] = cl(o[q], 0, 255);
   // the thinnest ash is a faint tint on the ground, in three steps
   for (let n = 1; n <= 3; n++) for (let q = 0; q < 3; q++) COL[n * 3 + q] = GROUND[q] + (COL[12 + q] - GROUND[q]) * (n / 4);
 }
@@ -307,11 +313,13 @@ export function draw(display, params) {
       const pl = lo * 3, ph = hi * 3;
       // a saw inside each band: the band's own colour at its thick edge, darker toward its thin edge, so the brightness steps at every contour
       const mm = j0 < 0 || j0 >= NB ? 1 : 1 - SAW * (0.35 + 0.65 * sm(1, 7, j0)) * (1 - 0.6 * sm(10, 13, j0)) * (j0 + w - b);
+      // the one yellow: a seam of mustard sulphur laid along the contour between the dust and the salmon, as wide as the ramp across it
+      const sw = j0 === SEAM ? 0.85 * 4 * w * (1 - w) : 0, sq = (NB + 1) * 3;
       display.setPixel(
         x, y,
-        cl((COL[pl] + (COL[ph] - COL[pl]) * w) * mm + 0.5, 0, 255) | 0,
-        cl((COL[pl + 1] + (COL[ph + 1] - COL[pl + 1]) * w) * mm + 0.5, 0, 255) | 0,
-        cl((COL[pl + 2] + (COL[ph + 2] - COL[pl + 2]) * w) * mm + 0.5, 0, 255) | 0
+        cl((COL[pl] + (COL[ph] - COL[pl]) * w + (COL[sq] - COL[pl] - (COL[ph] - COL[pl]) * w) * sw) * mm + 0.5, 0, 255) | 0,
+        cl((COL[pl + 1] + (COL[ph + 1] - COL[pl + 1]) * w + (COL[sq + 1] - COL[pl + 1] - (COL[ph + 1] - COL[pl + 1]) * w) * sw) * mm + 0.5, 0, 255) | 0,
+        cl((COL[pl + 2] + (COL[ph + 2] - COL[pl + 2]) * w + (COL[sq + 2] - COL[pl + 2] - (COL[ph + 2] - COL[pl + 2]) * w) * sw) * mm + 0.5, 0, 255) | 0
       );
     }
   }
