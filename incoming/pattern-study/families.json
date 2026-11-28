@@ -449,5 +449,10 @@
   "fatigue": { "label": "피로 파면", "color": "#b29b00" },
   "airydisk": { "label": "회절 분해능", "color": "#5000b2" },
   "loran": { "label": "쌍곡선 항법", "color": "#0077b2" },
-  "tephra": { "label": "화산재 낙하", "color": "#b20300" }
+  "tephra": { "label": "화산재 낙하", "color": "#b20300" },
+  "isostasy": { "label": "지각 반등", "color": "#9c6b3a" },
+  "centralplace": { "label": "중심지 위계", "color": "#d4a017" },
+  "sverdrup": { "label": "임계 깊이", "color": "#1f9d8a" },
+  "raftconsensus": { "label": "분산 합의", "color": "#e63e8c" },
+  "sagnac": { "label": "사냐크 간섭계", "color": "#6a5bff" }
 }
