@@ -67,12 +67,12 @@ const arc = (cx, cy, r, a0, span, th) => [sp(cx, cy, r, r, a0, span, th)];
 const ARCH = [
   (J, o) => { const rc = J(0.42, 0.1), sa = J(1, 0.1), d = J(0.03, 0.5), y = o(0.12); return [ring(0, 0, J(0.92, 0.03), 0.02), arc(d, y, rc, PI - sa, 2 * sa, 0.025), arc(-d, -y, rc, -sa, 2 * sa, 0.025)]; }, // ring round two facing arcs
   (J, o) => [ring(o(0.1), o(0.1), J(0.9, 0.04), 0.02), ring(o(0.1), o(0.1), J(0.42, 0.1), 0.02)], // nested rings
-  (J, o) => { const R = J(0.6, 0.06), dx = J(0.28, 0.1), dy = J(0.14, 0.2), t = J(0.03, 0.2); return [ring(-dx, dy, R, t, PI, PI), ring(dx, -dy, R, t, 0, PI)]; }, // two moons
+  (J, o) => { const R = J(0.6, 0.04), dx = J(0.3, 0.06), dy = J(0.07, 0.25), t = J(0.03, 0.2); return [ring(-dx, dy, R, t, PI, PI), ring(dx, -dy, R, t, 0, PI)]; }, // two moons
   (J, o, r) => { const a = TAU * r(), R = J(0.55, 0.1), t = J(0.13, 0.15), c = [0, 1, 2].map((i) => blob(R * cos(a + (i * TAU) / 3), R * sin(a + (i * TAU) / 3), t)); return [...c, c[floor(r() * 3)]]; }, // three blobs
-  (J, o, r) => { const a = TAU * r(), s2 = J(2.2 * PI, 0.1), r1 = J(0.92, 0.04); return [halves(sp(0, 0, 0.2, r1, a, s2, 0.02)), halves(sp(0, 0, 0.2, r1, a + PI, s2, 0.02))]; }, // spiral pair
+  (J, o, r) => { const a = TAU * r(), s2 = J(1.5 * PI, 0.08), r1 = J(0.94, 0.03); return [halves(sp(0, 0, 0.18, r1, a, s2, 0.02)), halves(sp(0, 0, 0.18, r1, a + PI, s2, 0.02))]; }, // spiral pair
   (J, o) => { const d = J(0.32, 0.15), t = J(0.1, 0.2); return [ring(0, 0, J(0.9, 0.04), 0.02), blob(-d, o(0.1), t), blob(d, o(0.1), t)]; }, // ring round two blobs
   (J, o) => { const R = J(1.2, 0.1), sg = J(0.5, 0.12), g = J(0.5, 0.12), t = J(0.025, 0.2); return [ring(0, -g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg), ring(0, g / 2 + R * 0.6, R, t, -PI / 2 - sg, 2 * sg)]; }, // two parallel arcs
-  (J, o, r) => { const a = TAU * r(), s2 = J(1.6 * PI, 0.1), r1 = J(0.92, 0.04), c = [0, 1, 2].map((i) => [sp(0, 0, 0.28, r1, a + (i * TAU) / 3, s2, 0.02)]); return [...c, c[floor(r() * 3)]]; }, // three spiral arms
+  (J, o, r) => { const a = TAU * r(), s2 = J(1.1 * PI, 0.08), r1 = J(0.94, 0.03), c = [0, 1, 2].map((i) => [sp(0, 0, 0.2, r1, a + (i * TAU) / 3, s2, 0.02)]); return [...c, c[floor(r() * 3)]]; }, // three spiral arms
   (J, o, r) => { const d = J(0.5, 0.15), t = J(0.17, 0.15), a = TAU * r(), c = [blob(-d * cos(a), -d * sin(a), t), blob(d * cos(a), d * sin(a), t)]; return [c[0], c[1], c[0], c[1]]; }, // two blobs
 ];
 
@@ -335,7 +335,8 @@ function kmeans(S, iters) {
 }
 
 const CK = [[], [], [], [], []];
-const slotHue = (S, j, k) => 0.5 + S.k[0] + (k === 2 ? 0.42 * j : j / k);
+// the hues drift a little, slowly and never back (a sum of two sines that do not divide)
+const slotHue = (S, j, k) => 0.5 + S.k[0] + 0.2 * sin(0.0213 * S.t) + 0.12 * (1 - cos(0.0517 * S.t)) + (k === 2 ? 0.42 * j : j / k);
 // The k cluster corners are a regular polygon, one corner to a centroid. A point takes the colour of the
 // centroids by how near they are, and stands at the same mix of the corners, off its corner by the real
 // scatter of its cluster, GAMMA times as wide, in a direction of its own. Both glide.
@@ -344,7 +345,7 @@ function show(S, d, first) {
   const a = first ? 1 : 1 - exp(-d / 0.2), e = first ? 1 : 1 - exp(-d / 0.14);
   let mx = 0, my = 0, mr = 0;
   for (let c = 0; c < k; c++) {
-    const t = PI / 2 + (k === 2 ? (c ? 1 : -1) * (PI / 4) : (c * TAU) / k);
+    const t = PI / 2 + 0.025 * S.t + 0.5 * sin(0.043 * S.t + S.ph[39]) + (k === 2 ? (c ? 1 : -1) * (PI / 4) : (c * TAU) / k);
     vx[c] = cos(t);
     vy[c] = sin(t);
     mx += vx[c] / k;
