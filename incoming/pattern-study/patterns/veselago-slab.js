@@ -22,17 +22,17 @@ const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-const DTH = 2.5 * PI / 180;   // angle between launched rays
-const NM = 28;              // rays each side of the axis at most
+const DTH = 2 * PI / 180;   // angle between launched rays
+const NM = 35;              // rays each side of the axis at most
 const RATE_B = 0.00713;     // turns of the hue wheel a second: the bold rays
 const RATE_V = 0.00991;     // the veil of faint rays
 const RATE_C = 0.01199;     // the caustic
 const WS = 1.5;             // how fast the wandering runs
-const VEIL = 0.014;         // light of a ray of the veil
+const VEIL = 0.01;         // light of a ray of the veil
 const LAMBDA = 7.5;         // LEDs to a wavelength
 const NU = 0.75;            // cycles a second
-let YT = 32;                // top face, which drifts a little
-const AREF = 22;            // source to top face
+let YT = 36;                // top face, which drifts a little
+const AREF = 21;            // source to top face
 const SIG2 = 2 * 0.8 * 0.8; // ray profile: sigma 0.8 LED, 1.9 LED wide at half
 const HW = 2.5;             // ray half width in LEDs, where the profile is cut
 
@@ -181,10 +181,10 @@ export function draw(display, params) {
   const nbar = -(0.4 + 0.4 * k2);
   const amp = 0.34 * Math.pow(-nbar / 1.2, 0.7);
   const n = min(-0.3, nbar + amp * wander(S, tw, 0, 0.45, 0.3, 0.2, 0.12, 0.35) / 1.0);
-  const a = AREF + 3 * sin(0.093 * tw + S.ph[5]) + 1.6 * sin(0.151 * tw + S.ph[6]);
+  const a = AREF + 2.4 * sin(0.093 * tw + S.ph[5]) + 1.2 * sin(0.151 * tw + S.ph[6]);
   const sx = 32 + 14 * sin(0.067 * tw + S.ph[7]) + 6 * sin(0.139 * tw + S.ph[8]);
-  const d = 40 * exp(0.27 * k3) * (1 + 0.07 * sin(0.083 * tw + S.ph[9]) + 0.04 * sin(0.191 * tw + S.ph[11]));
-  YT = 32 + 6 * (0.6 * sin(0.057 * t + S.ph[34]) + 0.4 * sin(0.131 * t + S.ph[35]));
+  const d = 38 * exp(0.25 * k3) * (1 + 0.07 * sin(0.083 * tw + S.ph[9]) + 0.04 * sin(0.191 * tw + S.ph[11]));
+  YT = 36 + 4 * (0.6 * sin(0.057 * t + S.ph[34]) + 0.4 * sin(0.131 * t + S.ph[35]));
   const sy = YT - a, yB = YT + d;
   const fan = (k4 * PI) / 180;
   // slow independent drifts of the palette and the light, each a pair of sines that do not divide
@@ -194,7 +194,7 @@ export function draw(display, params) {
   const gh = 0.62 + 0.2 * sin(TAU * (h0 - 0.5)) + 0.1 * dr(12, 0.113, 0.171), slh = 0.49 + 0.1 * dr(14, 0.097, 0.203);
   const hzg = 0.1 * (1 + 0.45 * dr(16, 0.127, 0.239)), hx = sx + 10 * dr(18, 0.083, 0.151), hy = sy + 8 * dr(20, 0.109, 0.197);
   const rg = 1 + 0.22 * dr(22, 0.101, 0.223), hq = 0.1 * dr(24, 0.089, 0.181), srh = h0 + 0.2 * dr(26, 0.139, 0.211);
-  const slg = 1 + 0.4 * dr(28, 0.117, 0.257), vg = VEIL * (1 + 0.4 * dr(30, 0.131, 0.173)), bg = 0.62 * (1 + 0.2 * dr(32, 0.093, 0.241));
+  const slg = 1 + 0.4 * dr(28, 0.117, 0.257), vg = VEIL * (1 + 0.4 * dr(30, 0.131, 0.173)), bg = 0.72 * (1 + 0.2 * dr(32, 0.093, 0.241));
 
   HB = h0;
   HS = hs;
@@ -210,12 +210,12 @@ export function draw(display, params) {
   const sr = C[0], sg = C[1], sb = C[2];
   for (let y = 0; y < H; y++) {
     const yc = y + 0.5;
-    const gy = 0.036 + 0.016 * exp(-((yc - 70) * (yc - 70)) / 2400), dy2 = (yc - hy) * (yc - hy), rw = 0.45 * sm(YT + 3, YT - 8, yc);
+    const gy = 0.036 + 0.016 * exp(-((yc - 70) * (yc - 70)) / 2400), dy2 = (yc - hy) * (yc - hy), dys = (yc - sy) * (yc - sy), rw = 0.45 * sm(YT + 3, YT - 8, yc);
     let sl = 0;
     if (yc > YT && yc < yB) sl = 0.06 + 0.05 * exp(-(yc - YT) * (yc - YT) / 30) + 0.05 * exp(-(yB - yc) * (yB - yc) / 30);
     const e1 = exp(-(yc - YT) * (yc - YT) / SIG2) * 0.3, e2 = exp(-(yc - yB) * (yc - yB) / SIG2) * 0.3;
     for (let x = 0; x < W; x++) {
-      const r2 = (x + 0.5 - hx) * (x + 0.5 - hx) + dy2, p = (y * W + x) * 3, gl = gy + hzg * exp(-r2 / 1500) * (1 + rw * COS[((sqrt(r2) / LAMBDA - NU * t) * 1024 | 0) & 1023]);
+      const r2 = (x + 0.5 - hx) * (x + 0.5 - hx) + dy2, p = (y * W + x) * 3, gl = gy + hzg * exp(-r2 / 1500) * (1 + rw * COS[((sqrt((x + 0.5 - sx) * (x + 0.5 - sx) + dys) / LAMBDA - NU * t) * 1024 | 0) & 1023]);
       const sv = (sl + e1 + e2) * slg;
       F[p] = gr * gl + sr * sv;
       F[p + 1] = gg * gl + sg * sv;
@@ -234,8 +234,8 @@ export function draw(display, params) {
     tint(rh(th, HO), 0.85, c1);
     tint(rh(th, HV), 0.85, c2);
     tint(rh(th, HC), 0.85, c3);
-    // the bold rays every 7.5 degrees, within the fan; the veil of all the rest, the whole half plane
-    const wb = (i % 3 + 3) % 3 === 1 ? sm(fan, fan - 0.08, ath) * bg * rg : 0;
+    // the bold rays every 10 degrees, within the fan; the veil of all the rest, the whole half plane
+    const wb = (i % 5 + 5) % 5 === 2 ? sm(fan, fan - 0.08, ath) * bg * rg : 0;
     const x1 = sx + (a * sT) / cT, S1 = a / cT, s2 = sT / n;
     if (abs(s2) >= 1) {
       // cannot enter: reflected at the top face
