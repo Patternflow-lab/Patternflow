@@ -5,20 +5,20 @@
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Raft leader election and log replication (Diego Ongaro and John Ousterhout, "In Search of an Understandable Consensus Algorithm", 2014, from memory), the vote rule, the prevLogIndex check, the truncation of a conflicting suffix and the commit rule for entries of the leader's own term as that paper gives them, original code, pattern round 276
+// Lineage: Raft leader election and log replication (Diego Ongaro and John Ousterhout, "In Search of an Understandable Consensus Algorithm", 2014, from memory), the vote rule, the prevLogIndex check, truncation of a conflicting suffix and the commit rule as that paper gives them, original code, pattern round 276
 // Round:   276
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Timeout=1.2..4, Loss=-1..1, Crashes=-1..1
 //
-// Knob 1: Hue. The hue of term t is 0.58 + 0.137 t + K1 turns, so at 0 the terms run blue, violet, magenta, red, orange, and K1 turns the whole run once round over the range. The lightness of a term follows a triangle wave on 0.235 a term, between 0.65 and 1.
+// Knob 1: Hue. The hue of term t is 0.58 + 0.137 t + K1 turns, so at 0 the terms run blue, violet, magenta, red, orange, and K1 turns the whole run once round over the range. Lightness follows a triangle wave on 0.235 a term, 0.65 to 1.
 // Knob 2: Timeout. The base election timeout T in seconds, 1.2 to 4, opening at 2. Every election timer is drawn from [T, 2T] and the leader beats every 0.3 T, clamped to 0.4 to 1 s. In 600 s runs with the other knobs at the opening, T = 1.2 gave 126 terms and 11 percent of the time without a leader, T = 4 gave 64 terms and 26 percent.
 // Knob 3: Loss. With s = (K3 + 1) / 2 a message takes (0.1 + 0.5 s^2.5) x 0.6 to 1.4 seconds and is dropped with chance 0.38 s^2: 0.1 s and 0 at -1, 0.19 s and 9.5 percent at the opening, 0.6 s and 38 percent at 1. In 600 s: 79 terms and 11 percent leaderless at -1, 209 and 59 percent at 1, where votes split, leaders flap and the logs fall behind.
 // Knob 4: Crashes. The mean wait between crashes is 30 x 2^(-2.2 K4) seconds plus 1.5: 138 at -1, 27 at the opening, 6.5 at 1. A crash takes down the leader (a follower three times in ten) for 3.5 to 9 s, never more than two at once. In 600 s: 75 terms and 8 percent leaderless at -1 (the partitions alone), 135 and 40 percent at 1.
 //
-// What the picture is. Five servers of a Raft cluster, simulated for real in steps of 1/60 s. Each has a term, a vote, a role, an election timer that every valid AppendEntries and every granted vote resets, a log of entries tagged with the term they were written in, and a commit index. Exact: RequestVote with the up-to-date check and a majority of three, AppendEntries with the prevLogIndex and prevLogTerm check, truncation of a conflicting suffix, four entries a message, nextIndex backing up on the follower's hint, a no-op from every new leader, commit once a majority holds an entry of the leader's own term, step down on any higher term. Added: links with delay and loss, crashes (log and commit index survive, and the prefix every server holds as committed is dropped from the arrays), and a partition every 10 to 15 s that cuts one server off (three times in five the leader), splits two from three or cuts one link, for 3.5 to 10 s.
-// The network. Servers on a pentagon of radius 22 round (32, 42), a disc 9 LEDs, its ring 2. The ring is the election timer, an arc from the top that fills as the timeout nears (a heartbeat resets it, so a quiet cluster only ticks). A candidate and its ring flash at 2.3 Hz, the leader has a steady full ring, a halo and a ring that leaves it at every heartbeat, a crashed server is a dark disc. The ten links are faint 2 LED lines that open in the middle when cut. Comets run along them: RequestVote warm white, AppendEntries in the leader's term colour (bigger with entries), replies fainter, a dropped message fades out partway.
-// The logs. Five columns in the order the servers stand across the panel, one bar 3 LEDs tall per entry, rows lined up by log index, scrolling up with the median log length. Committed entries are bright, the rest 0.45, an overwritten entry flashes white for 1.1 s, a tab above each column shows its role. A bar's width and shade are the entry's payload, drawn when the leader takes the request. That is not Raft, but it makes one entry look the same in every column and keeps a long quiet term from standing still.
+// What the picture is. Five servers of a Raft cluster, simulated for real in steps of 1/60 s. Each has a term, a vote, a role, an election timer that a valid AppendEntries or a granted vote resets, a log of entries tagged with their term, and a commit index. Exact: RequestVote with the up-to-date check and a majority of three, AppendEntries with the prevLogIndex and prevLogTerm check, truncation of a conflicting suffix, four entries a message, nextIndex backing up on the follower's hint, a no-op from every new leader, commit once a majority holds an entry of the leader's own term, step down on any higher term. Added: links with delay and loss, crashes (log and commit index survive, and the prefix every server holds as committed is dropped from the arrays), and a partition every 10 to 15 s that cuts one server off (three times in five the leader), splits two from three or cuts one link, for 3.5 to 10 s.
+// The network. Servers on a pentagon of radius 22 round (32, 42), a disc 9 LEDs, its ring 2. The ring is the election timer, an arc from the top that fills as the timeout nears (a heartbeat resets it, so a quiet cluster only ticks). A candidate flashes at 2.3 Hz, the leader has a steady full ring, a halo and a ring that leaves it at every heartbeat, a crashed server is a dark disc. The ten links are faint 2 LED lines that open in the middle when cut. Comets run along them: RequestVote warm white, AppendEntries in the leader's term colour (bigger with entries), replies fainter, a dropped message fades out partway.
+// The logs. Five columns in the order the servers stand across the panel, one bar 3 LEDs tall per entry, rows lined up by log index, scrolling up with the median log length. Committed entries are bright, the rest 0.45, an overwritten entry flashes white for 1.1 s, a tab above each column shows its role. A bar's width and shade are the entry's payload, drawn when the leader takes the request. Not Raft, but it makes one entry look the same in every column and keeps a long quiet term from standing still.
 // The ribbon. The top 6 rows are the terms through time, 2 s to the LED, newest at the right: the leader's term in its colour while there is a leader, the highest term dimmed while there is none.
 
 const W = 64, H = 128, N = 5, NL = 10;
@@ -191,7 +191,6 @@ function onAE(S, P, i, m) {
   if (m.pi > last || (m.pi >= S.G && termAt(S, s, m.pi) !== m.pt)) {
     let hint = last + 1;
     if (m.pi <= last) {
-      // the first index of the conflicting term, so the leader can skip the whole run
       const ct = termAt(S, s, m.pi);
       for (hint = m.pi; hint - 1 > S.G && termAt(S, s, hint - 1) === ct; ) hint--;
     }
@@ -462,8 +461,7 @@ function drawLinks(S) {
       for (let x = max(0, floor(min(ax, ax + dx)) - 2); x <= min(W - 1, ceil(max(ax, ax + dx)) + 2); x++) {
         const px = x + 0.5 - ax, py = y + 0.5 - ay, t = px * ux + py * uy;
         if (t < 8 || t > len - 8) continue;
-        // 2 LEDs wide, open in the middle when the link is cut
-        const c = cl((1.4 - abs(px * uy - py * ux)) / 0.7, 0, 1) * (1 - cv * sm(0.5, 3.5, 5.5 - abs(t - len / 2)));
+              const c = cl((1.4 - abs(px * uy - py * ux)) / 0.7, 0, 1) * (1 - cv * sm(0.5, 3.5, 5.5 - abs(t - len / 2)));
         const v = 255 * c * (0.11 * (1 - 0.8 * cv) + 0.2 * gl), o = (y * W + x) * 3;
         BUF[o] += v * (0.55 + 0.4 * gl);
         BUF[o + 1] += v * (0.68 + 0.3 * gl);
