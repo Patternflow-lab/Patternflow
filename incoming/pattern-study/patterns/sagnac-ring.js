@@ -9,18 +9,19 @@
 // Round:   276
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Rate=0.2..4, Turns=-2..3, Noise=0..1
+// @knobs Hue=0..1, Rate=0.5..4, Turns=-2..3, Noise=0..1
 //
-// Knob 1: Hue. Turns the whole picture round the colour wheel by adding K1 to every hue: at 0 the packets are cyan (0.5) and magenta (0.84), the fringes amber (0.105) and the fibre cool grey (0.6), at 0.5 they have become orange-red, green, blue-green and warm grey, at 1 they are back.
-// Knob 2: Rate. Gain of the platform's rotation, g = K2 / 2: 0.1 at 0.2, 1 at 2 where it opens, 2 at 4. Omega = 0.07 g x (a wandering signal of rms 0.7) rad/s, so at the opening the platform turns 0.05 rad/s rms (2.8 degrees a second, 1.2 LED a second at the outer ring), the delay is 2.7 percent of the loop time and the fringes slide about 1 period in 10 s; at 0.2 the loop all but stands still and the fringes sit by the notch, at 4 the delay is 5 percent, the platform turns 6 degrees a second and the fringes sweep a period in 2 or 3 s.
-// Knob 3: Turns. The number of turns of fibre, N = round(3 + K3) from 1 at -2 to 6 at 3, opening at 3. Ring j has radius 25 - 3.4 j LEDs, so N sets how many rings are drawn, the loop time (T = 2.1 s at 1 turn, 5.7 s at 3, 11.5 s at 6) and the area the delay sums over (sum of pi r^2: 1960 LED^2 at 1 turn, 4470 at 3, 5770 at 6), so the fringes slide 2.2 times as far at 3 turns as at 1 and 2.9 times as far at 6.
-// Knob 4: Noise. Shot noise and a drifting source, 0 to 1, opening at 0.06. Visibility V = 0.94 (1 - 0.72 K^0.9): 0.94 at 0, 0.89 at the opening, 0.26 at 1. The source phase wanders (0.9 s and 0.15 s memories) by up to 1.6 + 0.5 radian rms x K, so at 1 the fringes shake by 3 LED, and soft grain 3 LEDs across boils over the strip with an amplitude of 0.3 K. At 0 the fringes are crisp and the flashes see exactly 0.5 (1 + 0.94 cos(dphi)).
+// Knob 1: Hue. Adds K1 to every hue: at 0 the packets are cyan (0.5) and magenta (0.84), the fringes amber (0.105) and the fibre cool grey (0.6); at 0.5 they are blue-green, orange-red, blue-violet and warm grey; at 1 they are back.
+// Knob 2: Rate. Gain of the platform's rotation, g = K2 / 2: 0.25 at 0.5, 1 at 2 where it opens, 2 at 4. Omega = 0.07 g x (a wandering signal of rms 0.6) rad/s. At the opening the platform turns 0.042 rad/s rms (2.4 degrees a second, 1 LED a second on the outer ring, 0.105 at the most), the delay is 2.2 percent of the loop time rms (5.5 at the most) and the fringes sit within +-6 rad (1 period) of the marker rms. At 0.5 the platform all but stands still (0.012 rad/s rms) and the fringes lean 1 rad; at 4 it turns 5 degrees a second, the delay is 4 percent rms and the fringes slide through 3 or 4 periods.
+// Knob 3: Turns. The number of turns of fibre, N = round(3 + K3), 1 at -2 to 6 at 3, opening at 3. Ring j has radius 25 - 3.4 j LEDs, so N sets how many rings are drawn, the loop time (2.2 s at 1 turn, 5.7 s at 3, 8.8 s at 6) and the area the delay sums over (sum of pi r^2: 1960 LED^2, 4470, 5770), so the fringes slide 2.3 times as far at 3 turns as at 1 and 2.9 times as far at 6.
+// Knob 4: Noise. Shot noise and a drifting source, 0 to 1, opening at 0.06. Visibility V = 0.94 (1 - 0.78 K^0.9): 0.94 at 0, 0.88 at the opening, 0.21 at 1. The source phase wanders by 1.7 radian rms x K (memories of 0.9 s and 0.15 s), so at 1 the fringes shake by 3 LEDs, and soft grain 3 LEDs across boils over the strip with an amplitude of 0.4 K. At 0 the fringes are crisp and each flash is exactly 0.5 (1 + 0.94 cos(dphi)).
 //
-// What the picture is. The top is a coil of fibre seen face-on, N concentric rings of radius 25 - 3.4 j LEDs, each a soft line 2 LEDs thick, and a splitter at the top of the platform (a small bright node) with one radial lead that joins the rings, as a wound coil has. The platform turns with the angle Phi, the integral of Omega, and carries the rings' faint texture bands, the node, the lead and three broad dim arcs of the rim round with it, so the turn is read from the texture and the node, clockwise when Omega is positive. Two packets leave the node together, a cyan one clockwise and a magenta one counter-clockwise, each a comet 6 LEDs long, run the N turns along the same fibre in opposite directions and meet in the middle (near-white where they overlap). At the node a flash shows the interference of that launch. The bottom is the detector strip, amber fringes on near-black violet, with a fixed soft marker through it (and a nub above and below) to read the slide against.
-// The model. The panel keeps Sagnac's relation in panel units: 1 LED = 1 cm and the one exaggeration is the speed of light, slowed from 3e8 m/s to 0.75 m/s (CP = 75 LED/s, a factor of 4e8), so that a platform turning at 0.05 rad/s gives a few percent of the loop time and not 1e-10 of it. A packet on a turn of radius r moves along the fibre at CP - Omega r with the rotation and CP + Omega r against it (light from the splitter has to catch it up, or meets it half way), on the radial leads at CP, and each is stepped at 1/90 s with the Omega of that moment, so the flight times T+ and T- are real sums and T+ - T- = sum of 2 pi r_j^2 Omega / CP^2 x 2 = 4 A Omega / CP^2 over the turns (A the sum of pi r_j^2, each ring's own area) with no formula used for the delay itself. The phase of the launch is dphi = 2 pi CP / lambda x (T+ - T-) with lambda = 10 LEDs (the carrier wavelength on the panel, 10 cm), the same relation as 8 pi N A Omega / (lambda c). The flash is 0.5 (1 + V cos(dphi + source phase)).
-// The strip. I(x) = 0.5 (1 + V cos(k (x - 31.5) + dphi + source phase)) with k = -2 pi / 11 per LED, so a positive Omega (clockwise) drags the fringes to the right, and dphi = 2 pi CP / lambda x 4 A Omega / CP^2 with Omega of the moment and A the sum over the rings drawn (the launch phase above, without the loop's lag, which is T seconds). The period is 11 LEDs and does not change. A weak Gaussian envelope across the strip and a gentle lean (0.025 radian a row) keep it from reading as a bar code.
-// Omega. A smooth random signal: three sines of 21.7, 34.3 and 55.9 s with weights 0.55, 0.42 and 0.32 and random phases, plus an Ornstein-Uhlenbeck walk of 45 s memory and rms 0.45, times 0.07 g rad/s. It changes sign every 10 to 20 s, passes near zero each time and never repeats. The launch rhythm (T / 3.5 clipped to 1.2..3 s, +-8 percent) shares no period with it.
-// What is exact and what is drawn. The delay, its dependence on N, A and Omega, the fringe phase, the interference of each flash and the geometry of the loop (rings, one lead) are the model above. The slowed light, the comet shape, the texture bands and the rim arcs that show the platform turning, the amber colour ramp, the grain and the Gaussian envelope are drawing choices.
+// What the picture is. The top is a coil of fibre seen face-on: N concentric rings of radius 25 - 3.4 j LEDs, each a soft line 2 LEDs thick, a splitter (a small bright node) on the rim of the platform and one radial lead from it through the rings, as a wound coil has. The platform turns by Phi, the integral of Omega, and carries the rings' faint texture bands, the node, the lead and three broad dim rim arcs round with it, clockwise when Omega is positive. Two packets leave the node together, a cyan one clockwise and a magenta one counter-clockwise, each a comet 6 LEDs long, run the N turns of the same fibre in opposite directions, pass each other (near-white where they overlap) and come home. The first to arrive waits as a glow in the node, and when the second arrives a flash shows the interference of that launch. The bottom is the detector strip, amber fringes on near-black violet, with a fixed soft marker through it (and a nub above and below) to read the slide against.
+// The model. The panel keeps Sagnac's relation in panel units, 1 LED = 1 cm, and the one exaggeration is the speed of light: slowed from 3e8 m/s to 0.75 m/s (CP = 75 LED/s, a factor of 4e8), so that a platform turning at 0.04 rad/s costs a few percent of the loop time and not 1e-10 of it. On a turn of radius r a packet moves along the fibre at CP - Omega r with the rotation and CP + Omega r against it, on the radial leads at CP, and each is stepped at 1/90 s with the Omega of that moment. The flight times T+ and T- are sums, not a formula: T+ - T- comes out as 4 A Omega / CP^2 (A the sum of pi r_j^2 over the turns, each ring its own area; checked against the closed form over 30 launches, 2 percent rms). The phase of a launch is dphi = 2 pi CP / lambda x (T+ - T-) with lambda = 10 LEDs (the carrier wavelength on the panel, 10 cm), which is 8 pi N A Omega / (lambda c) in the usual form. The flash is 0.5 (1 + V cos(dphi + source phase)) times the launch's pulse energy.
+// The strip. I(x) = 0.5 (1 + V cos(k (x - 31.5) + dphi + source phase)) with k = -2 pi / 11 per LED, so a positive Omega drags the fringes to the right; dphi is the launch relation with the Omega of the moment (the flashes carry the loop's lag, T seconds, the strip does not). The period is 11 LEDs and does not change. The beam that lights the strip walks (centre by 16 LEDs, width 24 +- 8, height 4 rows, on 30, 41 and 53 s) and a gentle lean (0.025 radian a row) keeps it from reading as a bar code.
+// Omega. A smooth random signal: three sines of 21.7, 34.3 and 55.9 s with weights 0.55, 0.42 and 0.32 and random phases, plus an Ornstein-Uhlenbeck walk of 45 s memory and rms 0.45, times 0.07 g rad/s. It changed sign 43 times in 600 s, passes near zero each time and has no period. Launches come every T / 6 s (0.55 to 2.2 s) times 0.7 to 1.3, each with its own pulse energy (log-normal, 0.4) and splitter ratio (0.35 to 0.65), and the source power wanders on 18 s: none of these shares a period with Omega.
+// Set-up. The first update runs 40 s of model time with the knobs it was given.
+// What is exact and what is drawn. The delay, its dependence on N, A and Omega, the fringe phase, the interference of each flash and the geometry of the loop (rings, one lead) are the model above. The slowed light, the comet shape, the texture bands and rim arcs that show the platform turning, the amber ramp, the grain, the beam walk, the pulse energies and the faint neutral light in the room (it keeps the corners from going out) are drawing choices.
 
 const W = 64, H = 128;
 const { floor, sqrt, exp, sin, cos, min, max, abs, pow, atan2, log, PI } = Math;
@@ -88,7 +89,7 @@ export function setup(params) {
   params.s = {
     t: 0, k: null, ph, ou: gauss() * 0.45, phi: TAU * Math.random(), om: 0,
     launches: [], glows: [], flashes: [], nextL: 0.4,
-    alpha: [1, 1, 1, 0, 0, 0], pw: gauss(), pwr: 1, dphi: 0, vNoise: 0, ps1: 0, ps2: 0, lat, Ncur: 3,
+    alpha: [1, 1, 1, 0, 0, 0], pw: gauss(), pwr: 1, bx: gauss(), bw: gauss(), by: gauss(), dphi: 0, vNoise: 0, ps1: 0, ps2: 0, lat, Ncur: 3,
   };
 }
 
@@ -108,7 +109,7 @@ function advance(S, h) {
   const kap = cl(k[3], 0, 1);
   // Omega: an Ornstein-Uhlenbeck walk with 45 s memory and rms 0.45, three sines on top
   S.ou += (-S.ou * h) / 45 + 0.45 * sqrt((2 * h) / 45) * gauss();
-  const g = cl(k[1], 0.2, 4) / 2;
+  const g = cl(k[1], 0.5, 4) / 2;
   const om = OM0 * g * omegaRaw(S);
   S.om = om;
   S.phi += om * h;
@@ -121,8 +122,12 @@ function advance(S, h) {
   // the source power wanders slowly (18 s memory, 20 percent rms)
   S.pw = cl(S.pw + (-S.pw * h) / 18 + sqrt((2 * h) / 18) * gauss(), -2.6, 2.6);
   S.pwr = exp(0.2 * S.pw);
+  // the beam walks over the detector: its centre and width drift on 30, 41 and 53 s
+  S.bx = cl(S.bx + (-S.bx * h) / 30 + sqrt((2 * h) / 30) * gauss(), -1.7, 1.7);
+  S.bw = cl(S.bw + (-S.bw * h) / 41 + sqrt((2 * h) / 41) * gauss(), -1.7, 1.7);
+  S.by = cl(S.by + (-S.by * h) / 53 + sqrt((2 * h) / 53) * gauss(), -1.7, 1.7);
   S.phs = kap * (S.ps1 + S.ps2);
-  S.vis = cl(0.94 * (1 - 0.72 * pow(kap, 0.9)) * (1 + 0.18 * kap * S.vNoise), 0.1, 0.96);
+  S.vis = cl(0.94 * (1 - 0.78 * pow(kap, 0.9)) * (1 + 0.18 * kap * S.vNoise), 0.1, 0.96);
 
   // the phase the strip shows now: omega x (4 A Omega / c^2), eased over a quarter second
   const dnow = WOPT * ((4 * areaOf(N) * om) / (CP * CP));
@@ -132,8 +137,8 @@ function advance(S, h) {
   if (S.t >= S.nextL) {
     const P = PATHS[N - 1];
     const T0 = P.L / CP;
-    S.launches.push({ P, born: S.t, sc: 0, sm: 0, tc: -1, tm: -1, ac: -1, am: -1, en: exp(cl(0.3 * gauss(), -0.5, 0.4)), sp: 0.5 + 0.2 * (Math.random() - 0.5) * 2 * 0.75 });
-    S.nextL = S.t + cl(T0 / 6, 0.6, 2.2) * (0.7 + 0.6 * Math.random());
+    S.launches.push({ P, born: S.t, sc: 0, sm: 0, tc: -1, tm: -1, ac: -1, am: -1, en: exp(cl(0.4 * gauss(), -0.7, 0.5)), sp: 0.5 + 0.3 * (Math.random() - 0.5) });
+    S.nextL = S.t + cl(T0 / 6, 0.55, 2.2) * (0.7 + 0.6 * Math.random());
   }
   for (let i = S.launches.length - 1; i >= 0; i--) {
     const Lh = S.launches[i], P = Lh.P;
@@ -228,12 +233,12 @@ function comet(buf, P, s, dir, Phi, amp) {
   for (let u = -1.6; u <= 6.6; u += 0.8) {
     const q = s - dir * u;
     if (q < 0 || q > P.L) continue;
-    const a = u < 0 ? exp((-u * u) / 1.3) : exp(-u / 3);
+    const a = u < 0 ? exp((-u * u) / 1.3) : exp(-u / 2.7);
     const sg = segAt(P, q), f = (q - sg.s0) / sg.len;
     const r = sg.ra + (sg.rb - sg.ra) * f, ang = (sg.turn ? TAU * f : 0) + Phi - PI / 2;
     const px = CX + r * cos(ang), py = CY + r * sin(ang);
     splat(buf, px, py, 1.2, 0.25 * amp * a);
-    if (u >= 0 && u < 1) splat(buf, px, py, 2.5, 0.12 * amp);
+    if (u >= 0 && u < 1) splat(buf, px, py, 2.2, 0.1 * amp);
   }
 }
 
@@ -258,9 +263,9 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const dx = x - CX, dy = y - CY, b = exp(-(dx * dx + dy * dy) / 1400), o = (y * W + x) * 3;
       const g = 1 + 0.3 * b + 0.12 * room * b;
-      BUF[o] = 26 * g;
-      BUF[o + 1] = 22 * g;
-      BUF[o + 2] = 30 * g;
+      BUF[o] = 28 * g;
+      BUF[o + 1] = 24 * g;
+      BUF[o + 2] = 32 * g;
     }
 
   // ---- the coil
@@ -336,15 +341,16 @@ export function draw(display, params) {
     splat(g.c === 0 ? BC : BM, nx, ny, 2.0, a);
   }
   for (const f of S.flashes) {
-    const age = S.t - f.t, e = exp(-age / 0.3) * f.a * S.pwr;
-    splat(BF, nx, ny, 2.6 + 3 * sm(0, 0.3, age), 1.1 * e);
-    splat(BF, nx, ny, 7 + 5 * sm(0, 0.6, age), 0.34 * e);
+    const age = S.t - f.t, e = min(1.15, exp(-age / 0.28) * f.a * S.pwr);
+    splat(BF, nx, ny, 2.2 + 1.8 * sm(0, 0.3, age), 1.0 * e);
+    splat(BF, nx, ny, 5 + 3 * sm(0, 0.6, age), 0.25 * e);
   }
 
   // ---- the detector strip
   const kap = cl(k[3], 0, 1), vis = S.vis;
   const phase0 = S.dphi + S.phs;
   const lat = S.lat;
+  const bxc = 31.5 + 16 * S.bx, bwd = 24 + 8 * S.bw, byc = 106.5 + 4 * S.by;
   for (let y = SY0 - 6; y < H; y++) {
     const ey = sm(SY0 - 1.5, SY0 + 1.5, y) * (1 - sm(SY1 - 1.5, SY1 + 1.5, y));
     const inb = y >= SY0 - 6 && y <= H - 1;
@@ -365,14 +371,15 @@ export function draw(display, params) {
         }
         continue;
       }
-      const env = 0.55 + 0.45 * exp(-(((x - 31.5) / 30) * ((x - 31.5) / 30)));
+      const ex = (x - bxc) / bwd, ey2 = (y - byc) / 16;
+      const env = (0.38 + 0.62 * exp(-ex * ex)) * (0.78 + 0.22 * exp(-ey2 * ey2));
       const ph = KFR * (x - 31.5) + phase0 + 0.025 * (y - 107.5);
       let I = 0.5 * (1 + vis * cos(ph));
       if (kap > 0.001) {
         const gx = (x / (W - 1)) * (LNX - 1), gx0 = cl(floor(gx), 0, LNX - 2), fx = cl(gx - gx0, 0, 1);
         const a0 = lat[gy0 * LNX + gx0], a1 = lat[gy0 * LNX + gx0 + 1], b0 = lat[(gy0 + 1) * LNX + gx0], b1 = lat[(gy0 + 1) * LNX + gx0 + 1];
         const nz = (a0 * (1 - fx) + a1 * fx) * (1 - fy) + (b0 * (1 - fx) + b1 * fx) * fy;
-        I += 0.3 * kap * nz * sqrt(max(I, 0.05));
+        I += 0.4 * kap * nz * sqrt(max(I, 0.05));
       }
       I = cl(I, 0, 1.15);
       const lum = 0.08 + 0.8 * pow(I, 1.2);
