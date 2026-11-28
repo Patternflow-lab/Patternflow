@@ -1,23 +1,31 @@
 // ===== Patternflow pattern =====
 // Title:   Ambiguity Function
 // Family:  ambiguity
-// Idea:    draft
+// Idea:    The ambiguity function of a radar waveform, a train of chirped Gaussian pulses in two interleaved repetition intervals, drawn as its squared magnitude in decibels over the whole panel, delay down and Doppler across, so that a chirp leans the ridge, more pulses thin the Doppler peaks into a bed of nails, and staggering the intervals wipes out the repeated peaks, while the waveform drifts from one shape to the next without a pause.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft, original code, pattern round 275
+// Lineage: the ambiguity function of a radar waveform, chi(tau, nu) = integral of u(t) u*(t - tau) exp(j 2 pi nu t) dt (Philip Woodward, Probability and Information Theory, with Applications to Radar, 1953, from memory), the closed form of the chirped Gaussian pulse and the sum over a pulse train of lagged copies of it, each with its own Doppler factor (radar textbooks, from memory, derived again here and checked by numerical integration), staggered pulse repetition intervals against blind speeds (radar practice, from memory), a decibel scale in colour bands; original code, pattern round 275
 // Round:   275
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pulses=0..4, Chirp=-1..1, Scale=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Pulses. draft
-// Knob 3: Chirp. draft
-// Knob 4: Scale. draft
+// Knob 1: Hue. Turns the six brightest bands of the scale round the colour wheel, one turn over the range; the two darkest, navy and indigo, stay where they are so the floor never goes brown. At 0 the scale runs indigo, blue, azure, teal, green, lime and, at the peak, white. A drift of 0.06 and 0.03 of a turn (97 and 53.7 model seconds) rides on it.
+// Knob 2: Pulses. How many pulses the train aims for: 3.2 at 0, 5.2 at the opening 2, 7.2 at 4. The count drawn is 1.9 + (aim - 1.9) x (0.1 + 0.9 u), u swinging between 0 and 1 on clocks of 53 and 29 s, so it wanders over 90 percent of the time between 2.1 and 3.1 at 0, 2.5 and 5.0 at 2 (median 3.7) and 2.8 and 6.8 at 4, and a pulse fades in with its weight and not with a jump. More pulses make the Doppler peaks thinner: the width of a peak is about the spacing of the peaks divided by the count.
+// Knob 3: Chirp. How hard the pulses sweep, as the slope of the ridge on the panel: columns of Doppler for each row of delay, 1.2 x the knob plus a swing of 1.8 and 0.9 (41 and 23.7 s) that passes through zero, so at 0 the slope runs from -2.7 to 2.7 (a slope of 1 is 45 degrees) and at -1 and 1 it sits in -3.9 to 1.5 and -1.5 to 3.9 with a median of -1.2 and 1.2. The knob also tilts the lattice of peaks: a phase of pi q n^2 across the pulses with q = 0.4 x the knob plus 0.26 and 0.14 of swing, which slides each row of peaks sideways by q of their spacing from the one before.
+// Knob 4: Scale. How long the waveform is, all its lengths together: the spacing of the pulses is 38 x 2^(0.8 x knob) rows, 21.8 at -1, 39.3 at the opening 0.06 and 66.2 at 1, with the pulse width 0.32 of it, and a swing of 28 and 14 percent (37 and 59 s). Stretching it in delay squeezes it in Doppler by the same factor: the peaks come 800 / spacing columns apart, 37 at -1, 20 at 0 and 12 at 1.
+//
+// What the picture is. The ambiguity function says how well a radar waveform tells one echo from another that is a little later (delay tau) and a little faster (Doppler nu). Here delay runs down the panel in rows and Doppler across it in columns, every LED shows the squared magnitude |chi|^2 in decibels, 0 dB at the origin, and the origin is the one point of symmetry: |chi(-tau, -nu)| = |chi(tau, nu)|, which the code gives to 1e-14 (and the origin is the highest point of the plane, as the theory says it must be). The waveform is the thing that changes. No frame, axis, ring or number is drawn.
+// The waveform. A chip is a Gaussian pulse exp(-t^2 / 2 t0^2) with a quadratic phase, so its own ambiguity function is the closed form |chi1|^2 = exp(-(tau^2 + (pi t0^2 nu + c tau)^2) / t0^2), c the chirp: an ellipse of fixed area, sheared as c grows (the volume under the plane cannot be changed, only moved), and the ridge of a chirp is the line nu = -c tau / (pi t0^2). A train puts up to 9 chips at the times (n >> 1) P + (n & 1) T1: two interleaved trains of period P, the odd one T1 late, and rho = T1 / P runs from 0.5 (even spacing P / 2) down to 0.28 (spacing 0.28 P and 0.72 P, a staggered interval). Each chip has a weight (1 - tp) + tp sin^2(pi (n + 0.5) / N), a Hann taper that keeps the Doppler sidelobes low, and a phase pi q n^2.
+// How it is computed. chi(tau, nu) is the sum over all pairs of chips (n, m) of c_n c_m* exp(j pi nu (t_n + t_m)) |chi1(tau - (t_n - t_m), nu)|: the common phase exp(j pi nu tau) is dropped, which a magnitude does not need. The pairs fall into three sets by offset (even-even and odd-odd at 0, even-odd at +T1, odd-even at -T1), each a lattice of period P, so a table of the complex weight of every lag and column is built once a frame (81 pairs by 65 columns), and a row only adds the few lattice terms that reach it (those within 3.75 t0, where the Gaussian is down 61 dB). The cross term of a chirp between delay and Doppler is a geometric series along a row, so the inner loop is multiplications and no exponentials. The panel is evaluated at the 65 x 129 corners of the LED grid and an LED shows the mean power of its four corners, which fills the nulls that fall between LEDs. The formula was checked against a brute-force numerical integral of chi for four trains of 3.4 to 8.6 pulses, staggered and not, chirped and not, at 14 points each: the largest difference in normalised power was 6e-5. A frame is about 0.85 ms in Node.
+// How a level is coloured. 10 log10 of the power is mapped to s = 8 (1 - (-dB / 40)^0.62), and the eight colour bands are the integer steps of s: white within 1.4 dB of the top, lime to 4.3, green to 8.2, teal to 13.1, azure to 18.7, blue to 25.2, indigo to 32.2, and below that the navy floor, so the bands are about as wide as each other on a Gaussian peak. An LED takes the mean of the band colours over s plus and minus 0.75 of its gradient, 1.5 LED across, from a running integral of the staircase, so that a band narrower than that fades into its neighbours and does not alias. No contour line is drawn.
+// The floor. Under the waveform lies a noise floor at -28.5 dB, five plane waves of level of 2.5 dB each (waves of 34 to 73 LEDs, each stretching by 20 percent, that turn and slide), added as power. It is drawn, not computed from the waveform: the Gaussian chips have no sidelobes of their own, and without it the plane between the peaks is a flat navy that the eye takes for a hole in the picture.
+// How it moves. All clocks run at 1.6 times the Lab's. Every parameter swings on one to three sines that do not divide: the pulse count (53, 29 s), the slope (41, 23.7), the lattice tilt (61, 31), the spacing (37, 59), the pulse width (47, 71), the Hann mix tp (79, 19), the stagger (73, 37.7), the area per unit of time x bandwidth, which squeezes delay against Doppler (67, 39.3, a factor of 2 to either side of 800 LEDs squared), the hue (97, 53.7) and the origin, which wanders 20 columns and 42 rows from the centre of the panel (83, 47.3 and 101, 61.7). Nothing accumulates: the picture is a function of time and the knobs, easing over 0.2 s.
+// What is exact and what is drawn. The ambiguity function of the train, its symmetry, the closed form of the chirped Gaussian, the Dirichlet-like thinning of the peaks with the pulse count and the loss of the repeated peaks under staggering are the theory, computed. The pulse shape, the Hann taper, the weights of the knobs, the drift of the waveform, the wandering origin, the noise floor, the dB scale and its colours are drawing choices.
 
 const W = 64, H = 128, CW = W + 1, CH = H + 1;
-const { floor, ceil, round, sqrt, exp, log, sin, cos, min, max, abs, pow, PI } = Math;
+const { floor, ceil, sqrt, exp, log, sin, cos, min, max, abs, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -36,10 +44,10 @@ function hsv(h, s, v, o) {
 const RAMP = [
   [0.665, 0.82, 0.34, 0],
   [0.640, 0.88, 0.44, 0],
-  [0.600, 0.92, 0.54, 1],
-  [0.545, 0.92, 0.62, 1],
-  [0.490, 0.88, 0.70, 1],
-  [0.390, 0.78, 0.80, 1],
+  [0.600, 0.92, 0.54, 0],
+  [0.545, 0.92, 0.66, 1],
+  [0.490, 0.88, 0.74, 1],
+  [0.390, 0.78, 0.82, 1],
   [0.225, 0.72, 0.92, 1],
   [0.170, 0.12, 1.00, 1],
 ];
@@ -169,13 +177,15 @@ export function update(dt, input, params) {
 }
 
 const LDB = 40, PWR = 0.62;
-// the floor: three plane waves of level, drawn
-const FX = new Float64Array(3 * W * 2), FY = new Float64Array(3 * H * 2);
+// the floor: plane waves of level, drawn
+const NW = 5;
+const FX = new Float64Array(NW * W * 2), FY = new Float64Array(NW * H * 2);
 const FOG = new Float64Array(W * H);
+const FOGL = -28.5, FOGA = 2.5;
 function fog(T, p) {
-  for (let w = 0; w < 3; w++) {
-    const lam = [34, 47, 61][w] * (1 + 0.2 * sin((TAU * T) / (79 + 11 * w) + p[30 + w]));
-    const th = p[33 + w] + 0.7 * sin((TAU * T) / (97 + 13 * w) + p[36 + w]), ph = p[39 + w] + (TAU * T) / (43 + 9 * w) * (w & 1 ? -1 : 1);
+  for (let w = 0; w < NW; w++) {
+    const lam = [34, 47, 61, 41, 73][w] * (1 + 0.2 * sin((TAU * T) / (79 + 11 * w) + p[24 + w]));
+    const th = p[29 + w] + 0.7 * sin((TAU * T) / (97 + 13 * w) + p[34 + w]), ph = p[39 + w] + ((TAU * T) / (43 + 9 * w)) * (w & 1 ? -1 : 1);
     const kx = (TAU / lam) * cos(th), ky = (TAU / lam) * sin(th);
     for (let x = 0; x < W; x++) { FX[(w * W + x) * 2] = sin(kx * (x - 32) + ph); FX[(w * W + x) * 2 + 1] = cos(kx * (x - 32) + ph); }
     for (let y = 0; y < H; y++) { FY[(w * H + y) * 2] = sin(ky * (y - 64)); FY[(w * H + y) * 2 + 1] = cos(ky * (y - 64)); }
@@ -183,23 +193,22 @@ function fog(T, p) {
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let s = 0;
-      for (let w = 0; w < 3; w++) s += FX[(w * W + x) * 2] * FY[(w * H + y) * 2 + 1] + FX[(w * W + x) * 2 + 1] * FY[(w * H + y) * 2];
+      for (let w = 0; w < NW; w++) s += FX[(w * W + x) * 2] * FY[(w * H + y) * 2 + 1] + FX[(w * W + x) * 2 + 1] * FY[(w * H + y) * 2];
       FOG[y * W + x] = exp(0.23026 * (FOGL + FOGA * s));
     }
 }
-let FOGL = -28.5, FOGA = 3.2;
 
 export function draw(display, params) {
   const S = params.s;
-  if (!S) return;
+  if (!S || !S.k) return;
   const T = S.t, k = S.k, p = S.ph;
   const sn = (per, i) => sin((TAU * T) / per + p[i]);
   const hue = k[0] + 0.06 * sn(97, 16) + 0.03 * sn(53.7, 17);
   if (abs(S.hue - hue) > 0.0005) { buildRamp(hue); S.hue = hue; }
 
-  const Nk = 3.2 + 1.0 * cl(k[1], 0, 4);
-  const N = cl(1.9 + (Nk - 1.9) * (0.1 + 0.9 * (0.5 + 0.38 * sn(53, 0) + 0.2 * sn(29, 1))), 1.2, MAXN - 0.6);
-  const sh = 1.2 * k[2] + 1.8 * sn(41, 2) + 0.9 * sn(23.7, 3);
+  const Nk = 3.0 + 1.3 * cl(k[1], 0, 4);
+  const N = cl(1.9 + (Nk - 1.9) * (0.3 + 0.7 * (0.5 + 0.38 * sn(53, 0) + 0.2 * sn(29, 1))), 1.2, MAXN - 0.6);
+  const sh = 1.8 * k[2] + 1.5 * sn(41, 2) + 0.8 * sn(23.7, 3);
   const Tp = 38 * pow(2, 0.8 * k[3]) * (1 + 0.28 * sn(37, 4) + 0.14 * sn(59, 5));
   const r = 0.32 + 0.1 * sn(47, 6) + 0.05 * sn(71, 7);
   const q = 0.4 * k[2] + 0.26 * sn(61, 8) + 0.14 * sn(31, 9);
