@@ -205,7 +205,7 @@ function evolve(S, d, speed) {
       }
     }
   }
-  // a strip is born between two others, narrow, and widens
+  // a strip is born between two others, narrow at first and then widening
   const rate = (n < NT0 - 2 ? 0.75 : n < NT0 ? 0.25 : n < NT0 + 2 ? 0.06 : 0) * RD;
   if (S.r() < 1 - exp(-rate * dt)) {
     const at = floor(S.r() * (st.length + 1));
