@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Drift Diffusion
 // Family:  driftdiffusion
-// Idea:    Evidence runs across the panel and time runs down it between two glowing walls, and simulated decisions leave one start line at staggered times as bright threads that drift and shake until they strike a wall, flash, and fall into a mirrored pair of reaction-time histograms that build up below as light sediment.
+// Idea:    Evidence runs across the panel and time runs down it between two glowing walls, and simulated decisions leave one start line at staggered times as bright threads that drift and shake until they strike a wall and flash, and each one then falls into a mirrored pair of reaction-time histograms that build up below as light sediment.
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
