@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Adds the knob to the hue of every cluster, one turn over the range. The k hues are 1/k of a turn apart (0.42 for two) and the first is cyan at 0, so the opening three are cyan, magenta and yellow; at 0.25 they are violet-blue, orange and green, at 0.5 red, green and blue. A drift rides on it, 0.20 of a turn on a 295 s sine plus 0.12 on a 122 s one, both starting at 0, so a colour does not come back to the same place.
 // Knob 2: Reach. The bandwidth sigma of the affinity, in data units where 1 is the radius of the top disc (28 LEDs): 0.075 exp(0.62 (K - 2)), which is 0.022 at 0, 0.040 at 1, 0.075 at the opening 2, 0.139 at 3 and 0.259 at 4, or 0.6, 1.1, 2.1, 3.9 and 7.3 LEDs. Over 5 min the cut found the drawn curves (every cluster and every curve 95 percent pure) in 26 percent of the held frames at 0, 90 at 1, 91 at 2, 60 at 3 and 20 at 4. Small sigma tears a ring into arcs and the cut shows four or five clusters in 63 percent of the frames; large sigma lets two shapes into one cluster and the embedding shrinks to a line.
-// Knob 3: Morph. The speed of the script and of everything that moves, exp(1.1 K): 0.33 at -1, 1 at the opening 0, 3 at 1. In 5 min 5 scenes started at -1, 13 at 0 and 37 at 1. The turn of the cloud (0.04 rad/s at speed 1), the orbits of the beads, the drift of the hues and the turn of the polygon below follow it.
+// Knob 3: Morph. The speed of the script and of everything that moves, exp(1.1 K): 0.33 at -1, 1 at the opening 0, 3 at 1. In 5 min 5 scenes started at -1, 13 at 0 and 37 at 1. The turn of the cloud (0.04 rad/s at speed 1) and the orbits of the beads follow it; the hue drift and the turn of the polygon below (0.025 rad/s) keep the clock of the wall.
 // Knob 4: Cuts. How many clusters the cut makes, as an offset to the eigengap's choice: k = clamp(k_gap + round(3 K), 2, 5). At 0 the gap decides (2 clusters in 57 percent of the frames at the opening reach, 3 in 39, 4 in 5); at -1 it is always 2, at 0.5 it is 4 (76 percent) or 5, at 1 it is 5. Too few cuts put two shapes in one colour, too many split a ring into arcs.
 //
 // What the picture is. A graph has a node for each bead and a weight exp(-d^2 / 2 sigma^2) on each pair, d being their distance in the top disc. With the weights W and the degrees D, M = D^-1/2 W D^-1/2 has its largest eigenvalue 1, and a graph of k pieces that hardly touch has k eigenvalues near 1 whose eigenvectors are, up to a turn of the axes, indicators of the pieces. That is why one eigenvector tells where to cut (Fiedler), and why a ring round a ring, which k-means in the plane cannot part, becomes two points. The top disc is the data. In the bottom disc each bead stands by its row of the leading k eigenvectors, scaled to length 1, in the colour the cut gives it. Where the shapes are far enough apart for sigma, a shape's beads sit on one corner of a regular polygon; where not, they lie between.
@@ -189,7 +189,7 @@ function jacobi(A, n, V) {
 export function setup(params) {
   const r = mulberry((Math.random() * 4294967296) >>> 0), f = (n) => new Float64Array(n);
   const S = {
-    r, t: 0, sc: 0, k: [0, 2, 0, 0.06], ready: false, A: null, B: null, hist: [], u: 0, tm: 16, md: 12, rot: TAU * r(),
+    r, t: 0, tr: 0, sc: 0, k: [0, 2, 0, 0.06], ready: false, A: null, B: null, hist: [], u: 0, tm: 16, md: 12, rot: TAU * r(),
     ph: [], grp: new Uint8Array(N), sv: f(N), gx: f(N), gy: f(N), jw: f(N), jp: f(N), jr: f(N), px: f(N), py: f(N),
     M: new Float32Array(N * N), dis: f(N), Q: f(N * QM), Z: f(N * QM), T: f(N * QM), Q2: f(N * QM), lam: f(QM),
     kc: 3, ka: 3, kt: 0, Y: f(N * KMAX), C: f(KMAX * KMAX), lb: new Uint8Array(N).fill(255),
@@ -339,7 +339,7 @@ function kmeans(S, iters) {
 
 const CK = [[], [], [], [], []];
 // the hues drift a little, slowly and never back (a sum of two sines that do not divide)
-const slotHue = (S, j, k) => 0.5 + S.k[0] + 0.2 * sin(0.0213 * S.t) + 0.12 * (1 - cos(0.0517 * S.t)) + (k === 2 ? 0.42 * j : j / k);
+const slotHue = (S, j, k) => 0.5 + S.k[0] + 0.2 * sin(0.0213 * S.tr) + 0.12 * (1 - cos(0.0517 * S.tr)) + (k === 2 ? 0.42 * j : j / k);
 // The k corners of a regular polygon, one to a centroid. A point takes the colour of the centroids by how near they are,
 // stands at the same mix of the corners, and is off it by its cluster's scatter, GAMMA times as wide. Both glide.
 function show(S, d, first) {
@@ -347,7 +347,7 @@ function show(S, d, first) {
   const a = first ? 1 : 1 - exp(-d / 0.2), e = first ? 1 : 1 - exp(-d / 0.14);
   let mx = 0, my = 0, mr = 0;
   for (let c = 0; c < k; c++) {
-    const t = PI / 2 + 0.025 * S.t + 0.5 * sin(0.043 * S.t + S.ph[39]) + (k === 2 ? (c ? 1 : -1) * (PI / 4) : (c * TAU) / k);
+    const t = PI / 2 + 0.025 * S.tr + 0.5 * sin(0.043 * S.tr + S.ph[39]) + (k === 2 ? (c ? 1 : -1) * (PI / 4) : (c * TAU) / k);
     vx[c] = cos(t);
     vy[c] = sin(t);
     mx += vx[c] / k;
@@ -386,6 +386,7 @@ function tick(S, d, kv, first, adv) {
   for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
   if (adv) {
     const speed = exp(1.1 * S.k[2]);
+    S.tr += d;
     S.t += d * speed;
     S.sc += d * speed;
     S.rot += d * speed * 0.04;
