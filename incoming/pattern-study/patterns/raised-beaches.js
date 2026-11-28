@@ -5,18 +5,23 @@
 // Author:  patternflow-lab
 // Date:    2026-11-28
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: viscous relaxation of a half-space under a load, tau = 2 eta k / (rho g) for each wavelength (Norman Haskell, 1935, from memory), flexure of an elastic plate on a fluid as a damping of the short wavelengths, w = -q / (drho g + D k^4) (Vening Meinesz, 1931, from memory), the near-plastic profile of an ice sheet, h = sqrt(2 tau0 / (rho g) (L - x)) (John Nye, 1951, from memory), raised shorelines as glacio-isostatic uplift frozen into the land (Thomas Jamieson, 1865, and Gerard De Geer, 1910, from memory), original code, pattern round 276
+// Lineage: viscous relaxation of a half-space under a sinusoidal load, tau = 2 eta k / (rho g) (Norman Haskell, 1935, from memory), an elastic plate on a fluid, whose response to a load is damped by 1 / (1 + (k a)^4) (Vening Meinesz, 1931, from memory), the near-plastic profile of an ice sheet, h = sqrt(2 tau0 / (rho g) x distance from the margin) (John Nye, 1951, from memory), raised shorelines as glacio-isostatic uplift kept in the land (Thomas Jamieson, 1865, and Gerard De Geer, 1910, from memory), original code, pattern round 276
 // Round:   276
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Viscosity=0..4, Lithosphere=-1..1, Ice=-1..1
 //
-// Knob 1: Hue. PLACEHOLDER
-// Knob 2: Viscosity. PLACEHOLDER
-// Knob 3: Lithosphere. PLACEHOLDER
-// Knob 4: Ice. PLACEHOLDER
+// Knob 1: Hue. Adds to the hue of the sky, the sea and the ice, so 0 is the daylight picture (blue sky, turquoise sea, white and glacier-blue ice) and 0.5 an orange sky over a red sea. The umber and ochre of the crust and the ember of the mantle only lean, by 0.08 sin(2 pi K) of a turn: toward yellow at 0.25, toward red at 0.75, back at 1. On top the sky and sea lean 0.024 of a turn on periods of 97 and 151 s.
+// Knob 2: Viscosity. 0 to 4, opening at 2. The mantle's viscosity is 5.2e21 Pa s x 2^(1.15 (K - 2)): 1.0e21 at 0, 5.2e21 at 2, 26e21 at 4. Haskell's time for the longest wave (1280 km) is then 10, 50 and 245 thousand years, and a second on the panel is 1500 years, so 6.8, 33 and 164 s; a wave of order n takes n times as long, less what the plate's stiffness takes off. At 0 the crust follows the ice within seconds. At 4 it lags by minutes: in 900 s it gets no deeper than 8.3 rows (12.0 at 0, 10.7 at 2), the bulge no higher than 0.4 (1.1 at 0, 1.0 at 2), and 5, 5 and 7 beaches stand at a time at 0, 2 and 4 (median). The mantle is coloured by it, 24 percent lighter and more orange at 0, 24 percent darker and redder at 4.
+// Knob 3: Lithosphere. -1 to 1, opening at 0.06. The flexural parameter of the elastic plate is a = 7 x 2^(1.9 K) columns: 1.9 (10 km) at -1, 7.6 (38 km) at the opening, 26 (130 km) at 1, an elastic thickness of about 3, 22 and 110 km. A mode of the load with wave number k goes to 1 / (1 + (k a)^4) of its equilibrium and relaxes that much faster. The plate is drawn as thick as it is stiff, 8 rows at -1, 15.8 at the opening, 22 at 1. In 900 s the crust goes down to 11.2 rows at -1 and 8.7 at 1, a narrow deep bowl against a broad dish, and the bulge beside the ice reaches 1.04 rows at -1 and 0.3 at 1.
+// Knob 4: Ice. -1 to 1, opening at 0.06. How far the margin can get, Lmax = 22 + 28 (K + 1) columns from the left edge: 22 at -1, 53.7 at the opening, 78 at 1. The least it keeps is 9 to 11 columns. At -1 the margin never passes column 25. At the opening it is past column 33 for 23 percent of the time and past 50 for 1. At 1 it is past 33 for 41 percent, past 50 for 18 and off the right edge for 3.
 //
-// What the picture is. PLACEHOLDER
+// What the picture is. A section through a coast seen from the side: sky, the ice sheet, the sea, the land with its plate, the mantle. A column is 5 km, a row 52 m (a vertical exaggeration of 96) and a second on the panel 1500 years. The model is 128 columns wide and the panel shows 64 of them, from column 0; the crust is a sum of 37 cosine modes over the 128, the first being the mean. Nothing loops: the history is sines on periods that share no factor and the beaches are state.
+// The ice. A Nye profile h = 6.4 sqrt(R - |x - xd|) rows (tau0 = 100 kPa). The divide xd wanders between -16 and 6 columns, and the margin L between 9 and Lmax on a random target that it follows up slowly (90 thousand years for the whole range) and down fast (40), with a breath of about 2.4 columns on periods of 18 to 70. The volume sets the eustatic level, 3 rows low for the biggest sheet, plus a wander of about a row on periods of 40 to 380 thousand years for the ice elsewhere.
+// The crust. Each step the load is cut into modes and each mode goes to -(rho ice / rho mantle) h_n / (1 + (k a)^4) by an exact exponential step with tau_n = tau_1 n / (1 + (k a)^4). The long waves come first and the short ones are damped, so the bowl deepens and a bulge rises beside the ice and goes when the ice goes. At the opening the bowl reaches 10.7 rows and the bulge 1.0.
+// The beaches. The sea is the water joined to the right edge, and it ends on the land or on an ice front. When its edge ends on land and stays inside 2.4 columns for 1.5 thousand years a beach is cut: the record keeps where, the sea level h0 and the crust's displacement w0, and the land is planed flat there in its own frame, so the bench is carried up and tilted with the crust and stands at h0 plus the rise since. The longer the stay the stronger the beach. Sixteen are kept, 2.6 columns apart at least; they fade over 600 thousand years and go under a tenth, and one under the sea is dimmer than a dry one. At the opening 4 to 6 stand at a time.
+// The mantle. The streaks are material lines moved by the flow of a free half-space under the plate, w_n e^(-k d) (-sin kx, cos kx) summed over the modes: they bow down under the load, shear out toward the bulge and come back. The sideways part is drawn at the same exaggeration as the vertical. Each streak also creeps at 0.05 to 0.18 columns a second on a circulation that is drawn, not computed.
+// What is drawn. The colours, strata, cloud, drift of light, ripples, crevasse shading, the plate's thickness and the mantle's colour. The ice, crust, sea level, shorelines and flow are the model.
 
 const W = 64, H = 128;
 const { floor, ceil, sqrt, exp, sin, cos, tanh, min, max, abs, pow, log, PI } = Math;
@@ -34,9 +39,9 @@ const J0 = 64;                          // grid index of column 0
 const YS = 58;                          // row of the datum sea level
 let CRUST = 15;                         // rows of lithosphere drawn under the land, set from the Lithosphere knob each frame
 const RHO = 0.917 / 3.3;                // ice density over mantle density
-const HS = 6.4;                         // ice thickness 3.6 sqrt(L - x) rows, columns of 5 km, rows of 90 m
-const TAU1 = 50;                        // relaxation time of the longest mode for eta = 1e21 Pa s, thousand years
-const ES = 3;                         // eustatic drop in rows at the largest ice
+const HS = 6.4;                         // Nye: ice is HS sqrt(distance from the margin) rows thick (tau0 = 100 kPa, a row is 52 m, a column 5 km)
+const TAU1 = 50;                        // Haskell: 2 eta k / (rho g) for the longest mode at eta = 5.2e21 Pa s, thousand years
+const ES = 3;                           // eustatic drop in rows with the biggest sheet there is
 const PRE = 330;                        // model time run before the first frame, thousand years
 const TL = 1.5;                         // time-lapse: thousand years of model time in a second on the panel
 const NRID = 16, NDS = 30;
@@ -72,7 +77,7 @@ function vn(u, v) {
   return a + (b - a) * fu + (c - a) * fv + (a - b - c + d) * fu * fv;
 }
 
-// a red-noise wander of unit size from six sines on periods that share no factor, drawn once
+// a red-noise wander of unit size from a few sines on periods that share no factor, drawn once
 function wander(n, p0, p1) {
   const per = [], ph = [], am = [];
   let s = 0;
@@ -111,7 +116,7 @@ export function setup(params) {
   const dashes = [];
   for (let i = 0; i < NDS; i++)
     dashes.push({ v: (Math.random() < 0.5 ? -1 : 1) * (0.05 + 0.13 * Math.random()), x: -16 + 96 * Math.random(), d: 3 + 46 * Math.pow(Math.random(), 1.2), len: 10 + 16 * Math.random(), a: 0.4 + 0.5 * Math.random() });
-  // the biggest sheet, for the scale of the eustatic level
+  // the biggest sheet scales the eustatic level
   let vref = 0;
   {
     const xd = -4, R = 84;
@@ -121,23 +126,21 @@ export function setup(params) {
     }
   }
   params.s = {
-    tm: 0, rt: 0, k: null, A: new Float64Array(NM + 1), Rt: new Float64Array(NM + 1), ready: false,
-    wl: wander(6, 36, 400), ww: wander(4, 18, 70), ph: [0, 1, 2, 3, 4, 5].map(() => TAU * Math.random()), wc: wander(5, 60, 420), wf: wander(5, 40, 380),
+    tm: 0, rt: 0, k: null, A: new Float64Array(NM + 1),
+    wl: wander(6, 36, 400), ww: wander(4, 18, 70), ph: [0, 1, 2, 3, 4, 5, 6, 7].map(() => TAU * Math.random()), wc: wander(5, 60, 420), wf: wander(5, 40, 380),
     u: 0.5, ice: { xd: -4, R: 40, L: 40, V: 0 }, e: 0, vref,
     sh: { x: NaN, front: false, quiet: 0, cur: null, lo: NaN, hi: NaN },
-    rid: [], zc: new Float64Array(NJ), dash: dashes, hue: -9, n: 0, wmin: 0, wmax: 0, nform: 0,
+    rid: [], zc: new Float64Array(NJ), dash: dashes, hue: -9, nform: 0,
   };
-  // start the history where the ice has been growing and stands at a middling size, so the first picture is a mature one
+  // start the history where a big sheet is on its way back to a middling one, so the first picture has beaches showing
   const S = params.s;
   for (let i = 0; i < 400; i++) {
     const off = 600 * Math.random(), a = target(S, off + PRE - 25), b = target(S, off + PRE);
     S.tm = off;
-    if (a > 0.45 && a < 0.8 && b > 0.6 && b < 0.85 && b > a) break;
+    if (a > 0.55 && b > 0.25 && b < 0.5 && b < a) break;
   }
   S.u = target(S, S.tm);
 }
-
-const AEQ = new Float64Array(NM + 1);
 
 const alphaOf = (k) => 7 * pow(2, 1.9 * cl(k, -1, 1));
 const target = (S, t) => 0.5 + 0.5 * tanh(1.3 * wv(S.wl, t) - 0.45);
@@ -146,7 +149,7 @@ function stepModel(S, dt) {
   const kk = S.k;
   S.tm += dt;
   const t = S.tm;
-  // the ice history: a target from the wander, followed slowly on the way up and quickly on the way down
+  // a target from the wander, followed slowly up and fast down
   const lmax = 22 + 28 * (cl(kk[3], -1, 1) + 1);
   const tar = target(S, t);
   S.u += cl(tar - S.u, -dt / 40, dt / 90);
@@ -170,7 +173,6 @@ function stepModel(S, dt) {
     const eq = (-RHO * a) / fl;
     const tau = (TAU1 * visc * (n === 0 ? 0.5 : n)) / fl;
     const A = S.A[n], d = A - eq, nA = eq + d * exp(-dt / tau);
-    S.Rt[n] = (nA - A) / dt;
     S.A[n] = nA;
   }
   // the land at columns 0 .. 64 in half steps
@@ -182,8 +184,7 @@ function stepModel(S, dt) {
     ZL[i] = ZB[j] + S.zc[j] + w;
   }
 
-  // the sea is the water connected to the right edge: walk left while the land is under it and no ice stands there.
-  // It ends on the land (a shoreline, where a beach can be cut) or on the ice (an ice front, where none can)
+  // the sea is the water joined to the right edge; it ends on land (a beach can be cut) or on an ice front (none can)
   const sh = S.sh;
   let xs = NaN, front = false;
   if (ZL[128] < S.e && SH[J0 + 128] < 0.6) {
@@ -196,7 +197,7 @@ function stepModel(S, dt) {
   sh.x = xs; sh.front = front;
   const iceAt = (x) => SH[cl(round2(x - XL), 0, NJ - 1)];
   if (Number.isFinite(xs) && !front && xs > 3 && xs < 61) {
-    // the shoreline holds still while it stays inside a window 2 columns wide; a beach is cut after 2.5 thousand years there
+    // a beach is cut when the shoreline stays inside a 2.4 column window for 1.5 thousand years
     if (!Number.isFinite(sh.lo) || xs < sh.hi - 2.4 || xs > sh.lo + 2.4) { sh.lo = sh.hi = xs; sh.quiet = 0; sh.cur = null; }
     else { sh.lo = min(sh.lo, xs); sh.hi = max(sh.hi, xs); sh.quiet += dt; }
     if (sh.quiet > 1.5) {
@@ -213,8 +214,7 @@ function stepModel(S, dt) {
       sh.cur.s = min(1, sh.cur.s + dt / 22);
     }
   } else { sh.lo = NaN; sh.quiet = 0; sh.cur = null; }
-  // while a beach is being cut the sea planes the land flat at its own level, a bench with a small seaward slope: the cut is made in
-  // the crust's own frame, so every bench is carried up, and tilted, with the land it was cut in
+  // the sea planes the land flat at its own level (a bench, slightly seaward) in the crust's own frame, so it is carried up with the land
   if (sh.cur && sh.quiet > 1.5) {
     const xr = sh.cur.x, k = 1 - exp(-dt / 2.5);
     for (let i = max(0, floor(2 * (xr - BW - 1))); i <= min(128, ceil(2 * (xr + BW + 1))); i++) {
@@ -223,7 +223,7 @@ function stepModel(S, dt) {
       S.zc[j] += (target - (ZB[j] + S.zc[j])) * g * k * (0.4 + 0.6 * sh.cur.s);
     }
   }
-  // erosion, scouring under the ice, and the limit on how many are kept
+  // fading, slower under ice, and the limit on how many are kept
   for (const r of S.rid) {
     const covered = iceAt(r.x) > 2;
     r.s *= exp(-dt / (covered ? 400 : 600));
@@ -261,11 +261,11 @@ const BUF = new Float32Array(W * H * 3);
 const DSH = new Float32Array(W * H);
 const SKY = new Float32Array(H * 3), SEA = new Float32Array(100 * 3), ICE = new Float32Array(33 * 3), MAN = new Float32Array(110 * 3);
 const EAR = new Float32Array(4 * 3);
-const T = [0, 0, 0], T2 = [0, 0, 0];
+const T = [0, 0, 0];
 
 function lutSet(arr, i, c) { arr[i * 3] = c[0]; arr[i * 3 + 1] = c[1]; arr[i * 3 + 2] = c[2]; }
-function buildColors(h) {
-  const he = 0.14 * sin(TAU * h);
+function buildColors(h, hk) {
+  const he = 0.08 * sin(TAU * hk);
   for (let y = 0; y < H; y++) {
     const t = cl(y / (YS + 6), 0, 1), q = t * t;
     const q2 = q * q;
@@ -291,18 +291,20 @@ function buildColors(h) {
   hsv(0.09 + he, 0.5, 0.58, T); lutSet(EAR, 3, T);     // soil
 }
 
-const CY = new Float32Array(W), CS = new Float32Array(W), CI = new Float32Array(W), CB = new Float32Array(W), CW = new Float32Array(W), CR = new Float32Array(W), CH = new Float32Array(W);
+const CS = new Float32Array(W), CI = new Float32Array(W), CB = new Float32Array(W), CW = new Float32Array(W), CR = new Float32Array(W), CH = new Float32Array(W);
 const S0 = (d) => { const t = cl((d + 0.85) / 1.7, 0, 1); return t * t * (3 - 2 * t); };
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.k) return;
-  if (abs(S.hue - S.k[0]) > 0.0005) { buildColors(S.k[0]); S.hue = S.k[0]; }
+  // the sky and sea tint leans a little on two long periods
+  const hueNow = S.k[0] + 0.014 * sin((TAU * S.rt) / 97 + S.ph[6]) + 0.01 * sin((TAU * S.rt) / 151 + S.ph[7]);
+  if (abs(S.hue - hueNow) > 0.0004) { buildColors(hueNow, S.k[0]); S.hue = hueNow; }
   const rt = S.rt, ice = S.ice, ysea = YS - S.e;
-  // the plate is drawn as thick as the elastic plate is stiff: 8 rows for the thinnest, 22 for the thickest
+  // the plate is drawn as thick as it is stiff
   CRUST = 8 + 14 * cl(log(alphaOf(S.k[2]) / 1.6) / log(16.25), 0, 1);
   const vq = (cl(S.k[1], 0, 4) - 2) * 0.5;
-  // the light of the day drifts: a colour balance and a brightness on periods that share no factor
+  // the light drifts on periods that share no factor
   const ph = S.ph, tr = 1 + 0.07 * sin((TAU * rt) / 83 + ph[0]) + 0.03 * sin((TAU * rt) / 37 + ph[3]), tg = 1 + 0.05 * sin((TAU * rt) / 107 + ph[1]), tb = 1 + 0.08 * sin((TAU * rt) / 131 + ph[2]) - 0.03 * sin((TAU * rt) / 47 + ph[4]);
   const tl = 1 + 0.1 * sin((TAU * rt) / 61 + ph[5]);
   const sr0 = tr * tl, sg0 = tg * tl, sb0 = tb * tl, sr1 = sqrt(sr0), sg1 = sqrt(sg0), sb1 = sqrt(sb0);
@@ -314,7 +316,8 @@ export function draw(display, params) {
     for (const r of S.rid) {
       const u = (xc - r.x + 0.8 * BW) / 1.4, v = abs(xc - r.x) / (BW + 0.6);
       if (u > -3.2 && u < 3.2) bump += (0.4 + 0.9 * r.s) * exp(-u * u);
-      if (v < 2) rw += (0.3 + 0.8 * r.s) * exp(-pow(v, 4));
+      // h0 + rise since - sea level now: dry or drowned
+      if (v < 2) rw += (0.3 + 0.8 * r.s) * exp(-pow(v, 4)) * (0.5 + 0.5 * sm(-1.5, 0.4, r.h0 + interpW(r.x) - r.w0 - S.e));
     }
     const ys = YS - ZB[j] - S.zc[j] - w - bump;
     CS[x] = ys;
@@ -333,8 +336,8 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const ys = CS[x], yb = CB[x], yi = CI[x], hi = CH[x];
       let r = SKY[sk], g = SKY[sk + 1], b = SKY[sk + 2];
-      // thin high cloud drifting, a few percent of the sky's light
-      const cd = 1 + 0.2 * (vn(x * 0.04 + rt * 0.1 + 11, yc * 0.16 + 3 - rt * 0.02) - 0.5) * (1 - yc / 90);
+      // high cloud drifting
+      const cd = 1 + 0.78 * (0.65 * vn(x * 0.035 + rt * 0.12 + 11, yc * 0.13 + 3 - rt * 0.03) + 0.35 * vn(x * 0.09 - rt * 0.15, yc * 0.3 + 7 + rt * 0.02) - 0.5) * (1 - yc / 80);
       r *= cd * sr0; g *= cd * sg0; b *= cd * sb0;
       // sea: between the sea surface and the land
       const cw = S0(yc - ysea) * (1 - S0(yc - ys));
@@ -347,18 +350,19 @@ export function draw(display, params) {
         sr *= rp * sr1; sg *= rp * sg1; sb *= rp * sb1;
         r += (sr - r) * cw; g += (sg - g) * cw; b += (sb - b) * cw;
       }
-      // ice: white on top and glacier blue at the base, with flow-line streaks that creep toward the margin and a bright rim
+      // ice: white on top, glacier blue at the base, flow-line streaks, a bright rim
       const ci = hi > 0.05 ? S0(yc - yi) * (1 - S0(yc - ys)) : 0;
       if (ci > 0.002) {
         const dy = yc - yi, f = cl(dy / max(hi, 1), 0, 1), fi = f * 32, i0 = floor(fi), fr = fi - i0, a0 = i0 * 3, a1 = min(32, i0 + 1) * 3;
         let ir = ICE[a0] + (ICE[a1] - ICE[a0]) * fr, ig = ICE[a0 + 1] + (ICE[a1 + 1] - ICE[a0 + 1]) * fr, ib = ICE[a0 + 2] + (ICE[a1 + 2] - ICE[a0 + 2]) * fr;
         const sx = (x + 0.5 - ice.xd) / ice.R;
-        const nz = vn(sx * 5.5 + 7.1, f * 1.9 + 1.4 * sx - rt * 0.03) * 0.65 + vn(sx * 13 + 2.2, f * 4.4 + 2.6 * sx - rt * 0.05) * 0.35;
+        const nz = vn(sx * 2.2 + 7.1, f * 6.5 + 2.4 * sx * sx - rt * 0.08) * 0.65 + vn(sx * 5 + 2.2, f * 14 + 3 * sx * sx - rt * 0.13) * 0.35;
         const dk = sm(0.44, 0.62, nz) * (0.3 + 0.7 * f);
         ir *= 1 - 0.5 * dk; ig *= 1 - 0.36 * dk; ib *= 1 - 0.14 * dk;
         const rim = 0.2 * (1 - sm(0.5, 2.6, dy));
         ir += (255 - ir) * rim; ig += (255 - ig) * rim; ib += (255 - ib) * rim;
-        ir *= sr1; ig *= sg1; ib *= sb1;
+        const il = 0.88 + 0.24 * vn(x * 0.06 - rt * 0.14 + 5, yc * 0.09 + rt * 0.06);
+        ir *= sr1 * il; ig *= sg1 * il; ib *= sb1 * il;
         if (yc > ysea) { ir *= 0.8; ig *= 0.95; }
         r += (ir - r) * ci; g += (ig - g) * ci; b += (ib - b) * ci;
       }
@@ -372,18 +376,18 @@ export function draw(display, params) {
         lr += (EAR[9] - lr) * so; lg += (EAR[10] - lg) * so; lb += (EAR[11] - lb) * so;
         const pw = CR[x] * (1 - sm(1.8, 4.6, dp));
         lr += (EAR[6] - lr) * pw; lg += (EAR[7] - lg) * pw; lb += (EAR[8] - lb) * pw;
-        // a low light from the right: faces that look out to sea take it, faces that look inland do not, so the risers between benches show
+        // a low light from the right shows the risers between benches
         const sl = cl((CS[min(W - 1, x + 1)] - CS[max(0, x - 1)]) * 0.5, -2.2, 2.2);
         const lf = 1 + 0.2 * (sl - 0.4) * (1 - sm(0, 3.6, dp));
         lr *= lf; lg *= lf; lb *= lf;
         r += (lr - r) * cl2; g += (lg - g) * cl2; b += (lb - b) * cl2;
       }
-      // mantle: dark umber under the crust to glowing amber at the bottom, with slow blotches and the streaks of flow
+      // mantle: umber under the crust to amber at the bottom, blotches and the streaks of flow
       const cm = S0(yc - yb);
       if (cm > 0.002) {
         const dm = cl(yc - yb, 0, 108), i0 = floor(dm) * 3;
         const nb = 0.6 * vn(x * 0.05 + rt * 0.11, yc * 0.07 - rt * 0.15 + 4.3) + 0.4 * vn(x * 0.13 - rt * 0.17, yc * 0.15 + rt * 0.1 + 9.1);
-        const lum = (0.58 + 0.84 * nb + 0.22 * sm(88, 128, yc)) * (1 - 0.3 * vq);
+        const lum = 0.46 + 1.12 * nb + 0.22 * sm(88, 128, yc) - 0.24 * vq;
         let mr = MAN[i0] * lum, mg = MAN[i0 + 1] * lum * (0.92 + 0.16 * nb) * (1 - 0.14 * vq), mb = MAN[i0 + 2] * lum * (1 - 0.3 * vq);
         const dsh = DSH[y * W + x];
         mr += 255 * 0.55 * dsh; mg += 190 * 0.55 * dsh; mb += 80 * 0.55 * dsh;
@@ -402,7 +406,7 @@ export function draw(display, params) {
 
 const DP = [0, 0];
 function dispAt(S, x, d, out) {
-  // the displacement of a point of the mantle at x columns and d rows under the crust: each mode decays with depth
+  // displacement of a point d rows under the crust: each mode decays with depth
   let dx = 0, dy = 0;
   const xr = x - XL;
   for (let n = 0; n <= NM; n++) {
@@ -412,7 +416,7 @@ function dispAt(S, x, d, out) {
   }
   out[0] = dx; out[1] = dy;
 }
-// a slow circulation of the mantle of its own, beyond the flow the load drives, carries the streaks sideways
+// a drawn circulation of its own carries the streaks sideways
 const wrapx = (x) => ((((x + 24) % 112) + 112) % 112) - 24;
 function drawDashes(S) {
   for (const q of S.dash) {
