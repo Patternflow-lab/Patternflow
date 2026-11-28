@@ -195,8 +195,8 @@ export function draw(display, params) {
   PSI0 = 0.07 * T + 1.3 * sin(0.0237 * T + ph[10]);
   PSI2 = -0.09 * T;
   PSI3 = 0.1 * T + 1.7 * sin(0.0431 * T + ph[8]);
-  AW = 28; A1 = 3.4 * relief; A1m = 0.5 * A1; A2 = 0.2 * A1; AS = 10 * relief;
-  KC0 = PI / (Pc * 1.8); KC = PI / Pc; KB = PI / (Pc * 0.85); KF = PI / P2;
+  AW = 28; A1 = 3.4 * relief; A1m = 0.62 * A1; A2 = 0.25 * A1; AS = 10 * relief;
+  KC0 = PI / (Pc * 1.6); KC = PI / Pc; KB = PI / (Pc * 0.85); KF = PI / P2;
 
   // ---- the smooth fields: the warp on every second cell, the slow ones on every fourth
   const tz = T * 0.04, dx1 = T * 0.011, dy1 = T * 0.007;
@@ -232,7 +232,7 @@ export function draw(display, params) {
     for (let i = 0; i < N4W; i++) {
       const x = i * 4 - M - CX, n = j * N4W + i;
       G4S[n] = noise3(x / 100 + of[4] - dx1 * 0.5, y / 100 + of[5], tz * 0.6 + 2.2);
-      G4A[n] = 0.5 + 0.75 * sm(-0.4, 0.5, noise3(x / 64 + of[6], y / 64 + of[7] + dy1, tz * 0.8 + 9.1));
+      G4A[n] = 0.75 + 0.5 * sm(-0.4, 0.5, noise3(x / 64 + of[6], y / 64 + of[7] + dy1, tz * 0.8 + 9.1));
       G4B[n] = sm(-0.25, 0.25, noise3(x / 52 + of[10] - dx1, y / 52 + of[11], tz * 0.9 + 5.7));
       G4K[n] = sm(-0.3, 0.3, noise3(x / 40 + of[8] + dx1, y / 40 + of[9], tz * 1.2 + 4.4));
     }
