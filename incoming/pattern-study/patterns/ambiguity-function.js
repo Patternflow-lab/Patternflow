@@ -22,10 +22,8 @@ const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-const CELL = 800;           // LED^2 per unit of time x bandwidth
+const CELL0 = 800;          // LED^2 per unit of time x bandwidth, at its centre
 const MAXN = 9;             // chips in the train, at most
-const KM = MAXN - 1;
-const NK = 2 * KM + 1;
 
 // ---------------------------------------------------------------- colour
 function hsv(h, s, v, o) {
@@ -67,88 +65,93 @@ function cumAt(s) {
 }
 
 // ---------------------------------------------------------------- the field
-const TRE = new Float64Array(NK * CW), TIM = new Float64Array(NK * CW);
+// The chips sit at t = (n >> 1) P + (n & 1) T1: two interleaved trains of period P, the odd one T1 late.
+// Pairs of chips then fall into three sets by their offset: 0 (even-even and odd-odd), +T1 and -T1 (even-odd and odd-even),
+// each on a lattice of period P. T1 = P / 2 is the plain train of spacing P / 2.
+const KP = 4, NKP = 2 * KP + 1, NSET = 3, NT = NSET * NKP;
+const TRE = new Float64Array(NT * CW), TIM = new Float64Array(NT * CW);
+const H0R = new Float64Array(NT), H0I = new Float64Array(NT), USED = new Uint8Array(NT);
 const P3 = new Float64Array(CW), RE = new Float64Array(CW), IM = new Float64Array(CW);
 const PW = new Float64Array(CW * CH);
 const SL = new Float32Array(W * H);
-const CR = new Float64Array(MAXN), CI = new Float64Array(MAXN);
-const PR = new Float64Array(NK * MAXN), PI2 = new Float64Array(NK * MAXN);
+const CR = new Float64Array(MAXN), CI = new Float64Array(MAXN), TN = new Float64Array(MAXN);
 const ER = new Float64Array(MAXN), EI = new Float64Array(MAXN);
+const NPAIR = MAXN * MAXN;
+const PIX = new Int32Array(NPAIR), PA = new Int32Array(NPAIR), PB = new Int32Array(NPAIR), PWR2 = new Float64Array(NPAIR), PWI2 = new Float64Array(NPAIR);
 
-// power of the ambiguity function of a train of chirped Gaussian chips, normalised to 1 at the origin
-function field(N, T, t0, sh, q, tp) {
+// power of the ambiguity function of a train of chirped Gaussian chips, normalised to 1 at the origin (ox, oy), in corner coordinates
+function field(N, P, rho, t0, sh, q, tp, ox, oy, CELL) {
   const c = ((PI * t0 * t0) / CELL) * sh;   // chip chirp, set so that the ridge leans at the slope sh
   const m = min(MAXN, ceil(N - 0.5 - 1e-9));
-  const t02 = t0 * t0;
-  // chip amplitudes and phases
-  let en = 0;
+  const t02 = t0 * t0, g1 = 1 + c * c, T1 = rho * P;
   for (let n = 0; n < m; n++) {
     const hs = sin((PI * (n + 0.5)) / N), w = 1 - tp + tp * hs * hs, ph = PI * q * n * n;
     CR[n] = w * cos(ph); CI[n] = w * sin(ph);
-    en += w * w;
+    TN[n] = (n >> 1) * P + (n & 1) * T1;
   }
-  // c_n conj(c_{n-k}) for every lag k
-  for (let k = -(m - 1); k <= m - 1; k++)
-    for (let n = max(0, k); n <= min(m - 1, m - 1 + k); n++) {
-      const a = CR[n], b = CI[n], cc = CR[n - k], d = CI[n - k], o = (k + KM) * MAXN + n;
-      PR[o] = a * cc + b * d; PI2[o] = b * cc - a * d;
+  // c_n conj(c_m) for every ordered pair, filed under its set and its lag
+  USED.fill(0); H0R.fill(0); H0I.fill(0); TRE.fill(0); TIM.fill(0);
+  let np = 0;
+  for (let n = 0; n < m; n++)
+    for (let l = 0; l < m; l++) {
+      const e = (n & 1) - (l & 1), idx = (e === 0 ? 0 : e === 1 ? 1 : 2) * NKP + ((n >> 1) - (l >> 1)) + KP;
+      const wr = CR[n] * CR[l] + CI[n] * CI[l], wi = CI[n] * CR[l] - CR[n] * CI[l];
+      PIX[np] = idx; PA[np] = n; PB[np] = l; PWR2[np] = wr; PWI2[np] = wi; np++;
+      USED[idx] = 1; H0R[idx] += wr; H0I[idx] += wi;
     }
-  const kx = (PI * t02) / CELL, a1 = (PI * T) / CELL;
-  for (let i = 0; i < CW; i++) {
-    const yc = i - 32, xi = kx * yc;
-    P3[i] = exp((-xi * xi) / (2 * t02));
-    const a = a1 * yc; // nu T
-    for (let n = 0; n < m; n++) { ER[n] = cos(TAU * a * n); EI[n] = sin(TAU * a * n); }
-    const cb = cos(PI * a), sb = sin(PI * a);
-    for (let k = -(m - 1); k <= m - 1; k++) {
-      let sr = 0, si = 0;
-      const o0 = (k + KM) * MAXN;
-      for (let n = max(0, k); n <= min(m - 1, m - 1 + k); n++) {
-        const pr = PR[o0 + n], pi = PI2[o0 + n];
-        sr += pr * ER[n] - pi * EI[n]; si += pr * EI[n] + pi * ER[n];
-      }
-      // times e^{-j pi k nu T}
-      const ph = -PI * k * a, rr = cos(ph), ri = sin(ph);
-      TRE[(k + KM) * CW + i] = sr * rr - si * ri;
-      TIM[(k + KM) * CW + i] = sr * ri + si * rr;
-    }
-  }
-  // energy: the value at the origin
+  // the value at the origin, which is the energy of the waveform
   let e0r = 0, e0i = 0;
-  const g1 = 1 + c * c;
-  for (let k = -(m - 1); k <= m - 1; k++) {
-    const A = exp((-g1 * k * k * T * T) / (2 * t02));
-    e0r += A * TRE[(k + KM) * CW + 32]; e0i += A * TIM[(k + KM) * CW + 32];
+  for (let s = 0; s < NSET; s++) {
+    const off = s === 0 ? 0 : s === 1 ? T1 : -T1;
+    for (let k = -KP; k <= KP; k++) {
+      const idx = s * NKP + k + KP;
+      if (!USED[idx]) continue;
+      const d = k * P + off, A = exp((-g1 * d * d) / (2 * t02));
+      e0r += A * H0R[idx]; e0i += A * H0I[idx];
+    }
   }
   const inv = 1 / (e0r * e0r + e0i * e0i);
-  const beta = (c * PI) / CELL;
-  for (let j = 0; j <= 64; j++) {
-    const yr = j - 64, reach = 3.75 * t0;
+  const kx = (PI * t02) / CELL, w1 = PI / CELL;
+  for (let i = 0; i < CW; i++) {
+    const yc = i - ox, xi = kx * yc;
+    P3[i] = exp((-xi * xi) / (2 * t02));
+    for (let n = 0; n < m; n++) { ER[n] = cos(w1 * yc * TN[n]); EI[n] = sin(w1 * yc * TN[n]); }
+    for (let p = 0; p < np; p++) {
+      const a = PA[p], b = PB[p], er = ER[a] * ER[b] - EI[a] * EI[b], ei = ER[a] * EI[b] + EI[a] * ER[b];
+      const o = PIX[p] * CW + i;
+      TRE[o] += PWR2[p] * er - PWI2[p] * ei; TIM[o] += PWR2[p] * ei + PWI2[p] * er;
+    }
+  }
+  const beta = (c * PI) / CELL, reach = 3.75 * t0;
+  for (let j = 0; j < CH; j++) {
+    const yr = j - oy;
     RE.fill(0); IM.fill(0);
-    for (let kk = max(-(m - 1), ceil((yr - reach) / T)); kk <= min(m - 1, floor((yr + reach) / T)); kk++) {
-      const u = yr - kk * T;
-      const P1 = exp((-g1 * u * u) / (2 * t02));
-      const rate = exp(-beta * u);
-      let p2 = P1 * exp(beta * u * 32);
-      const row = (kk + KM) * CW;
-      for (let i = 0; i < CW; i++) {
-        const a = p2 * P3[i];
-        RE[i] += a * TRE[row + i]; IM[i] += a * TIM[row + i];
-        p2 *= rate;
+    for (let s = 0; s < NSET; s++) {
+      const off = s === 0 ? 0 : s === 1 ? T1 : -T1;
+      for (let kk = max(-KP, ceil((yr - off - reach) / P)); kk <= min(KP, floor((yr - off + reach) / P)); kk++) {
+        const idx = s * NKP + kk + KP;
+        if (!USED[idx]) continue;
+        const u = yr - kk * P - off;
+        const P1 = exp((-g1 * u * u) / (2 * t02));
+        const rate = exp(-beta * u);
+        let p2 = P1 * exp(beta * u * ox);
+        const row = idx * CW;
+        for (let i = 0; i < CW; i++) {
+          const a = p2 * P3[i];
+          RE[i] += a * TRE[row + i]; IM[i] += a * TIM[row + i];
+          p2 *= rate;
+        }
       }
     }
     const base = j * CW;
     for (let i = 0; i < CW; i++) PW[base + i] = (RE[i] * RE[i] + IM[i] * IM[i]) * inv;
   }
-  // point symmetry about the origin at corner (32, 64)
-  for (let j = 0; j < 64; j++)
-    for (let i = 0; i < CW; i++) PW[(128 - j) * CW + (64 - i)] = PW[j * CW + i];
 }
 
 // ---------------------------------------------------------------- state
 export function setup(params) {
   const ph = [];
-  for (let i = 0; i < 40; i++) ph.push(TAU * Math.random());
+  for (let i = 0; i < 48; i++) ph.push(TAU * Math.random());
   params.s = { t: 0, k: null, ph, hue: -9 };
 }
 
@@ -162,35 +165,59 @@ export function update(dt, input, params) {
     const al = 1 - exp(-d / 0.2);
     for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
   }
-  S.t += d;
+  S.t += d * 1.6;
 }
 
 const LDB = 40, PWR = 0.62;
+// the floor: three plane waves of level, drawn
+const FX = new Float64Array(3 * W * 2), FY = new Float64Array(3 * H * 2);
+const FOG = new Float64Array(W * H);
+function fog(T, p) {
+  for (let w = 0; w < 3; w++) {
+    const lam = [34, 47, 61][w] * (1 + 0.2 * sin((TAU * T) / (79 + 11 * w) + p[30 + w]));
+    const th = p[33 + w] + 0.7 * sin((TAU * T) / (97 + 13 * w) + p[36 + w]), ph = p[39 + w] + (TAU * T) / (43 + 9 * w) * (w & 1 ? -1 : 1);
+    const kx = (TAU / lam) * cos(th), ky = (TAU / lam) * sin(th);
+    for (let x = 0; x < W; x++) { FX[(w * W + x) * 2] = sin(kx * (x - 32) + ph); FX[(w * W + x) * 2 + 1] = cos(kx * (x - 32) + ph); }
+    for (let y = 0; y < H; y++) { FY[(w * H + y) * 2] = sin(ky * (y - 64)); FY[(w * H + y) * 2 + 1] = cos(ky * (y - 64)); }
+  }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let s = 0;
+      for (let w = 0; w < 3; w++) s += FX[(w * W + x) * 2] * FY[(w * H + y) * 2 + 1] + FX[(w * W + x) * 2 + 1] * FY[(w * H + y) * 2];
+      FOG[y * W + x] = exp(0.23026 * (FOGL + FOGA * s));
+    }
+}
+let FOGL = -28.5, FOGA = 3.2;
 
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const T = S.t, k = S.k, p = S.ph;
   const sn = (per, i) => sin((TAU * T) / per + p[i]);
-  if (abs(S.hue - k[0]) > 0.0005) { buildRamp(k[0]); S.hue = k[0]; }
+  const hue = k[0] + 0.06 * sn(97, 16) + 0.03 * sn(53.7, 17);
+  if (abs(S.hue - hue) > 0.0005) { buildRamp(hue); S.hue = hue; }
 
-  const Nk = 2.2 + 1.2 * cl(k[1], 0, 4);
-  const N = cl(1.9 + (Nk - 1.9) * (0.3 + 1.4 * (0.5 + 0.34 * sn(53, 0) + 0.16 * sn(29, 1))), 1.2, MAXN - 0.6);
-  const sh = 2 * k[2] + 1.6 * sn(41, 2) + 0.8 * sn(23.7, 3);
-  const Tp = 38 * pow(2, 0.8 * k[3]) * (1 + 0.2 * sn(37, 4) + 0.1 * sn(59, 5));
-  const r = 0.3 + 0.08 * sn(47, 6) + 0.04 * sn(71, 7);
-  const q = 0.4 * k[2] + 0.2 * sn(61, 8) + 0.1 * sn(31, 9);
-  const tp = 0.86 + 0.08 * sn(79, 10) + 0.04 * sn(19, 11);
-  render(display, N, Tp, Tp * r, sh, q, tp);
+  const Nk = 3.2 + 1.0 * cl(k[1], 0, 4);
+  const N = cl(1.9 + (Nk - 1.9) * (0.1 + 0.9 * (0.5 + 0.38 * sn(53, 0) + 0.2 * sn(29, 1))), 1.2, MAXN - 0.6);
+  const sh = 1.2 * k[2] + 1.8 * sn(41, 2) + 0.9 * sn(23.7, 3);
+  const Tp = 38 * pow(2, 0.8 * k[3]) * (1 + 0.28 * sn(37, 4) + 0.14 * sn(59, 5));
+  const r = 0.32 + 0.1 * sn(47, 6) + 0.05 * sn(71, 7);
+  const q = 0.4 * k[2] + 0.26 * sn(61, 8) + 0.14 * sn(31, 9);
+  const tp = 0.8 + 0.14 * sn(79, 10) + 0.06 * sn(19, 11);
+  const ox = 32 + 14 * sn(83, 12) + 6 * sn(47.3, 13), oy = 64 + 30 * sn(101, 14) + 12 * sn(61.7, 15);
+  const cell = CELL0 * pow(2, 0.6 * sn(67, 18) + 0.4 * sn(39.3, 19));
+  const rho = 0.5 - 0.22 * sm(0.2, 0.8, 0.5 + 0.4 * sn(73, 20) + 0.3 * sn(37.7, 21));
+  fog(T, p);
+  render(display, N, 2 * Tp, rho, Tp * r, sh, q, tp, ox, oy, cell);
 }
 
-function render(display, N, Tp, t0, sh, q, tp) {
-  field(N, Tp, t0, sh, q, tp);
+function render(display, N, P, rho, t0, sh, q, tp, ox, oy, cell) {
+  field(N, P, rho, t0, sh, q, tp, ox, oy, cell);
   const sc = 1 / LDB;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const a = y * CW + x;
-      const pw = 0.25 * (PW[a] + PW[a + 1] + PW[a + CW] + PW[a + CW + 1]);
+      const pw = 0.25 * (PW[a] + PW[a + 1] + PW[a + CW] + PW[a + CW + 1]) + FOG[y * W + x];
       const L = pw > 1e-5 ? 4.3429 * log(pw) : -50;
       SL[y * W + x] = NB * (1 - pow(cl(-L, 0, LDB) * sc, PWR));
     }
