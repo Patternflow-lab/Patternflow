@@ -18,17 +18,17 @@
 //
 // x.
 
-const W = 64, H = 128, NR = 64, NCOL = 68;
+const W = 64, H = 128, NR = 64, NS = 2 * NR, NCOL = 68;
 const { floor, ceil, exp, sin, cos, min, max, abs, round, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
 const IMAX = 6.4;                 // bias current at the top and bottom edge, in units of the critical current
-const DI = IMAX / NR;             // current per row
-const BURN = 4, MEAS = 6;
+const DS = IMAX / NS;             // current between two integrated rows: two of them to a row of LEDs
+const BURN = 4, MEAS = 6;         // drive periods integrated before the average, and in each of its two halves
 const H0 = 0.13;                  // hue of the zero step when the Hue knob is at 0
-const DH = -0.075;                  // hue step between one plateau and the next         // drive periods integrated before and while averaging
+const DH = -0.075;                // hue step from one plateau to the next
 
 function hsv(h, s, v, o) {
   h = (h - floor(h)) * 6;
@@ -42,32 +42,32 @@ function hsv(h, s, v, o) {
 export function setup(params) {
   params.s = {
     t: 0, acc: 0, head: -1, k: null,
-    col: new Float32Array(NCOL * H * 3),
-    phi: new Float32Array(NCOL * NR),
+    col: new Float32Array(NCOL * H * 3),                    // the picture of each column, ready to draw
+    phi: new Float32Array(NCOL * NS),                       // the phase each row of each column ended on
+    cr: new Float32Array(NCOL * NS), cd: new Float32Array(NCOL * NS),
     ct: new Float32Array(NCOL), cOm: new Float32Array(NCOL), cB0: new Float32Array(NCOL), cH: new Float32Array(NCOL),
-    rho: new Float32Array(NR), dro: new Float32Array(NR), cr: new Float32Array(NCOL * NR), cd: new Float32Array(NCOL * NR),
-    drv: new Float32Array(4096),
+    drv: new Float32Array(256),
+    o0: new Int32Array(3), o1: new Int32Array(3), fr: new Float32Array(3), fw: new Float32Array(3),
   };
 }
 
-// the wander of the drive amplitude, between -1 and 1: sines whose periods do not divide each other
+// the swing b of the drive, as a number between -1 and 1 about its centre: sines whose periods do not divide each other
 function wander(t) {
-  return 0.5 * sin(TAU * t / 17.3 + 2.65) + 0.28 * sin(TAU * t / 29.1 + 1.36) + 0.14 * sin(TAU * t / 11.9 + 0.56) + 0.08 * sin(TAU * t / 47.7 + 1.06);
+  return 0.5 * sin(TAU * t / 14 + 4.03) + 0.28 * sin(TAU * t / 23.5 + 0.71) + 0.14 * sin(TAU * t / 9.6 + 0.52) + 0.08 * sin(TAU * t / 38 + 5.62);
 }
 const b0Of = (k) => 3.9 + 2.3 * cl(k, -1, 1);
 const ampOf = (b0) => min(2.4, b0 - 0.7);
 const omOf = (om, t) => om * (1 + 0.035 * sin(TAU * t / 37.3 + 0.7));
+const speedOf = (k) => 4.2 * exp(0.6 * cl(k, -1, 1));   // columns a second
 
-// one column: the rotation number of the junction for each bias row
+// one column: the overdamped junction, d phi / dt = I + a cos(Omega t) - sin(phi), for every bias row
 function integrate(S, slot, om, a, nburn) {
-  const T = TAU / om, spp = max(20, ceil(T / 0.12)), dt = T / spp, hd = 0.5 * dt, drv = S.drv;
-  const n2 = 2 * spp;
-  for (let i = 0; i <= n2; i++) drv[i] = a * cos(om * i * hd);
-  const phi = S.phi, base = slot * NR;
-  for (let k = 0; k < NR; k++) {
-    const I = (k + 0.5) * DI;
-    let p = phi[base + k], p0 = 0, p1 = 0;
-    const tot = (nburn + 2 * MEAS) * spp, st = nburn * spp, mid = (nburn + MEAS) * spp;
+  const T = TAU / om, spp = max(14, ceil(T / 0.25)), dt = T / spp, hd = 0.5 * dt, drv = S.drv;
+  for (let i = 0; i <= 2 * spp; i++) drv[i] = a * cos(om * i * hd);
+  const base = slot * NS, tot = (nburn + 2 * MEAS) * spp, st = nburn * spp, mid = (nburn + MEAS) * spp;
+  for (let k = 0; k < NS; k++) {
+    const I = (k + 0.5) * DS;
+    let p = S.phi[base + k], p0 = 0, p1 = 0;
     for (let n = 0; n < tot; n++) {
       if (n === st) p0 = p;
       else if (n === mid) p1 = p;
@@ -75,15 +75,16 @@ function integrate(S, slot, om, a, nburn) {
       const pm = p + hd * (I + drv[j] - sin(p));
       p += dt * (I + drv[j + 1] - sin(pm));
     }
-    S.cr[base + k] = (p - p0) / (TAU * 2 * MEAS);
-    S.cd[base + k] = ((p - p1) - (p1 - p0)) / (TAU * 2 * MEAS);
-    phi[base + k] = p - TAU * round((p) / TAU);
+    S.cr[base + k] = (p - p0) / (TAU * 2 * MEAS);                  // the rotation number V / Omega
+    S.cd[base + k] = ((p - p1) - (p1 - p0)) / (TAU * 2 * MEAS);    // how far the two halves disagree: 0 on a plateau
+    S.phi[base + k] = p - TAU * round(p / TAU);
   }
 }
 
 const NEU = [0, 0, 0], BC = [0, 0, 0];
+const WS = new Float32Array(NS), SH = new Float32Array(NS), MS = new Int16Array(NS);
+const SR = new Float32Array(NS), SG = new Float32Array(NS), SB = new Float32Array(NS);
 const BR = new Float32Array(NR), BG = new Float32Array(NR), BB = new Float32Array(NR);
-const WT = new Float32Array(NR), MM = new Int16Array(NR);
 // a Gaussian of 3.4 rows for the halo, a narrow one of 0.85 for the edge of a band
 const HK = 9, GH = new Float32Array(2 * HK + 1), GE = new Float32Array(5);
 {
@@ -95,30 +96,40 @@ const HK = 9, GH = new Float32Array(2 * HK + 1), GE = new Float32Array(5);
 }
 
 function paint(S, slot, h0) {
-  const rho = S.rho, dro = S.dro, o0 = slot * NR;
-  for (let k = 0; k < NR; k++) {
-    rho[k] = S.cr[o0 + k];
-    dro[k] = S.cd[o0 + k];
+  const o0 = slot * NS;
+  for (let s = 0; s < NS; s++) {
+    const r = S.cr[o0 + s], n = round(r), d = abs(r - n), dd = abs(S.cd[o0 + s]);
+    WS[s] = (1 - sm(0.02, 0.08, d)) * (1 - sm(0.006, 0.03, dd));
+    MS[s] = n;
+    SH[s] = 1;
   }
-  for (let k = 0; k < NR; k++) {
-    const r = rho[k], n = round(r), d = abs(r - n), dd = abs(dro[k]);
-    WT[k] = (1 - sm(0.02, 0.08, d)) * (1 - sm(0.006, 0.03, dd));
-    MM[k] = n;
-  }
-  // each plateau is shaded like a bead, darker toward its two edges, so that plateaus that touch stay apart
-  for (let k = 0; k < NR; k++) {
-    let sh = 1;
-    if (WT[k] > 0.5) {
-      let a = k, e = k;
-      while (a > 0 && MM[a - 1] === MM[k] && WT[a - 1] > 0.5) a--;
-      while (e < NR - 1 && MM[e + 1] === MM[k] && WT[e + 1] > 0.5) e++;
-      const len = e - a + 1, dist = min(a === 0 ? 99 : k - a + 0.5, e === NR - 1 ? 99 : e - k + 0.5);
-      sh = 0.55 + 0.45 * sm(0, 1, dist / min(2.6, 0.5 * len + 0.01));
+  // a plateau thinner than about two LEDs fades out, so a pinch ends in a soft point and not in dots;
+  // the plateau of rotation number 0 on the middle row goes on through the mirror and is not thin
+  for (let s = 0; s < NS; s++) {
+    if (WS[s] <= 0.1) continue;
+    let e = s, sum = WS[s];
+    while (e + 1 < NS && MS[e + 1] === MS[s] && WS[e + 1] > 0.1) sum += WS[++e];
+    const rows = sum / 2, mid = s === 0 && MS[0] === 0;
+    const g = mid ? 1 : sm(1.0, 2.6, rows);
+    for (let q = s; q <= e; q++) {
+      WS[q] *= g;
+      // darker toward its two edges, like a bead
+      const dist = 0.5 * min(s === 0 ? 99 : q - s + 0.5, e === NS - 1 ? 99 : e - q + 0.5);
+      SH[q] = 0.55 + 0.45 * sm(0, 1, dist / min(2.6, 0.5 * rows + 0.01));
     }
-    hsv(h0 + DH * MM[k], 0.88, 1, BC);
-    BR[k] = BC[0] * WT[k] * sh;
-    BG[k] = BC[1] * WT[k] * sh;
-    BB[k] = BC[2] * WT[k] * sh;
+    s = e;
+  }
+  for (let s = 0; s < NS; s++) {
+    hsv(h0 + DH * MS[s], 0.88, 1, BC);
+    const w = WS[s] * SH[s];
+    SR[s] = BC[0] * w;
+    SG[s] = BC[1] * w;
+    SB[s] = BC[2] * w;
+  }
+  for (let k = 0; k < NR; k++) {
+    BR[k] = 0.5 * (SR[2 * k] + SR[2 * k + 1]);
+    BG[k] = 0.5 * (SG[2 * k] + SG[2 * k + 1]);
+    BB[k] = 0.5 * (SB[2 * k] + SB[2 * k + 1]);
   }
   const col = S.col, o = slot * H * 3;
   for (let k = 0; k < NR; k++) {
@@ -158,17 +169,16 @@ function compute(S, slot, t, nburn) {
   S.cH[slot] = S.k[0];
 }
 
-const speedOf = (k) => 4.5 * exp(0.85 * cl(k, -1, 1));   // columns a second
-
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kv = (input && input.knobValues) || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   if (!S.k) {
+    // the whole history, oldest column first, each one starting from the phases the one before ended on
     S.k = [kv[0], kv[1], kv[2], kv[3]];
     const sp = speedOf(S.k[3]);
     for (let i = 0; i < NCOL; i++) {
       S.head = i;
-      if (i > 0) S.phi.copyWithin(i * NR, (i - 1) * NR, i * NR);
+      if (i > 0) S.phi.copyWithin(i * NS, (i - 1) * NS, i * NS);
       compute(S, i, (i - (NCOL - 1)) / sp, i === 0 ? 12 : BURN);
     }
     return;
@@ -182,11 +192,11 @@ export function update(dt, input, params) {
     S.acc -= 1;
     const prev = S.head;
     S.head = (S.head + 1) % NCOL;
-    S.phi.copyWithin(S.head * NR, prev * NR, prev * NR + NR);
+    S.phi.copyWithin(S.head * NS, prev * NS, prev * NS + NS);
     compute(S, S.head, S.t - S.acc / sp, BURN);
   }
-  // columns made under other knobs are worked out again, the newest first, two a frame; a new hue only repaints
-  let left = 2, paints = 16;
+  // columns made under other knobs are worked out again, the newest first; a new hue only repaints
+  let left = S.k[1] > 1.3 ? 2 : 1, paints = 16;
   for (let j = 0; j < NCOL - 1; j++) {
     const i = (S.head - j + NCOL) % NCOL;
     if (left > 0 && (abs(S.cOm[i] - S.k[1]) > 0.01 || abs(S.cB0[i] - S.k[2]) > 0.02)) {
@@ -201,20 +211,32 @@ export function update(dt, input, params) {
 }
 
 // ------------------------------------------------------------------ drawing
+const TAPS = [-0.9, 0, 0.9], TW = [0.25, 0.5, 0.25];
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.k) return;
-  const f = S.acc, col = S.col;
+  const f = S.acc, col = S.col, HH = H * 3;
   for (let x = 0; x < W; x++) {
-    // the column position of this pixel: the right edge shows the interval before the newest column
-    const c = x - (W - 1) - 1 + f, c0 = floor(c), fr = c - c0;
-    const i0 = (((S.head + c0) % NCOL) + NCOL) % NCOL, i1 = (i0 + 1) % NCOL;
-    const o0 = i0 * H * 3, o1 = i1 * H * 3;
+    // the column position of this pixel: the right edge shows the interval before the newest column;
+    // three taps 0.9 of a column apart average out a plateau's edge that moves by a row from one column to the next
+    let r = 0, g = 0, b = 0;
+    for (let t = 0; t < 3; t++) {
+      const c = min(0, x - (W - 1) - 1 + f + TAPS[t]), c0 = floor(c), fr = c - c0, w = TW[t];
+      const i0 = (((S.head + c0) % NCOL) + NCOL) % NCOL, i1 = (i0 + 1) % NCOL;
+      S.o0[t] = i0 * HH;
+      S.o1[t] = i1 * HH;
+      S.fr[t] = fr * w;
+      S.fw[t] = w - fr * w;
+    }
     for (let y = 0; y < H; y++) {
       const p = y * 3;
-      const r = col[o0 + p] + (col[o1 + p] - col[o0 + p]) * fr;
-      const g = col[o0 + p + 1] + (col[o1 + p + 1] - col[o0 + p + 1]) * fr;
-      const b = col[o0 + p + 2] + (col[o1 + p + 2] - col[o0 + p + 2]) * fr;
+      r = g = b = 0;
+      for (let t = 0; t < 3; t++) {
+        const a0 = S.o0[t] + p, a1 = S.o1[t] + p, u = S.fw[t], v = S.fr[t];
+        r += col[a0] * u + col[a1] * v;
+        g += col[a0 + 1] * u + col[a1 + 1] * v;
+        b += col[a0 + 2] * u + col[a1 + 2] * v;
+      }
       display.setPixel(x, y, min(255, (r * 255) | 0), min(255, (g * 255) | 0), min(255, (b * 255) | 0));
     }
   }
