@@ -90,7 +90,7 @@ function beads(mx, my, sx, sy, fam, L, T, p, c, lead) {
     const ca = (D * D - 2 * rho * kk - kk * kk) / (2 * rho * D);
     if (ca >= 1 || ca <= -1) continue;
     const al = Math.acos(ca);
-    const env = sm(0, 0.12, u) * (1 - sm(0.7, 1, u)) * sm(0, 6, D - 4 - abs(kk)) * ((n & 3) === 0 ? 1 : 0.8);
+    const env = sm(0, 0.12, u) * (1 - sm(0.7, 1, u)) * sm(0, 6, D - 4 - abs(kk)) * (n % 3 === 0 ? 1 : 0.8);
     for (let sgn = -1; sgn <= 1; sgn += 2) {
       const an = beta + sgn * al;
       lump(mx + rho * cos(an), my + rho * sin(an), 1.15, 0.9 * env * lead, c);
@@ -110,8 +110,8 @@ export function draw(display, params) {
   const dil = pow((cl(k[3], -1, 1) + 1) / 2, 0.7);
 
   // the triangle of stations: a centre, a turn, and three corners each on its own radius and angle
-  const gx = 31.5 + 9 * sn(53, 0) + 5 * sn(30, 1);
-  const gy = 63.5 + 15 * sn(62, 2) + 6 * sn(37, 3);
+  const gx = 31.5 + 14 * sn(53, 0) + 6 * sn(30, 1);
+  const gy = 63.5 + 24 * sn(62, 2) + 8 * sn(37, 3);
   const rot = 0.065 * T + 0.4 * sn(71, 4) + 0.2 * sn(44, 5) + p[6];
   const sc = span * (1 + 0.2 * sn(48, 7) + 0.08 * sn(83, 8));
   const rM = 27 * sc * (1 + 0.28 * sn(29, 9) + 0.1 * sn(61, 10));
@@ -147,11 +147,11 @@ export function draw(display, params) {
 
       // squareness of the cell
       const q = (2 * abs(gxx * gyy - gxy * gyx)) / (gX2 + gY2 + 1e-4);
-      const bad = 1 - sm(0.08, 0.65, q);
+      const bad = 1 - sm(0.05, 0.25 + 0.35 * dil, q);
 
       // the dilution: where the fix is poor the lines blur, lose colour, dim, and a veil lifts the ground
       const fade = dil * bad;
-      const blur = 1 + 0.6 * fade;
+      const blur = 1 + 0.9 * fade;
 
       // family X
       const tX = (dX - dM) * iL;
@@ -159,11 +159,11 @@ export function draw(display, params) {
       const gmX = sqrt(gX2 + GMIN * GMIN);
       let dd = abs(tX - nX) * L / gmX;
       let sp = L / gmX;
-      let bw = ((nX & 3) === 0 ? BW * 1.2 : BW) * blur;
+      let bw = (nX % 3 === 0 ? BW * 1.2 : BW) * blur;
       let v = 1 - (dd * dd) / (bw * bw);
       let lineX = v > 0 ? v * v : 0;
       const meanX = min(0.2, (0.9 * 1.067 * BW) / sp);
-      lineX = meanX + sm(5, 10, sp) * (lineX * ((nX & 3) === 0 ? 1 : 0.7) - meanX);
+      lineX = meanX + sm(5, 10, sp) * (lineX * (nX % 3 === 0 ? 1 : 0.7) - meanX);
 
       // family Y
       const tY = (dY - dM) * iL;
@@ -171,17 +171,17 @@ export function draw(display, params) {
       const gmY = sqrt(gY2 + GMIN * GMIN);
       dd = abs(tY - nY) * L / gmY;
       sp = L / gmY;
-      bw = ((nY & 3) === 0 ? BW * 1.2 : BW) * blur;
+      bw = (nY % 3 === 0 ? BW * 1.2 : BW) * blur;
       v = 1 - (dd * dd) / (bw * bw);
       let lineY = v > 0 ? v * v : 0;
       const meanY = min(0.2, (0.9 * 1.067 * BW) / sp);
-      lineY = meanY + sm(5, 10, sp) * (lineY * ((nY & 3) === 0 ? 1 : 0.7) - meanY);
+      lineY = meanY + sm(5, 10, sp) * (lineY * (nY % 3 === 0 ? 1 : 0.7) - meanY);
 
       const keep = 1 - fade;
-      const dim = 1 - 0.45 * fade;
+      const dim = 1 - 0.5 * fade;
       const lum = 0.55 * dim;
       const wa = lineX * dim, wb = lineY * dim;
-      const veil = 0.6 * fade * bad;
+      const veil = 0.8 * fade * bad;
       const o = (y * W + x) * 3;
       BUF[o] = 8 + 28 * veil + 255 * (wa * (CA[0] * keep + lum * 0.85 * (1 - keep)) + wb * (CB[0] * keep + lum * 0.85 * (1 - keep)));
       BUF[o + 1] = 14 + 32 * veil + 255 * (wa * (CA[1] * keep + lum * 0.9 * (1 - keep)) + wb * (CB[1] * keep + lum * 0.9 * (1 - keep)));
