@@ -24,22 +24,18 @@ const pw = Math.pow;
 
 const RHO = 40;              // how many times longer the last row's stretch of diffusion is than the first's
 const D0 = 35;               // diffusion time over the whole panel at Scale 0
-const K0 = 0.5;            // the edge threshold at Edge 0
-const SMIN = 0.14, SMAX = 0.65;   // the shortest and the longest step between neighbouring strips
-const WT = 0.05;             // how far a strip wanders along it on its own
-           // half the spread of the strips along the ribbon
-const TF = 5;                // strip time a strip takes to fade in or out, or to find its width
-const RD = 0.2;              // strips lost a second of strip time, and about as many born
+const K0 = 0.5;              // the edge threshold at Edge 2, in units of the typical step between strips
+const WV = 0.5;              // weight of the brightness channel in the gradient
+const SMIN = 0.14, SMAX = 0.65;  // the shortest and the longest step along the ribbon between neighbouring strips
+const WT = 0.05;             // how far a strip wanders along the ribbon on its own
 const NT0 = 14;              // the number of strips the top row aims at
-const PA = 0.3;              // most white a strip takes in
-const HF = 1;                // how fast it does so
+const RD = 0.2;              // strips lost a second of strip time, and about as many born
+const TF = 5;                // strip time a strip takes to fade in or out, or to find its width
+const SP0 = 1.7;             // strip time a second at Drift -1
+const PA = 0.3;              // most white a strip's brightness channel mixes in
 const HW = 0.12;             // turns the hue of the whole ribbon wanders each way, slowly
 const HS = 0.12;             // how far the light that crosses the glass shifts the colour along the ribbon
-const LG = 0.0;              // most white the light that crosses the glass adds
-const LD = 0.0; 
-const SEAM = 0.22;           // most white a seam adds on an edge that stands well above K             // how far the light that crosses the glass dims it
-const SP0 = 1.7;             // strip time a second at Drift -1
-const WV = 0.5;              // weight of the brightness channel in the gradient
+const SEAM = 0.22;           // most white a seam adds on an edge that stands well above K
 const HUE0 = 0.0;            // turns added to the ribbon's hue at Hue = 0
 
 // the ribbon: a position t from 0 to 1 is a colour, teal-blue through violet, ruby and amber to emerald, and a plateau is a position and a brightness
@@ -85,15 +81,12 @@ function gauss(S) {
 }
 
 // ---------------------------------------------------------------- the strip
-// A strip takes the colour of the one to its left and goes a step along the ribbon, signed,
-// most steps small and a few large (a log-uniform length from 0.03 to 0.55), so the edges
-// between strips run from very weak to very strong and the weak ones are the first to melt.
 function newStrip(S, born, left, right) {
   const r = S.r;
   // A new strip goes a signed step along the ribbon from the one to its left, most steps small
   // and a few large, and of four tries it keeps the one that lands farthest from every strip
   // already there, so the palette fills the ribbon and does not pile up.
-  let b = r(), sg = 1;
+  let b = r();
   if (left !== null) {
     let bd = -1;
     for (let c = 0; c < 4; c++) {
@@ -110,13 +103,12 @@ function newStrip(S, born, left, right) {
       if (d > bd) {
         bd = d;
         b = z;
-        sg = sc;
       }
     }
   }
   return {
-    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, mu: 0, amp: born ? 0 : 1, age: 0,
-    b, sg, ta: 0.35 + 0.65 * r(),
+    x: born ? -1.2 : log(0.6 + r() * 1.2), fade: 0, mu: 0, amp: born ? 0 : 1,
+    b, ta: 0.35 + 0.65 * r(),
     w1: 0.12 + 0.2 * r(), p1: TAU * r(), w2: 0.2 + 0.25 * r(), p2: TAU * r(),
     va: 0.3 + 0.5 * r(), w3: 0.15 + 0.25 * r(), p3: TAU * r(), v0: r(),
     wj: 0.7 + 1.4 * r(), pj: TAU * r(), aj: 0.05 + 0.1 * r(), w: 4,
@@ -128,7 +120,7 @@ export function setup(params) {
     r: mulberry((Math.random() * 4294967296) >>> 0), tau: 0, k: null, strips: [],
     T: new Float32Array(W * H), V: new Float32Array(W * H),
     nz: new Float32Array(2 * N), top: new Float32Array(2 * N),
-    ph: [], gh: 0, hue: 0, wr: new Float32Array(H), lt: [], t: 0,
+    ph: [], hue: 0, wr: new Float32Array(H), lt: [], t: 0, K: 0.1,
   };
   for (let i = 0; i < 6; i++) S.ph.push(TAU * S.r());
   // three slow swells of light that cross the glass, each with its own direction, wavelength and pace
@@ -215,10 +207,11 @@ function evolve(S, d, speed) {
 }
 
 // the top row: the strips with their edges and colours, a fine grain
+const CT = new Float32Array(64), CV = new Float32Array(64);
 function topRow(S, noise) {
   stripWidths(S, S.tau);
   const st = S.strips, n = st.length, T = S.top, tau = S.tau;
-  const ct = new Float32Array(n), cv = new Float32Array(n);
+  const ct = CT, cv = CV;
   for (let j = 0; j < n; j++) {
     const s = st[j];
     const a = cl(s.b + WT * s.ta * (0.62 * sin(s.w1 * tau + s.p1) + 0.38 * sin(s.w2 * tau + s.p2)), 0, 1);
@@ -305,17 +298,20 @@ function stack(S, K, D, t) {
   }
 }
 
+// strip time a second: 1.7 at Drift -1, 2.7 at the opening 0.06 and 4.3 at 1
+const tempo = (k) => SP0 * pw(2.5, (cl(k, -1, 1) + 1) / 2);
+
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kv = (input && input.knobValues) || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   if (!S.k) {
     S.k = [kv[0], kv[1], kv[2], kv[3]];
-    const sp = SP0 * pw(2.5, (S.k[3] + 1) / 2);
+    const sp = tempo(S.k[3]);
     for (let i = 0; i < 600; i++) evolve(S, 0.1, sp);
   }
   const al = 1 - exp(-d / 0.2);
   for (let i = 0; i < 4; i++) if (isFinite(kv[i])) S.k[i] += (kv[i] - S.k[i]) * al;
-  const speed = SP0 * pw(2.5, (cl(S.k[3], -1, 1) + 1) / 2);
+  const speed = tempo(S.k[3]);
   if (d > 0) {
     S.t += d;
     evolve(S, d, speed);
@@ -333,12 +329,12 @@ export function update(dt, input, params) {
 }
 
 // ------------------------------------------------------------------ drawing
-const RY = new Float32Array(NL + 1), RR = new Float32Array(NL + 1), RG = new Float32Array(NL + 1), RB = new Float32Array(NL + 1);
+const RR = new Float32Array(NL + 1), RG = new Float32Array(NL + 1), RB = new Float32Array(NL + 1);
 export function draw(display, params) {
   const S = params.s;
-  if (!S) return;
+  if (!S || S.cmed === undefined) return;
   const T = S.T, V = S.V;
-  const hr = HW * (0.6 * sin(HF * 0.045 * S.tau + S.ph[0]) + 0.4 * sin(HF * 0.071 * S.tau + S.ph[1]));
+  const hr = HW * (0.6 * sin(0.045 * S.tau + S.ph[0]) + 0.4 * sin(0.071 * S.tau + S.ph[1]));
   const a = TAU * (S.hue + hr), ca = cos(a), sa = sin(a);
   for (let k = 0; k <= NL; k++) {
     const i0 = LI[k], q0 = LQ[k], ii = i0 * ca - q0 * sa, qq = i0 * sa + q0 * ca, y = LY[k];
@@ -357,7 +353,7 @@ export function draw(display, params) {
       let e = 0;
       if (x > 0) e = max(e, (T[p] - T[p - 1]) * (T[p] - T[p - 1]) + WV * WV * (V[p] - V[p - 1]) * (V[p] - V[p - 1]));
       if (x < W - 1) e = max(e, (T[p + 1] - T[p]) * (T[p + 1] - T[p]) + WV * WV * (V[p + 1] - V[p]) * (V[p + 1] - V[p]));
-      const sm = cl((sqrt(e) * ik - 1.3) / 2, 0, 1), pa = PA * (1 - cl(V[p], 0, 1)) + LG * (0.5 + lg / 6) + SEAM * sm, br = 0.95 - LD * (0.5 - lg / 6);
+      const sm = cl((sqrt(e) * ik - 1.3) / 2, 0, 1), pa = PA * (1 - cl(V[p], 0, 1)) + SEAM * sm, br = 0.95;
       const r = ((RR[k] + (RR[k + 1] - RR[k]) * u) * (1 - pa) + pa) * br, g = ((RG[k] + (RG[k + 1] - RG[k]) * u) * (1 - pa) + pa) * br, b = ((RB[k] + (RB[k + 1] - RB[k]) * u) * (1 - pa) + pa) * br;
       display.setPixel(x, y, (cl(r, 0, 1) * 255) | 0, (cl(g, 0, 1) * 255) | 0, (cl(b, 0, 1) * 255) | 0);
     }
