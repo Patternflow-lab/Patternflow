@@ -12,16 +12,16 @@
 // @knobs Tone=0..1, Flash=0..4, Develop=-1..1, Adjacency=-1..1
 //
 // Knob 1: Tone. The toning ramp, shadow hue and highlight hue together, eight pairs 1/7 of the knob apart and blended between: 0 indigo shadows with coral highlights (the opening), 0.143 cobalt with mint, 0.286 teal with lilac, 0.429 emerald with pale violet, 0.571 purple with cyan, 0.714 ruby with amber, 0.857 blue with lime, 1 ultramarine with coral. Every pair has the same lightness, OKLab 0.27 in the deepest shadow to 0.97 in the palest highlight, so no stop is darker than another.
-// Knob 2: Flash. The second exposure. At 0 there is none and the picture is an ordinary print, paper white against deep navy. The flash is -0.5 decades under the fogging threshold at 0, -0.25 at 1, 0.1 at the opening 2, 0.55 at 3 and 1.1 at 4, and the share of the unused emulsion it can fog goes from 0.42 to 0.82. Low, the fold lies out in the thin tones and the glowing bands are wide and pale; high, it has moved up into the dense tones, the ground is fogged deep and only a thin pale contour is left round each lamp. Under 0.25 the fog fades out altogether.
-// Knob 3: Develop. How far and how hard the first development goes. Its time is 0.43 times the opening at -1, 1 times at 0 and 2.3 times at 1, and the steepness of the curve goes with it, 2.2, 3.8 and 6.6 per decade of exposure, so the steepest part climbs 1.1, 1.9 and 3.4 density units a decade (a real film about 1). Low, the tones are soft and the print washed; high, the first density is deep enough to shade the flash hard and the contours come out with hard edges.
-// Knob 4: Adjacency. The developer's neighbourhood effect, w = (knob + 1) / 2. The diffusion radius, one sigma, is 0.85 LEDs at -1 and 3.15 at 1 (2.1 at the opening), and the strength of the edge effect is 3.4 w on the final density and 1.5 w on the first. At -1 there is none and the contours are soft; at 1 every edge between dense and thin has a bright cream line 2 to 3 LEDs wide with a deeper line on its dense side.
+// Knob 2: Flash. The second exposure. At 0 there is none and the picture is an ordinary print, paper white against deep navy. The flash is -0.5 decades under the fogging threshold at 0, -0.23 at 1, 0.16 at the opening 2, 0.66 at 3 and 1.26 at 4, and the share of the unused emulsion it can fog goes from 0.42 to 0.82. Low, the fold lies out in the thin tones and the glowing bands are wide and pale; high, it has moved up into the dense tones, the ground is fogged deep and only a thin pale contour is left round each lamp. Under 0.25 the fog fades out altogether.
+// Knob 3: Develop. How far and how hard the first development goes. Its time, in the units of the progress formula below, is 0.59 at -1, 1.35 at 0 and 3.1 at 1, and the steepness of the curve goes with it, 2.6, 4.6 and 8.0 per decade of exposure, so the steepest part climbs 1.6, 2.8 and 4.6 density units a decade (a real film about 1). Low, the tones are soft and the print washed; high, the first density is deep enough to shade the flash hard and the contours come out with hard edges.
+// Knob 4: Adjacency. The developer's neighbourhood effect, w = (knob + 1) / 2. The diffusion radius, one sigma, is 0.85 LEDs at -1 and 3.15 at 1 (2.1 at the opening), and the strength of the edge effect is 4.0 w on the final density and 1.7 w on the first. At -1 there is none and the contours are soft; at 1 every edge between dense and thin has a bright cream line 2 to 3 LEDs wide with a deeper line on its dense side.
 //
 // What the picture is. Each LED is a point on a photographic print taken through the Sabattier sequence, once a frame: expose, develop part way, flash, develop on. The latent image is a sum of light, the print is darkened by exposure and the density shows as tone, dense dark. Nothing is stored from one frame to the next except the model's clock and a slow average the printer follows; the lamps move and everything is computed again from them.
-// The first exposure. Seven lamps, five big (sigma 8 to 17 LEDs across, 12 to 28 down) and two small (5 to 8 by 7 to 12), each a product of two profiles of 0.62 Gaussian and 0.38 Lorentzian, so the tails cross the panel and do not stop in a flat floor. A centre moves on two sines for each axis, 8 to 20 LEDs across and 16 to 42 down with a second sine at 0.6 of the first, at 0.015 to 0.15 radian a second. The widths breathe by 30 percent, across against down, and the light by 45 percent. Two straight bands of sigma 5 to 10 LEDs swing 0.7 radian and slide up to 39 to 60 LEDs either way. A set of soft parallel bars, sin squared at a pitch of 24 to 32 LEDs, is warped by four travelling waves (about 3.4 LEDs rms) and shown through a Gaussian window 22 to 28 by 34 to 46 LEDs that wanders; the bars slide 0.2 to 0.32 radian a second. A plane of 0.3 decade tilts slowly across all of it. They sum on a floor of 0.12 and the logarithm is taken at each LED. The whole model runs at 2.4 times the Lab's clock.
-// The printer. After the logarithm the mean and the spread of the log exposure are measured over the panel, followed with a time constant of 2 s, and the exposure is moved so the mean sits at the middle of the curve and scaled to a spread of 0.62 decades, the gain held between 0.5 and 2.2. Without this the sum of seven lamps either burns the whole print dense or leaves most of it in the toe. It is the enlarger's exposure meter, and it is a drawing choice.
-// The first development. A Hurter and Driffield curve in log exposure L: DF(L) = 3 (0.68 s(g (L + 0.15)) + 0.32 s(0.42 g (L - 0.25))), s the logistic and g the slope, the second term a long shoulder so the dense cores keep some gradation. DF is the density the first exposure would reach if it were developed to the end. Development stops part way: progress is 1 - exp(-T 2.6 10^(0.4 (L + 0.15))), so the bright exposures run ahead and the toe lags, and D1 = DF times progress. The adjacency is added at once: D1 + a (D1 - blur(D1)), the blur a separable Gaussian, edges held. That is the developer given fresh at the thin side of an edge and exhausted at the dense side, which makes the dense side denser and the thin side thinner. It is the form of the effect, not a diffusion solve.
-// The flash. The first density shades it: the flash reaches the unused emulsion with 10 to the minus D1 of its light, so in decades it is its own level minus D1. The share fogged is f = s(9 (level + 0.3 g - D1)), and g is a gentle gradient of two plane waves, 680 and 430 LEDs long, drifting and turning, so the flash is a little stronger at one side. The fog adds to what the first exposure made: D2 = DF + cap (1 + 0.38 g) (3 - DF) f, with (3 - DF) the emulsion the first exposure left alone, and then the adjacency again with the final strength. Where D1 is under the level f is near 1 and the thin parts are fogged to a middle density; where D1 is over it the dense part shades the flash out and D2 stays DF. Between them D2 goes through a minimum, the fold, a pale ridge on the contour where D1 equals the level, and it is the bright contour that runs round every lamp. The brightest thing in the picture is the Mackie line: the adjacency pushes the thin side of an edge below zero density, and below zero shows as the palest end of the ramp.
-// The ramp. u = (3.15 - D2) / 3.45 picks a colour from a table of 768. Lightness is 0.27 + 0.70 u^1.3 in OKLab, reaching 0.97 at u = 0.9; chroma is 0.15 to 0.22 through the shadows and middle and falls to 0.04 in the highlights, pulled in until the colour fits the display; the hue runs from the shadow hue across an arc to the highlight hue. A 4 by 4 ordered dither of one step keeps the gradients from banding. The deepest shadow of every pair keeps a brightest channel of 45 or more of 255, so the panel does not drop it.
+// The first exposure. Eight lamps, six big (sigma 8 to 17 LEDs across, 12 to 28 down) and two small (5 to 8 by 7 to 12), each a product of two profiles of 0.75 Gaussian and 0.25 Lorentzian, so the tails cross the panel and do not stop in a flat floor. A centre moves on three sines for each axis, 8 to 20 LEDs across and 16 to 42 down for the first, 0.6 of that for the second and 0.8 for the third, at 0.006 to 0.15 radian a second. The widths breathe by 30 percent, across against down, and the light by 45 percent. Two straight bands of sigma 5 to 10 LEDs swing 0.7 radian and slide up to 39 to 60 LEDs either way. A set of soft parallel bars, sin squared at a pitch of 24 to 32 LEDs, is warped by four travelling waves (about 3.4 LEDs rms) and shown through a Gaussian window 22 to 28 by 34 to 46 LEDs that wanders; the bars slide 0.2 to 0.32 radian a second. A plane of 0.3 decade tilts slowly across all of it. They sum on a floor of 0.12 and the logarithm is taken at each LED. The whole model runs at 2.4 times the Lab's clock.
+// The printer. After the logarithm the mean and the spread of the log exposure are measured over the panel, followed with a time constant of 2 s, and the exposure is moved so the mean sits at the middle of the curve and scaled to a spread of 0.75 decades, the gain held between 0.5 and 2.6. Without this the sum of the lamps either burns the whole print dense or leaves most of it in the toe. It is the enlarger's exposure meter, and it is a drawing choice.
+// The first development. A Hurter and Driffield curve in log exposure L: DF(L) = 3 (0.68 s(g (L + 0.15)) + 0.32 s(0.42 g (L - 0.25))), s the logistic and g the steepness, the second term a long shoulder so the dense cores keep some gradation. DF is the density the first exposure would reach if it were developed to the end. Development stops part way: progress is 1 - exp(-T 2.6 10^(0.4 (L + 0.15))), with T the time of Knob 3, so the bright exposures run ahead and the toe lags, and D1 = DF times progress. The adjacency is added at once: D1 + a (D1 - blur(D1)), the blur a separable Gaussian, edges held. That is the developer given fresh at the thin side of an edge and exhausted at the dense side, which makes the dense side denser and the thin side thinner. It is the form of the effect, not a diffusion solve.
+// The flash. The first density shades it: the flash reaches the unused emulsion with 10 to the minus D1 of its light, so in decades it is its own level minus D1. The share fogged is f = s(9 (level + 0.25 g - D1)), and g, between -1 and 1, is a gentle gradient of two plane waves, 680 and 430 LEDs long, drifting and turning, so the flash is a little stronger at one side. The fog adds to what the first exposure made: D2 = DF + cap (1 + 0.38 g) (3 - DF) f, with (3 - DF) the emulsion the first exposure left alone, and then the adjacency again with the final strength. Where D1 is under the level f is near 1 and the thin parts are fogged to a middle density; where D1 is over it the dense part shades the flash out and D2 stays DF. Between them D2 goes through a minimum, the fold, a pale ridge on the contour where D1 equals the level, and it is the bright contour that runs round every lamp. The brightest thing in the picture is the Mackie line: the adjacency pushes the thin side of an edge below zero density, and below zero shows as the palest end of the ramp.
+// The ramp. u = (3.15 - D2) / 3.45 picks a colour from a table of 768. Lightness is 0.27 + 0.70 u^1.3 in OKLab, reaching 0.97 at u = 0.9; chroma is 0.15 to 0.22 through the shadows and middle and falls to 0.04 in the highlights, pulled in until the colour fits the display; the hue runs from the shadow hue across an arc to the highlight hue. The whole ramp is also on a bath that drifts: its hue wanders up to 14 degrees and its arc up to 18, over periods of 1.5 to 3.6 minutes, so the colour keeps moving when no knob does. A 4 by 4 ordered dither of one step keeps the gradients from banding. The deepest shadow of every pair keeps a brightest channel of 45 or more of 255, so the panel does not drop it.
 // What is exact and what is drawn. The curve of density against log exposure, the transmission 10 to the minus D shading the flash, development that stops part way and a second one that works on what was left, and an edge effect that is a density minus its neighbourhood: these are the technique. Every number, the slopes (far harder than any film, to make the folds crisp), the fogging threshold, the cap, the printer, the lamps and bars, the flash gradient and the colour ramp are drawing choices. The Mackie line is 2 to 3 LEDs wide because that is what the panel can draw; the real one is a fraction of a millimetre.
 
 const W = 64, H = 128, N = W * H;
@@ -103,7 +103,7 @@ export function setup(params) {
     th: TAU * r(), wth: 0.013 + 0.01 * r(), pth: TAU * r(), P: 24 + 8 * r(), wP: 0.011 + 0.01 * r(), pP: TAU * r(),
     ph: TAU * r(), wph: 0.2 + 0.12 * r(),
     ex: 31 + 10 * r(), ey: 40 + 20 * r(), ax: 14, ay: 26, wx1: 0.037 + 0.02 * r(), wy1: 0.029 + 0.02 * r(), wx2: 0.0143, wy2: 0.0111, px: TAU * r(), py: TAU * r(), px2: TAU * r(), py2: TAU * r(),
-    sx: 22 + 6 * r(), sy: 34 + 12 * r(), a0: 2.0 + 0.8 * r(), wa: 0.027 + 0.02 * r(), pa: TAU * r(),
+    sx: 22 + 6 * r(), sy: 34 + 12 * r(), a0: 3.0 + 1.2 * r(), wa: 0.027 + 0.02 * r(), pa: TAU * r(),
     wk: [TAU * r(), TAU * r(), TAU * r(), TAU * r()],
   };
   params.s = {
@@ -228,7 +228,7 @@ export function draw(display, params) {
   // ---- the curves
   if (abs(dev - S.lutK3) > 1e-4) {
     S.lutK3 = dev;
-    buildLut(3.8 * pow(2, 0.8 * dev), pow(2, 1.2 * dev));
+    buildLut(4.6 * pow(2, 0.8 * dev), 1.35 * pow(2, 1.2 * dev));
   }
   // the bath drifts: the whole ramp wanders 14 degrees of hue and its arc 18, so the colour keeps moving when the knobs rest
   const dHue = 9 * sin(0.0121 * T + S.gpa) + 5 * sin(0.0287 * T + S.gps), dArc = 11 * sin(0.0173 * T + S.gph) + 7 * sin(0.0341 * T + S.gpl);
@@ -246,8 +246,8 @@ export function draw(display, params) {
     const br = 1 + 0.3 * sin(m.ws * T + m.ps);
     const sx = m.sx * br, sy = m.sy * (2 - br);
     const ix = -1 / (2 * sx * sx), iy = -1 / (2 * sy * sy);
-    for (let x = 0; x < W; x++) { const q = ix * (x - cx) * (x - cx); GX[i * W + x] = 0.62 * exp(q) + 0.38 / (1 - 1.4 * q); }
-    for (let y = 0; y < H; y++) { const q = iy * (y - cy) * (y - cy); GY[i * H + y] = 0.62 * exp(q) + 0.38 / (1 - 1.4 * q); }
+    for (let x = 0; x < W; x++) { const q = ix * (x - cx) * (x - cx); GX[i * W + x] = 0.75 * exp(q) + 0.25 / (1 - 1.4 * q); }
+    for (let y = 0; y < H; y++) { const q = iy * (y - cy) * (y - cy); GY[i * H + y] = 0.75 * exp(q) + 0.25 / (1 - 1.4 * q); }
     AY[i] = m.a0 * (1 + 0.45 * sin(m.wa * T + m.pa));
   }
   const b0 = bands[0], b1 = bands[1];
@@ -290,12 +290,12 @@ export function draw(display, params) {
   if (S.mu === undefined) { S.mu = sm1; S.sd = sm2; }
   const ak = 1 - exp(-S.dtl / 2);
   S.mu += (sm1 - S.mu) * ak; S.sd += (sm2 - S.sd) * ak;
-  const gsc = cl(0.62 / S.sd, 0.5, 2.2), gof = LC - S.mu * gsc;
+  const gsc = cl(0.75 / S.sd, 0.5, 2.6), gof = LC - S.mu * gsc;
   for (let n = 0; n < N; n++) LG[n] = LG[n] * gsc + gof;
 
   // ---- first development, partial, with its adjacency
   const wA = adj;
-  const sigA = 0.85 + 2.3 * wA, a1 = 1.5 * wA, a2 = 3.4 * wA;
+  const sigA = 0.85 + 2.3 * wA, a1 = 1.7 * wA, a2 = 4.0 * wA;
   const R = kernel(sigA);
   for (let n = 0; n < N; n++) {
     let q = (LG[n] - L_LO) * L_SC;
@@ -312,7 +312,7 @@ export function draw(display, params) {
 
   // ---- the second flash, shaded by what is already dense
   const gate = sm(0, 0.25, flash);
-  const sF = -0.5 + 0.2 * flash + 0.05 * flash * flash;
+  const sF = -0.5 + 0.22 * flash + 0.055 * flash * flash;
   const gph = 0.017 * T + S.gps, gang = 0.9 + 0.5 * sin(0.0071 * T + S.gpa), gk = 0.0092;
   const gcx = cos(gang), gcy = sin(gang);
   for (let x = 0; x < W; x++) { const a = gk * (x - 31.5) * gcx + gph; SX[x] = sin(a); CX[x] = cos(a); }
@@ -325,7 +325,7 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const n = y * W + x;
-      const gg = 0.6 * (SX[x] * CY[y] + CX[x] * SY[y]) + 0.4 * (SX2[x] * CY2[y] + CX2[x] * SY2[y]), g = 0.3 * gg;
+      const gg = 0.6 * (SX[x] * CY[y] + CX[x] * SY[y]) + 0.4 * (SX2[x] * CY2[y] + CX2[x] * SY2[y]), g = 0.25 * gg;
       let q = (sF + g - D1[n] - Z_LO) * Z_SC;
       q = q < 0 ? 0 : q > ZN - 1 ? ZN - 1 : q;
       const i = q | 0, f = q - i;
