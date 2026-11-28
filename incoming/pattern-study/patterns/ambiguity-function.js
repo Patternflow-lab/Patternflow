@@ -160,7 +160,7 @@ function field(N, P, rho, t0, sh, q, tp, ox, oy, CELL) {
 export function setup(params) {
   const ph = [];
   for (let i = 0; i < 48; i++) ph.push(TAU * Math.random());
-  params.s = { t: 0, k: null, ph, hue: -9 };
+  params.s = { t: 51, k: null, ph, hue: -9 }; // opens 51 model seconds in, where the opening frame is a lattice of peaks round a bright one
 }
 
 export function update(dt, input, params) {
