@@ -28,7 +28,7 @@ const RATE_B = 0.00713;     // turns of the hue wheel a second: the bold rays
 const RATE_V = 0.00991;     // the veil of faint rays
 const RATE_C = 0.01199;     // the caustic
 const WS = 1.5;             // how fast the wandering runs
-const VEIL = 0.01;         // light of a ray of the veil
+const VEIL = 0.01;          // light of a ray of the veil
 const LAMBDA = 7.5;         // LEDs to a wavelength
 const NU = 0.75;            // cycles a second
 let YT = 36;                // top face, which drifts a little
@@ -146,7 +146,7 @@ let HO = 0, HV = 0, HC = 0;
 let HB = 0.5, HS = 0.42, HQ = 0;
 // the hue of a ray by its launch angle: a spread across the fan, turned round the wheel by an offset that is the clock of its own layer
 const rh = (th, off) => HB + HS * th + HQ * abs(th) + off;
-function caustic(p, q, d, yB, cc) {
+function caustic(p, q, yB, cc) {
   const th = (p.th + q.th) / 2;
   const w = min(p.w, q.w) * 1.0;
   for (let z = 0; z < 2; z++) {
@@ -182,17 +182,17 @@ export function draw(display, params) {
   const amp = 0.34 * Math.pow(-nbar / 1.2, 0.7);
   const n = min(-0.3, nbar + amp * wander(S, tw, 0, 0.45, 0.3, 0.2, 0.12, 0.35) / 1.0);
   const a = AREF + 2.4 * sin(0.093 * tw + S.ph[5]) + 1.2 * sin(0.151 * tw + S.ph[6]);
-  const sx = 32 + 14 * sin(0.067 * tw + S.ph[7]) + 6 * sin(0.139 * tw + S.ph[8]);
+  const sx = 32 + 11 * sin(0.067 * tw + S.ph[7]) + 5 * sin(0.139 * tw + S.ph[8]);
   const d = 38 * exp(0.25 * k3) * (1 + 0.07 * sin(0.083 * tw + S.ph[9]) + 0.04 * sin(0.191 * tw + S.ph[11]));
   YT = 36 + 4 * (0.6 * sin(0.057 * t + S.ph[34]) + 0.4 * sin(0.131 * t + S.ph[35]));
-  const sy = YT - a, yB = YT + d;
+  const sy = YT - a, yB = YT + d, fy = cl(yB + max(10, d / -n - a), 66, 118);
   const fan = (k4 * PI) / 180;
   // slow independent drifts of the palette and the light, each a pair of sines that do not divide
   const P = S.ph, dr = (i, f1, f2) => 0.6 * sin(f1 * t + P[i]) + 0.4 * sin(f2 * t + P[i + 1]);
   // the spread of hue across the fan breathes between 0.16 and 0.44 of a turn
   const hs = 0.3 + 0.14 * (0.7 * cos(0.049 * t) + 0.3 * cos(0.087 * t));
   const gh = 0.62 + 0.2 * sin(TAU * (h0 - 0.5)) + 0.1 * dr(12, 0.113, 0.171), slh = 0.49 + 0.1 * dr(14, 0.097, 0.203);
-  const hzg = 0.1 * (1 + 0.45 * dr(16, 0.127, 0.239)), hx = sx + 10 * dr(18, 0.083, 0.151), hy = sy + 8 * dr(20, 0.109, 0.197);
+  const hzg = 0.115 * (1 + 0.45 * dr(16, 0.127, 0.239)), hx = sx + 10 * dr(18, 0.083, 0.151), hy = sy + 8 * dr(20, 0.109, 0.197);
   const rg = 1 + 0.22 * dr(22, 0.101, 0.223), hq = 0.1 * dr(24, 0.089, 0.181), srh = h0 + 0.2 * dr(26, 0.139, 0.211);
   const slg = 1 + 0.4 * dr(28, 0.117, 0.257), vg = VEIL * (1 + 0.4 * dr(30, 0.131, 0.173)), bg = 0.72 * (1 + 0.2 * dr(32, 0.093, 0.241));
 
@@ -210,12 +210,12 @@ export function draw(display, params) {
   const sr = C[0], sg = C[1], sb = C[2];
   for (let y = 0; y < H; y++) {
     const yc = y + 0.5;
-    const gy = 0.036 + 0.016 * exp(-((yc - 70) * (yc - 70)) / 2400), dy2 = (yc - hy) * (yc - hy), dys = (yc - sy) * (yc - sy), rw = 0.45 * sm(YT + 3, YT - 8, yc);
+    const gy = 0.032 + 0.05 * exp(-(yc * yc) / 700) + 0.016 * exp(-((yc - 70) * (yc - 70)) / 2400), dy2 = (yc - hy) * (yc - hy), dys = (yc - sy) * (yc - sy), dy3 = (yc - fy) * (yc - fy), rw = 0.45 * sm(YT + 3, YT - 8, yc);
     let sl = 0;
-    if (yc > YT && yc < yB) sl = 0.06 + 0.05 * exp(-(yc - YT) * (yc - YT) / 30) + 0.05 * exp(-(yB - yc) * (yB - yc) / 30);
+    if (yc > YT && yc < yB) sl = 0.095 + 0.06 * exp(-(yc - YT) * (yc - YT) / 30) + 0.06 * exp(-(yB - yc) * (yB - yc) / 30);
     const e1 = exp(-(yc - YT) * (yc - YT) / SIG2) * 0.3, e2 = exp(-(yc - yB) * (yc - yB) / SIG2) * 0.3;
     for (let x = 0; x < W; x++) {
-      const r2 = (x + 0.5 - hx) * (x + 0.5 - hx) + dy2, p = (y * W + x) * 3, gl = gy + hzg * exp(-r2 / 1500) * (1 + rw * COS[((sqrt((x + 0.5 - sx) * (x + 0.5 - sx) + dys) / LAMBDA - NU * t) * 1024 | 0) & 1023]);
+      const r2 = (x + 0.5 - hx) * (x + 0.5 - hx) + dy2, p = (y * W + x) * 3, gl = gy + 0.06 * exp(-(((x + 0.5 - sx) * (x + 0.5 - sx)) + dy3) / 2400) + hzg * exp(-r2 / 2200) * (1 + rw * COS[((sqrt((x + 0.5 - sx) * (x + 0.5 - sx) + dys) / LAMBDA - NU * t) * 1024 | 0) & 1023]);
       const sv = (sl + e1 + e2) * slg;
       F[p] = gr * gl + sr * sv;
       F[p + 1] = gg * gl + sg * sv;
@@ -254,7 +254,7 @@ export function draw(display, params) {
       }
       if (inFan) {
         const cu = { x1, s2, c2: cs, x2, sT, cT, th, w: sm(fan, fan - 0.08, ath), L2 };
-        if (pe) caustic(pe, cu, d, yB, cc);
+        if (pe) caustic(pe, cu, yB, cc);
         pe = cu;
       } else pe = null;
     }
